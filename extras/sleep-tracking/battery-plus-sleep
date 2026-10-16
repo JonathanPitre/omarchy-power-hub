@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# Battery+ — sleep-drain tracking hook. Installed by ./apply.sh to
+# /usr/lib/systemd/system-sleep/battery-plus-sleep, which systemd runs with
+# "pre"/"post" immediately before suspend and immediately after resume.
+#
+# Records battery capacity/charge/voltage on each side of the sleep and
+# appends one measured line to the log, so the panel can show real watts
+# and %/hour drawn during sleep instead of a guess.
+#
+# Read results with:
+#   cat /var/log/battery-plus-sleep.log
+#   journalctl -t battery-plus-sleep -b
+set -u
+
+BAT=""
+for d in /sys/class/power_supply/BAT*; do [ -d "$d" ] && BAT="$d" && break; done
+
+LOG=/var/log/battery-plus-sleep.log
+STATE=/run/battery-plus-sleep.state
+
+# Prints capacity%, then either charge_now (uAh) or energy_now (uWh) —
+# whichever this battery exposes — then voltage_now (uV), one per line.
+read_battery() {
+  [ -n "$BAT" ] || return 1
+  cat "$BAT/capacity" 2>/dev/null
+  cat "$BAT/charge_now" 2>/dev/null || cat "$BAT/energy_now" 2>/dev/null
+  cat "$BAT/voltage_now" 2>/dev/null
+}
+
+case "${1:-}" in
+  pre)
+    [ -n "$BAT" ] || exit 0
+    { read -r cap; read -r chg; read -r volt; } < <(read_battery)
+    printf '%s %s %s %s\n' "$(date +%s)" "${cap:-}" "${chg:-}" "${volt:-}" > "$STATE"
+    logger -t battery-plus-sleep "pre-suspend: capacity=${cap:-?}%"
+    ;;
+  post)
+    [ -n "$BAT" ] && [ -f "$STATE" ] || exit 0
+    read -r pre_ts pre_cap pre_chg pre_volt < "$STATE"
+    { read -r cap; read -r chg; read -r volt; } < <(read_battery)
+    ts=$(date +%s)
+    elapsed=$(( ts - pre_ts ))
+    rm -f "$STATE"
+    [ "$elapsed" -gt 0 ] || exit 0
+
+    drop_wh=0; watts=0; pct_per_hr=0
+    if [ -n "${pre_chg:-}" ] && [ -n "${chg:-}" ] && [ -n "${pre_volt:-}" ] && [ -n "${volt:-}" ]; then
+      if [ -e "$BAT/charge_now" ]; then
+        # charge is uAh — convert to Wh with the average of pre/post voltage
+        # as a stand-in for voltage sag under discharge.
+        avg_v=$(( (pre_volt + volt) / 2 ))
+        pre_wh=$(awk -v c="$pre_chg" -v v="$avg_v" 'BEGIN{printf "%.4f", (c/1e6)*(v/1e6)}')
+        post_wh=$(awk -v c="$chg"    -v v="$avg_v" 'BEGIN{printf "%.4f", (c/1e6)*(v/1e6)}')
+      else
+        # energy_now is already uWh
+        pre_wh=$(awk -v e="$pre_chg" 'BEGIN{printf "%.4f", e/1e6}')
+        post_wh=$(awk -v e="$chg"    'BEGIN{printf "%.4f", e/1e6}')
+      fi
+      drop_wh=$(awk -v a="$pre_wh" -v b="$post_wh" 'BEGIN{printf "%.4f", a-b}')
+      hours=$(awk -v s="$elapsed" 'BEGIN{printf "%.6f", s/3600.0}')
+      watts=$(awk -v d="$drop_wh" -v h="$hours" 'BEGIN{printf "%.3f", (h>0)?d/h:0}')
+      pct_per_hr=$(awk -v pc="${pre_cap:-0}" -v cc="${cap:-0}" -v h="$hours" 'BEGIN{printf "%.3f", (h>0)?(pc-cc)/h:0}')
+    fi
+
+    echo "$(date -Iseconds) duration=${elapsed} pre_cap=${pre_cap:-0} post_cap=${cap:-0} drop_wh=${drop_wh} watts=${watts} pct_per_hour=${pct_per_hr}" >> "$LOG"
+    logger -t battery-plus-sleep "post-resume: slept ${elapsed}s, ${pre_cap:-?}%->${cap:-?}%, ~${watts}W (${pct_per_hr}%/hr)"
+    ;;
+esac

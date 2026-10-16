@@ -1,0 +1,10 @@
+# nothing generated lives here yet — keep bin/ and *.qml tracked
+*.qmlc
+*.jsc
+.DS_Store
+__pycache__/
+*.pyc
+.cursor/
+.pytest_cache/
+.venv/
+venv/

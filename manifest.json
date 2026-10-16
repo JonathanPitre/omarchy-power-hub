@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "omarchy-power-settings",
+  "name": "Omarchy Power Settings",
+  "version": "0.0.46",
+  "author": "Jonathan Pitre",
+  "license": "MIT",
+  "description": "Theme-aware power panel with reversible Travel mode, Quick dim, optional CPU savings, battery controls, idle settings, and device status.",
+  "kinds": ["bar-widget", "service"],
+  "entryPoints": {
+    "barWidget": "Panel.qml",
+    "service": "Service.qml"
+  },
+  "barWidget": {
+    "displayName": "Omarchy Power Settings",
+    "description": "Battery, Travel mode, Quick dim, charge limit, and device power settings.",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "pollIntervalSec": 5
+    },
+    "schema": [
+      {
+        "key": "alwaysShowPercentage",
+        "type": "boolean",
+        "label": "Always show percentage (including when plugged in)",
+        "defaultValue": false
+      },
+      {
+        "key": "pollIntervalSec",
+        "type": "integer",
+        "label": "Refresh interval while the panel is open (seconds)",
+        "min": 2,
+        "max": 60,
+        "step": 1,
+        "defaultValue": 5
+      }
+    ]
+  }
+}
