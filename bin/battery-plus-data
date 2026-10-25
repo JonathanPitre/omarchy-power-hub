@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Battery+ plugin — emit one JSON object describing battery, power draw,
-# CPU policy, TLP state, tunables, and the top power-consuming processes.
+# TLP state and tunables.
 # Fast (<80ms), no privileges required. RAPL is included only when the
 # udev rule from power-tuning/apply.sh has made it group-readable.
 set -uo pipefail
@@ -75,14 +75,6 @@ if head -c1 /sys/class/powercap/intel-rapl:0/energy_uj >/dev/null 2>&1; then
     rapl_avail=true
   fi
 fi
-
-# ---------- CPU -------------------------------------------------------
-gov=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo "?")
-epp=$(cat /sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference 2>/dev/null || echo "?")
-turbo=true
-[ -r /sys/devices/system/cpu/intel_pstate/no_turbo ] && [ "$(cat /sys/devices/system/cpu/intel_pstate/no_turbo)" = 1 ] && turbo=false
-freq=$(awk '{s+=$1;n++} END{if(n)printf "%d", s/n/1000}' /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 2>/dev/null)
-load1=$(cut -d' ' -f1 /proc/loadavg)
 
 # ---------- TLP ----------------------------------------------------
 tlp_installed=false; tlp_active=false; tlp_mode=unknown; tlp_manual=false
@@ -183,32 +175,15 @@ if [ "${wifi_fails:-0}" -gt 0 ] && [ -r /sys/power/suspend_stats/last_failed_dev
   fi
 fi
 
-# ---------- top consumers (CPU% as a power proxy; helpers folded) -----
-# A process can name itself almost anything (comm is set via prctl/argv0,
-# and quotes/backslashes are perfectly legal bytes there) — build this
-# through jq's own string escaping rather than a raw printf, so an
-# adversarially-named process can't hand --argjson invalid JSON below and
-# blank the whole data feed.
-top_json=$(ps -eo comm,pcpu --no-headers 2>/dev/null \
-  | awk '$1!~/^(ps|awk|sort|head|jq)$/ {a[$1]+=$2}
-         END{for(k in a) if(a[k]>=0.3) printf "%.1f\t%s\n", a[k], k}' \
-  | sort -rn | head -6 \
-  | jq -R -s -c '[splits("\n") | select(length > 0) | split("\t") | {name: .[1], pct: (.[0] | tonumber)}]' \
-    2>/dev/null)
-[ -n "${top_json:-}" ] && [ "$top_json" != "null" ] || top_json="[]"
-
 jq -cn \
   --argjson present "$bat_present" --argjson percent "${percent:-0}" --arg status "$status" \
   --argjson watts "$watts" --argjson health "${health:-0}" --argjson whFull "$whf" --argjson whDesign "$whd" \
   --argjson cycles "${cycles:-0}" --argjson minutes "${mins:-0}" \
   --argjson ac "$ac" --argjson frac "$frac" \
   --argjson raplAvail "$rapl_avail" --argjson rpkg "$rp_pkg" --argjson rcore "$rp_core" --argjson rgpu "$rp_gpu" \
-  --arg gov "$gov" --arg epp "$epp" --argjson turbo "$turbo" --argjson freq "${freq:-0}" \
-  --argjson load1 "${load1:-0}" \
   --argjson tlpInstalled "$tlp_installed" --argjson tlpActive "$tlp_active" --arg tlpMode "$tlp_mode" --argjson tlpManual "$tlp_manual" \
   --argjson wifi "$wifi_ps" --argjson usb "$usb_as" --argjson pcie "$pcie_pm" --argjson audio "$audio_ps" \
   --argjson pinWifi "$pin_wifi" --argjson pinUsb "$pin_usb" --argjson pinPcie "$pin_pcie" --argjson pinAudio "$pin_audio" \
-  --argjson top "$top_json" \
   --argjson sleep "$sleep_json" --argjson sleepInstalled "$sleep_installed" \
   --argjson wifiChip "$wifi_chip" --argjson wifiFixInstalled "$wifi_fix_installed" \
   --argjson wifiProblem "$wifi_problem" --argjson wifiFails "${wifi_fails:-0}" \
@@ -217,11 +192,9 @@ jq -cn \
                whFull:$whFull, whDesign:$whDesign, cycles:$cycles, minutes:$minutes,
                acOnline:$ac, fraction:$frac },
     rapl:   { available:$raplAvail, package:$rpkg, core:$rcore, gpu:$rgpu },
-    cpu:    { governor:$gov, epp:$epp, turbo:$turbo, freqMHz:$freq, load1:$load1 },
     tlp:    { installed:$tlpInstalled, active:$tlpActive, mode:$tlpMode, manual:$tlpManual },
     tweaks: { wifi:$wifi, usb:$usb, pcie:$pcie, audio:$audio,
               wifiPinned:$pinWifi, usbPinned:$pinUsb, pciePinned:$pinPcie, audioPinned:$pinAudio },
-    top:    $top,
     sleep:  ($sleep + {installed:$sleepInstalled}),
     wifiFix: { chipPresent:$wifiChip, installed:$wifiFixInstalled, problemSeen:$wifiProblem, failCount:$wifiFails }
   }'

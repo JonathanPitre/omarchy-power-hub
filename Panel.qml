@@ -50,7 +50,6 @@ Panel {
     whDesign: Number(service.battery.whDesign) || 0,
     cycles: Number(service.battery.cycles) || 0
   })
-  readonly property var cpu: service.cpu
   readonly property var tlp: service.tlp
   readonly property var tweaks: service.tweaks
   readonly property var sleepData: service.sleep
@@ -596,7 +595,7 @@ Panel {
               }
               Text {
                 width: parent.width
-                text: "Install TLP + the MacBook tunables to control power modes, CPU turbo, Wi-Fi and PCIe power saving from here."
+                text: "Install TLP + the MacBook tunables to control power modes, Wi-Fi and PCIe power saving from here."
                 color: root.dim
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.bodySmall
@@ -640,146 +639,6 @@ Panel {
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
               wrapMode: Text.WordWrap
-            }
-          }
-
-          // ---------- CPU ----------
-          Column {
-            visible: true
-            width: parent.width
-            spacing: Style.space(8)
-
-            PanelSeparator { foreground: root.fg }
-            PanelSectionHeader { text: "CPU"; foreground: root.fg; fontFamily: root.fontFamily }
-
-            Toggle {
-              width: parent.width
-              label: "Turbo boost"
-              description: "Higher peaks, but a big hit to battery"
-              checked: root.cpu.turbo
-              enabled: !planSection.cpuControlsLocked
-              foreground: root.fg
-              fontFamily: root.fontFamily
-              onClicked: { planOps.command = ["python3", planOpsBin, "cpu", "turbo", root.cpu.turbo ? "off" : "on"]; planOps.running = true }
-            }
-
-            Segmented {
-              width: parent.width
-              enabled: !planSection.cpuControlsLocked
-              options: Model.EPP_OPTIONS
-              value: Model.eppValue(root.cpu.epp)
-              onPicked: function(v) { planOps.command = ["python3", planOpsBin, "cpu", "epp", v]; planOps.running = true }
-            }
-            Text {
-              visible: planSection.cpuControlsLocked
-              width: parent.width
-              text: "Turn off Travel mode to change CPU settings"
-              color: root.fg
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.bodySmall
-              wrapMode: Text.WordWrap
-            }
-            Text {
-              width: parent.width
-              text: "Energy bias · governor " + root.cpu.governor
-                + (root.cpu.freqMHz ? " · " + root.cpu.freqMHz + " MHz" : "")
-                + " · load " + Number(root.cpu.load1).toFixed(2)
-              color: root.dim
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.caption
-              wrapMode: Text.WordWrap
-            }
-          }
-
-          // ---------- Top consumers ----------
-          Column {
-            width: parent.width
-            spacing: Style.space(6)
-
-            PanelSeparator { foreground: root.fg }
-            Item {
-              width: parent.width
-              implicitHeight: consumersTitle.implicitHeight
-              PanelSectionHeader {
-                id: consumersTitle
-                text: "TOP CONSUMERS"
-                foreground: root.fg
-                fontFamily: root.fontFamily
-              }
-              Text {
-                anchors.right: parent.right
-                anchors.verticalCenter: consumersTitle.verticalCenter
-                text: "CPU SHARE"
-                color: root.dim
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-                font.bold: true
-              }
-            }
-
-            Repeater {
-              model: Model.consumers(service.procs)
-
-              Item {
-                required property var modelData
-                width: parent.width
-                implicitHeight: Style.space(24)
-
-                Text {
-                  id: procName
-                  anchors.left: parent.left
-                  anchors.verticalCenter: parent.verticalCenter
-                  width: parent.width * 0.34
-                  text: modelData.name
-                  elide: Text.ElideRight
-                  color: root.fg
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.bodySmall
-                }
-
-                Rectangle {
-                  id: procTrack
-                  anchors.left: procName.right
-                  anchors.right: procPct.left
-                  anchors.rightMargin: Style.space(8)
-                  anchors.verticalCenter: parent.verticalCenter
-                  height: Style.space(6)
-                  radius: height / 2
-                  color: root.faint
-
-                  Rectangle {
-                    anchors.left: parent.left
-                    anchors.verticalCenter: parent.verticalCenter
-                    height: parent.height
-                    radius: height / 2
-                    width: Math.max(height, parent.width * Math.max(0, Math.min(1, modelData.frac)))
-                    color: root.fg
-                    Behavior on width { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
-                  }
-                }
-
-                Text {
-                  id: procPct
-                  anchors.right: parent.right
-                  anchors.verticalCenter: parent.verticalCenter
-                  width: Style.space(42)
-                  horizontalAlignment: Text.AlignRight
-                  text: Math.round(modelData.pct) + "%"
-                  color: root.dim
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.bodySmall
-                }
-              }
-            }
-
-            Text {
-              visible: (service.procs || []).length === 0
-              width: parent.width
-              text: "Gathering process data…"
-              color: root.dim
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.bodySmall
-              horizontalAlignment: Text.AlignHCenter
             }
           }
 
