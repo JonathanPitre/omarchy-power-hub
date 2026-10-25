@@ -23,7 +23,6 @@ Column {
   property string energyError: ""
   property string energyErrorAction: ""
   readonly property var travelStatus: root.state.travel || ({ phase: "off", reduceCpu: false, controls: ({}), error: "" })
-  readonly property bool cpuControlsLocked: travelStatus.phase !== "off" && travelStatus.reduceCpu
   signal energyChanged()
   property var logiRows: []
   property var headsetRows: []
@@ -250,20 +249,26 @@ Column {
     }
     Repeater {
       model: root.devices
-      delegate: Row {
+      delegate: RowLayout {
+        TextMetrics {
+          id: percentMetrics
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.bodySmall
+          text: "100%"
+        }
         width: root.width
         height: Style.font.body * 1.6
         spacing: Style.space(8)
         Text {
-          anchors.verticalCenter: parent.verticalCenter
+          Layout.preferredWidth: Style.space(16)
+          horizontalAlignment: Text.AlignHCenter
           text: Model.kindIcon(modelData.kind)
           color: modelData.percent <= 10 ? Color.urgent : root.fg
           font.family: root.fontFamily
           font.pixelSize: Style.font.body
         }
         Text {
-          anchors.verticalCenter: parent.verticalCenter
-          width: Math.max(0, parent.width - 148)
+          Layout.fillWidth: true
           elide: Text.ElideRight
           text: modelData.name
           color: modelData.percent <= 10 ? Color.urgent : root.fg
@@ -271,7 +276,7 @@ Column {
           font.pixelSize: Style.font.bodySmall
         }
         Item {
-          width: 72
+          Layout.preferredWidth: 72
           height: parent.height
           Rectangle {
             width: parent.width
@@ -288,14 +293,16 @@ Column {
           }
         }
         Text {
-          anchors.verticalCenter: parent.verticalCenter
+          Layout.preferredWidth: percentMetrics.width
+          horizontalAlignment: Text.AlignRight
           text: modelData.percent + "%"
           color: modelData.percent <= 10 ? Color.urgent : root.fg
           font.family: root.fontFamily
           font.pixelSize: Style.font.bodySmall
         }
         Text {
-          anchors.verticalCenter: parent.verticalCenter
+          Layout.preferredWidth: Style.space(16)
+          horizontalAlignment: Text.AlignHCenter
           text: Model.batteryIcon(modelData.percent, modelData.status)
           color: modelData.percent <= 10 ? Color.urgent : root.fg
           font.family: root.fontFamily

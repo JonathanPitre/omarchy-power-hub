@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.47] - 2026-10-24
+
+### Removed
+
+- Removed the CPU section, including Turbo boost and the four energy preference
+  buttons. Travel mode retains the Reduce CPU performance option.
+- Removed Top consumers and its process polling. CPU usage did not measure
+  battery drain per process.
+
+### Fixed
+
+- Aligned device battery glyphs and bars across rows with different percentage
+  widths, such as 90% and 100%.
+
 ## [0.0.46] - 2026-10-04
 
 ### Fixed

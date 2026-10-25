@@ -15,7 +15,7 @@ for what shipped today.
 - Framework charge limit and Boost, or a UPower battery-health toggle on
   other laptops that expose charge thresholds
 - Peripheral batteries (Solaar + HeadsetControl), travel mode, and NVIDIA status when `nvidia-smi` answers
-- CPU turbo, energy preference, and device powersave without TLP
+- Device powersave without TLP
 
 Colors come from the shell `Style` tokens, so the panel follows the active theme.
 

@@ -61,31 +61,6 @@ function activeMode(tlp) {
   return tlp.mode === "battery" ? "saver" : "full";
 }
 
-var EPP_OPTIONS = [
-  { value: "power", label: "Power" },
-  { value: "balance_power", label: "Balanced" },
-  { value: "balance_performance", label: "Perf+" },
-  { value: "performance", label: "Max" }
-];
-
-function eppValue(epp) {
-  for (var i = 0; i < EPP_OPTIONS.length; i++)
-    if (EPP_OPTIONS[i].value === epp) return epp;
-  return "";
-}
-
-// Normalize the top-consumer list into { name, pct, frac } where frac is
-// relative to the busiest entry, for drawing the mini bars.
-function consumers(list) {
-  var rows = Array.isArray(list) ? list.slice(0, 6) : [];
-  var max = 0;
-  for (var i = 0; i < rows.length; i++) max = Math.max(max, Number(rows[i].pct) || 0);
-  if (max <= 0) max = 1;
-  return rows.map(function(r) {
-    return { name: String(r.name || "?"), pct: Number(r.pct) || 0, frac: (Number(r.pct) || 0) / max };
-  });
-}
-
 function raplLabel(rapl) {
   if (!rapl || !rapl.available) return "";
   var parts = ["CPU " + Number(rapl.package).toFixed(1) + " W"];
