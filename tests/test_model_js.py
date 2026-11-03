@@ -98,23 +98,6 @@ class ModelJsTests(unittest.TestCase):
         self.assertIn(4, r["chg"])
         self.assertEqual(r["pctHour1"], 70)
 
-    def test_kind_icon_headset_matches_gadget_batteries(self):
-        body = r'''
-          console.log(JSON.stringify({
-            headset: kindIcon("headset"),
-            keyboard: kindIcon("keyboard"),
-            mouse: kindIcon("mouse"),
-            pointer: kindIcon("pointer"),
-            other: kindIcon("other")
-          }));
-        '''
-        r = self._run(body)
-        self.assertEqual(r["headset"], "\U000f02ce")
-        self.assertEqual(r["keyboard"], "\U000f030c")
-        self.assertEqual(r["mouse"], "\U000f037d")
-        self.assertEqual(r["pointer"], "\U000f037d")
-        self.assertEqual(r["other"], "\U000f00b1")
-
 
 if __name__ == "__main__":
     unittest.main()

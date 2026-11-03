@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Layouts
 import Quickshell.Io
 import qs.Commons
 import qs.Commons as Commons
@@ -31,7 +30,6 @@ Column {
   property var state: ({})
   property bool opened: false
   property int pollMs: 5000
-  readonly property int headsetPollMs: 1000
   property bool reduceCpuPerformance: false
   property bool energyPending: false
   property bool energyRestoring: false
@@ -39,10 +37,6 @@ Column {
   property string energyErrorAction: ""
   readonly property var travelStatus: root.state.travel || ({ phase: "off", reduceCpu: false, controls: ({}), error: "" })
   signal energyChanged()
-  property var logiRows: []
-  property var headsetRows: []
-  readonly property var devices: logiRows.concat(headsetRows)
-  property bool logiRestart: false
   property var gpu: ({})
   // Clicks show at once and queue their writes; a status read that started
   // before the latest click is dropped so it cannot undo the highlight.
@@ -51,7 +45,6 @@ Column {
   property bool reloadAgain: false
 
   readonly property string ops: String(Qt.resolvedUrl("bin/ops.py")).replace(/^file:\/\//, "")
-  readonly property string logi: String(Qt.resolvedUrl("bin/logi.py")).replace(/^file:\/\//, "")
   readonly property var sides: [
     { side: "ac", title: "PLUGGED IN", icon: "󰚥" },
     { side: "battery", title: "BATTERY", icon: "󰁹" }
@@ -66,35 +59,11 @@ Column {
 
   function reload() {
     root.loadStatus()
-    root.refreshDevices()
+    root.refreshGpu()
   }
 
-  function refreshDevices() {
-    if (!devProc.running) devProc.running = true
-  }
-
-  // The Logitech watcher lives only while the panel is open; Re-scan
-  // restarts it and re-identifies every device.
-  function startLogi(identify) {
-    if (!root.opened) return
-    logiProc.command = ["python3", root.logi, "watch", "--poll", String(Math.round(root.pollMs / 1000))]
-      .concat(identify ? ["--identify"] : [])
-    if (logiProc.running) {
-      root.logiRestart = true
-      logiProc.running = false
-      return
-    }
-    logiProc.running = true
-  }
-
-  function rescan() {
-    root.refreshDevices()
-    root.startLogi(true)
-  }
-
-  onOpenedChanged: {
-    if (root.opened) root.startLogi(false)
-    else logiProc.running = false
+  function refreshGpu() {
+    if (!gpuProc.running) gpuProc.running = true
   }
 
   function loadStatus() {
@@ -176,37 +145,22 @@ Column {
     }
   }
   Process {
-    id: devProc
-    command: ["python3", root.ops, "devices"]
+    id: gpuProc
+    command: ["python3", root.ops, "gpu"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
         var parsed
         try { parsed = JSON.parse(text) } catch (e) { return }
-        root.headsetRows = parsed.devices || []
-        root.gpu = parsed.gpu || ({})
+        root.gpu = parsed
       }
-    }
-  }
-  Process {
-    id: logiProc
-    stdout: SplitParser {
-      onRead: function(line) {
-        var parsed
-        try { parsed = JSON.parse(line) } catch (e) { return }
-        root.logiRows = parsed.devices || []
-      }
-    }
-    onExited: if (root.logiRestart) {
-      root.logiRestart = false
-      logiProc.running = true
     }
   }
   Timer {
-    interval: root.headsetPollMs
+    interval: root.pollMs
     repeat: true
-    running: root.opened
-    onTriggered: root.refreshDevices()
+    running: root.opened && root.gpu.present !== false
+    onTriggered: root.refreshGpu()
   }
   Process {
     id: act
@@ -227,105 +181,6 @@ Column {
   Component.onCompleted: root.reload()
 
   PanelSeparator { foreground: root.fg }
-
-  Column {
-    width: parent.width
-    spacing: Style.space(4)
-    Item {
-      width: parent.width
-      implicitHeight: Math.max(devHeader.implicitHeight, refreshBtn.implicitHeight)
-      PanelSectionHeader {
-        id: devHeader
-        anchors.left: parent.left
-        anchors.verticalCenter: parent.verticalCenter
-        text: "DEVICES"
-        foreground: root.fg
-        fontFamily: root.fontFamily
-      }
-      PanelActionButton {
-        id: refreshBtn
-        anchors.right: parent.right
-        anchors.verticalCenter: parent.verticalCenter
-        iconText: "\uf021"
-        tooltipText: "Re-scan peripheral batteries"
-        foreground: root.dim
-        hoverColor: root.fg
-        fontFamily: root.fontFamily
-        onClicked: root.rescan()
-      }
-    }
-    Text {
-      width: parent.width
-      visible: root.devices.length === 0
-      text: "No battery readings"
-      color: root.dim
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.bodySmall
-    }
-    Repeater {
-      model: root.devices
-      delegate: RowLayout {
-        TextMetrics {
-          id: percentMetrics
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.bodySmall
-          text: "100%"
-        }
-        width: root.width
-        height: Style.font.body * 1.6
-        spacing: Style.space(8)
-        Text {
-          Layout.preferredWidth: Style.space(16)
-          horizontalAlignment: Text.AlignHCenter
-          text: Model.kindIcon(modelData.kind)
-          color: modelData.percent <= 10 ? Commons.Color.urgent : root.fg
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.body
-        }
-        Text {
-          Layout.fillWidth: true
-          elide: Text.ElideRight
-          text: modelData.name
-          color: modelData.percent <= 10 ? Commons.Color.urgent : root.fg
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.bodySmall
-        }
-        Item {
-          Layout.preferredWidth: 72
-          height: parent.height
-          Rectangle {
-            width: parent.width
-            height: 6
-            anchors.verticalCenter: parent.verticalCenter
-            radius: 3
-            color: Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.15)
-            Rectangle {
-              width: parent.width * (modelData.percent / 100)
-              height: parent.height
-              radius: 3
-              color: modelData.percent <= 10 ? Commons.Color.urgent : root.fg
-            }
-          }
-        }
-        Text {
-          Layout.preferredWidth: percentMetrics.width
-          horizontalAlignment: Text.AlignRight
-          text: modelData.percent + "%"
-          color: modelData.percent <= 10 ? Commons.Color.urgent : root.fg
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.bodySmall
-        }
-        Text {
-          Layout.preferredWidth: Style.space(16)
-          horizontalAlignment: Text.AlignHCenter
-          text: Model.batteryIcon(modelData.percent, modelData.status)
-          color: modelData.percent <= 10 ? Commons.Color.urgent : root.fg
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.body
-        }
-      }
-    }
-  }
 
   Item {
     width: parent.width
@@ -849,11 +704,7 @@ Column {
       color: root.dim
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
-      text: {
-        var g = root.gpu
-        if (g.asleep) return "Asleep"
-        return (g.util || "—") + "%  ·  " + (g.watts || "—") + " W  ·  " + (g.state || "")
-      }
+      text: root.gpu.asleep ? "Asleep" : "Awake"
     }
   }
 

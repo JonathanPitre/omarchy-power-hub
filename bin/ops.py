@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Omarchy Power Settings control plane. Stdlib only."""
-import fcntl, json, os, pathlib, re, shutil, subprocess, sys, time
+import json, os, pathlib, re, shutil, subprocess, sys
 
 HOME = pathlib.Path.home()
 CFG = HOME / ".config/omarchy/omarchy-power-settings.json"
@@ -8,7 +8,6 @@ SHELL = HOME / ".config/omarchy/shell.json"
 TWEAKS = HOME / ".config/omarchy/power-settings-tweaks.json"
 BINDINGS = HOME / ".config/hypr/bindings.lua"
 RUN = pathlib.Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")) / "omarchy-power-settings"
-STATE = pathlib.Path(os.environ.get("XDG_STATE_HOME") or HOME / ".local" / "state") / "omarchy-power-settings"
 PRIV = pathlib.Path(__file__).resolve().parent / "ops-priv"
 HELPER_DIR = pathlib.Path("/usr/local/libexec/omarchy-power-settings")
 HELPER_FILES = ("ops-priv", "hid_wakeup.py")
@@ -445,214 +444,14 @@ def apply_hibernate_delay(seconds):
         return info["reason"] or "hibernate is not available"
     return priv(["hibernate-delay", str(seconds)])
 
-USB_SYSFS = pathlib.Path("/sys/bus/usb/devices")
-USB_PACKAGES = {"046d": "solaar", "1038": "headsetcontrol"}
-_SOLAAR_HEAD = re.compile(r"^  (\d+): (.+)$")
-_BATT_PCT = re.compile(r"Battery:\s*(\d+)\s*%(?:,\s*(?:BatteryStatus\.)?(\w+))?")
-_SOLAAR_KIND = re.compile(r"^\s+Kind\s*:\s*(\S+)")
-SOLAAR_TTL = 60
-# Same vocabulary as the laptop battery so Model.batteryIcon draws both.
-SOLAAR_STATUS = {"recharging": "Charging", "slow_recharge": "Charging",
-                 "almost_full": "Charging", "full": "Full", "discharging": "Discharging"}
-HEADSET_STATUS = {"battery_charging": "Charging", "battery_available": "Discharging"}
-KIND_ORDER = {"keyboard": 0, "pointer": 1, "headset": 2}
-KIND_ALIAS = {"mouse": "pointer"}
-VENDORS = ("logitech", "steelseries")
-
-def device_kind(name):
-    n = (name or "").lower()
-    if any(w in n for w in ("key", "keyboard")):
-        return "keyboard"
-    if any(w in n for w in ("mouse", "anywhere")):
-        return "pointer"
-    if any(w in n for w in ("headset", "arctis", "headphone", "buds")):
-        return "headset"
-    return "device"
-
-def short_name(name):
-    n = (name or "").replace("\0", "").strip()
-    low = n.lower()
-    for v in VENDORS:
-        p = v + " "
-        if low.startswith(p):
-            rest = n[len(p):].strip()
-            return rest or n
-    return n
-
-def _valid_pct(n):
-    try:
-        p = int(n)
-    except (TypeError, ValueError):
-        return None
-    return p if 0 <= p <= 100 else None
-
-# Each device prints Battery twice (feature list, then summary), read
-# moments apart; the later summary line wins.
-def parse_solaar(text):
-    rows, name, kind, row = [], None, None, None
-    for line in (text or "").splitlines():
-        m = _SOLAAR_HEAD.match(line)
-        if m:
-            name = short_name(m.group(2))
-            kind, row = None, None
-            continue
-        if not name:
-            continue
-        km = _SOLAAR_KIND.match(line)
-        if km:
-            k = km.group(1).strip().lower()
-            k = KIND_ALIAS.get(k, k)
-            if k in KIND_ORDER:
-                kind = k
-            continue
-        bm = _BATT_PCT.search(line)
-        if not bm:
-            continue
-        pct = _valid_pct(bm.group(1))
-        if pct is not None:
-            if row is None:
-                row = {}
-                rows.append(row)
-            row.update({"name": name, "percent": pct, "kind": kind or device_kind(name),
-                        "status": SOLAAR_STATUS.get((bm.group(2) or "").lower(), "")})
-    return rows
-
-def parse_headsetcontrol(text):
-    raw = (text or "").strip()
-    if raw.startswith("{") or raw.startswith("["):
-        try:
-            data = json.loads(raw)
-        except json.JSONDecodeError:
-            return []
-        devices = data.get("devices") if isinstance(data, dict) else data
-        if not isinstance(devices, list):
-            devices = [data] if isinstance(data, dict) else []
-        rows = []
-        for d in devices:
-            if not isinstance(d, dict):
-                continue
-            bat = d.get("battery") or {}
-            if str(bat.get("status") or "").upper() == "BATTERY_UNAVAILABLE":
-                continue
-            pct = _valid_pct(bat.get("level"))
-            name = short_name(d.get("device") or d.get("product") or d.get("name"))
-            if pct is None or not name:
-                continue
-            status = HEADSET_STATUS.get(str(bat.get("status") or "").lower(), "")
-            rows.append({"name": str(name), "percent": pct, "kind": "headset", "status": status})
-        return rows
-    if "BATTERY_UNAVAILABLE" in raw:
-        return []
-    name, pct, status = None, None, ""
-    for line in raw.splitlines():
-        s = line.strip()
-        if s.startswith("Status:"):
-            status = HEADSET_STATUS.get(s.split(":", 1)[1].strip().lower(), "")
-            continue
-        if s.startswith("Found ") or s.startswith("Error:"):
-            continue
-        if s.startswith("Battery") or s.startswith("Level:"):
-            m = re.search(r"(\d+)\s*%", s) or re.search(r"(\d+)", s)
-            if m:
-                pct = _valid_pct(m.group(1))
-            continue
-        if s and name is None:
-            name = re.sub(r"\s*\[[^\]]+\]\s*$", "", s)
-            name = short_name(name.split(" (", 1)[0])
-    if name and pct is not None:
-        return [{"name": name, "percent": pct, "kind": "headset", "status": status}]
-    return []
-
-def merge_devices(*groups):
-    seen, rows = set(), []
-    for group in groups:
-        for r in group or []:
-            key = str(r.get("name") or "").lower()
-            pct = r.get("percent")
-            if not key or key in seen or not isinstance(pct, int) or not (0 <= pct <= 100):
-                continue
-            seen.add(key)
-            rows.append({"name": r["name"], "percent": pct, "kind": KIND_ALIAS.get(r.get("kind") or "device", r.get("kind") or "device"),
-                         "status": r.get("status") or ""})
-    rows.sort(key=lambda r: KIND_ORDER.get(r["kind"], 9))
-    return rows
-
-def deps_needed(root=None, which=None):
-    root = USB_SYSFS if root is None else pathlib.Path(root)
-    which = shutil.which if which is None else which
-    wanted = []
-    for vid, pkg in USB_PACKAGES.items():
-        present = False
-        for f in root.glob("*/idVendor"):
-            try:
-                present = f.read_text().strip().lower() == vid
-            except OSError:
-                continue
-            if present:
-                break
-        if present and not which(pkg):
-            wanted.append(pkg)
-    return wanted
-
-def _read_solaar_cache(path):
-    try:
-        return json.loads(path.read_text())
-    except (OSError, ValueError):
-        return {"t": 0, "rows": []}
-
-def solaar_devices():
-    """Slow fallback for bin/logi.py when Solaar's library can't read a device."""
-    if not shutil.which("solaar"):
-        return []
-    # Cache lives in STATE so the last good list survives a reboot, when the
-    # Solaar tray (and other HID++ clients) race this run for the receiver.
-    cache = STATE / "solaar.json"
-    RUN.mkdir(parents=True, exist_ok=True)
-    STATE.mkdir(parents=True, exist_ok=True)
-    # Concurrent `solaar show` runs on one receiver fail (FeatureCallError).
-    with open(RUN / "solaar.lock", "w") as fh:
-        fcntl.flock(fh, fcntl.LOCK_EX)
-        data = _read_solaar_cache(cache)
-        if time.time() - data.get("t", 0) < SOLAAR_TTL:
-            return data.get("rows", [])
-        code, out = run(["solaar", "show"], timeout=30)
-        out = out or ""
-        rows = parse_solaar(out)
-        # Racing the Solaar tray at login can exit 0 with a traceback and
-        # half-read devices; never let that replace a good list.
-        if code != 0 or "Traceback" in out or "\0" in out:
-            return data.get("rows") or rows
-        cache.write_text(json.dumps({"t": time.time(), "rows": rows}))
-        return rows
-
-def headsetcontrol_devices():
-    if not shutil.which("headsetcontrol"):
-        return []
-    _, out = run(["headsetcontrol", "-b", "-o", "json"], timeout=4)
-    rows = parse_headsetcontrol(out)
-    if rows or "BATTERY_UNAVAILABLE" in (out or "") or (out or "").strip().startswith("{"):
-        return rows
-    _, out = run(["headsetcontrol", "-b"], timeout=4)
-    return parse_headsetcontrol(out)
-
-# Logitech rows come from bin/logi.py; this stays fast enough to poll.
-def devices():
-    return merge_devices(headsetcontrol_devices())
-
-def gpu_status():
-    if not shutil.which("nvidia-smi"):
-        return {"present": False}
-    code, out = run(["nvidia-smi", "--query-gpu=utilization.gpu,power.draw,power.state",
-                     "--format=csv,noheader,nounits"], timeout=4)
-    if code != 0 or not out.strip():
-        return {"present": False}
-    line = out.strip().splitlines()[0]
-    parts = [p.strip() for p in line.split(",")]
-    util = parts[0] if parts else ""
-    watts = parts[1] if len(parts) > 1 else ""
-    state = parts[2] if len(parts) > 2 else ""
-    asleep = state.lower() in {"d3", "d4", "unknown"} or util in {"", "[N/A]"}
-    return {"present": True, "util": util, "watts": watts, "state": state, "asleep": asleep}
+def gpu_status(root=pathlib.Path("/sys")):
+    for dev in sorted((root / "bus" / "pci" / "devices").glob("*")):
+        # boot_vga exists only on VGA-class devices; Optimus cards are 3D controllers without it.
+        boot_vga = _text(dev / "boot_vga").strip()
+        discrete = boot_vga == "0" or (not boot_vga and (dev / "driver").resolve().name in {"nvidia", "nouveau"})
+        if _text(dev / "class").startswith("0x03") and discrete:
+            return {"present": True, "asleep": _text(dev / "power" / "runtime_status").strip() == "suspended"}
+    return {"present": False, "asleep": False}
 
 def travel_path():
     return RUN / "travel.json"
@@ -1644,8 +1443,8 @@ def main(argv):
     if cmd == "battery-history":
         print(json.dumps(battery_history()))
         return 0
-    if cmd == "devices":
-        print(json.dumps({"devices": devices(), "gpu": gpu_status()}))
+    if cmd == "gpu":
+        print(json.dumps(gpu_status()))
         return 0
     if cmd == "helper-install":
         code, out = run(["pkexec", str(PRIV), "helper-install"], timeout=120)
@@ -1653,9 +1452,6 @@ def main(argv):
         return code
     if cmd == "helper-needed":
         print("needed" if helper_needed() else "ok")
-        return 0
-    if cmd == "deps-needed":
-        print(json.dumps(deps_needed()))
         return 0
     if cmd == "ac":
         print(0 if on_battery() else 1)
