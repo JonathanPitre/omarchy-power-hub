@@ -19,6 +19,15 @@ for what shipped today.
 
 Colors come from the shell `Style` tokens, so the panel follows the active theme.
 
+## Automatic lock can stop after display blanking
+
+Quickshell 0.3.1 can lose idle notifications when a running timer changes.
+This plugin can trigger the bug when displays turn off or wake up, leaving
+the desktop unlocked despite the saved auto-lock setting. See
+[Quickshell idle timer failure](docs/quickshell-idle-timer-failure.md)
+for the diagnosis, installed 0.3.1 backport, rollback instructions, and
+verification steps.
+
 ## Travel mode and Quick dim
 
 **Travel mode** temporarily caps the internal laptop display at 40%
