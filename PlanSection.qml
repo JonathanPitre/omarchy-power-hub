@@ -539,6 +539,17 @@ Column {
           onClicked: root.call(["charge", String(Math.min(100, Number(chargeRow.c.limit) + 10))])
         }
       }
+      PanelActionButton {
+        visible: chargeRow.ready
+        anchors.right: boostButton.left
+        anchors.rightMargin: Style.space(6)
+        anchors.verticalCenter: parent.verticalCenter
+        iconText: ""
+        tooltipText: "Charges to 100% once, then returns to your limit."
+        foreground: root.dim
+        hoverColor: root.fg
+        fontFamily: root.fontFamily
+      }
       AccentButton {
         visible: chargeRow.ready
         anchors.right: parent.right
@@ -619,171 +630,138 @@ Column {
     || (root.reduceCpuPerformance && root.cpuReductionAvailable)
   readonly property var quickDimStatus: root.state.quickDim || ({ on: false, available: false, error: "" })
 
-  BorderSurface {
-    width: parent.width
-    height: travelCard.implicitHeight + Style.space(24)
-    radius: Style.cornerRadius
-    color: Style.normalFillFor(root.fg, Commons.Color.accent)
-    borderSpec: Border.controlSpec("normal", root.fg, Commons.Color.accent)
-    Column {
-      id: travelCard
+  component SectionHeader: Item {
+    id: sh
+    property string text: ""
+    property string help: ""
+    width: parent ? parent.width : implicitWidth
+    implicitHeight: Math.max(shLabel.implicitHeight, shInfo.implicitHeight)
+    PanelSectionHeader {
+      id: shLabel
       anchors.left: parent.left
+      anchors.verticalCenter: parent.verticalCenter
+      text: sh.text
+      foreground: root.fg
+      fontFamily: root.fontFamily
+    }
+    PanelActionButton {
+      id: shInfo
+      anchors.left: shLabel.right
+      anchors.leftMargin: Style.space(6)
+      anchors.verticalCenter: parent.verticalCenter
+      iconText: ""
+      tooltipText: sh.help
+      foreground: root.dim
+      hoverColor: root.fg
+      fontFamily: root.fontFamily
+    }
+  }
+
+  component ValueRow: Item {
+    id: vr
+    property string label: ""
+    property string value: ""
+    property bool available: true
+    property string help: ""
+    default property alias control: vrControl.data
+    width: parent ? parent.width : implicitWidth
+    implicitHeight: Math.max(Style.space(28), vrControl.childrenRect.height)
+    Text {
+      id: vrLabel
+      anchors.left: parent.left
+      anchors.verticalCenter: parent.verticalCenter
+      text: vr.label
+      color: root.dim
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.body
+    }
+    PanelActionButton {
+      visible: vr.help !== ""
+      anchors.left: vrLabel.right
+      anchors.leftMargin: Style.space(6)
+      anchors.verticalCenter: parent.verticalCenter
+      iconText: ""
+      tooltipText: vr.help
+      foreground: root.dim
+      hoverColor: root.fg
+      fontFamily: root.fontFamily
+    }
+    Text {
       anchors.right: parent.right
-      anchors.top: parent.top
-      anchors.margins: Style.space(12)
-      spacing: Style.space(7)
-      Row {
-        width: parent.width
-        spacing: Style.space(8)
-        Text {
-          width: parent.width - travelStateLabel.implicitWidth - parent.spacing
-          text: "Travel mode"
-          color: root.fg
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.title
-          font.bold: true
-        }
-        Text {
-          id: travelStateLabel
-          text: root.travelStatus.phase === "on" ? "On"
-            : root.travelStatus.phase === "incomplete" ? "Incomplete" : "Off"
-          color: root.travelStatus.phase === "incomplete" ? Commons.Color.urgent : root.fg
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.body
-        }
-      }
-      Text {
-        width: parent.width
-        text: "Work longer away from an outlet."
-        color: root.fg
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.body
-        wrapMode: Text.WordWrap
-      }
-      Text {
-        width: parent.width
-        text: (((root.travelStatus.controls || {}).brightness || {}).available)
-          ? "Laptop brightness capped at 40%"
-          : "Brightness cannot be read"
-        color: root.fg
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.bodySmall
-        wrapMode: Text.WordWrap
-      }
-      Text {
-        width: parent.width
-        text: (((root.travelStatus.controls || {}).refresh || {}).available)
-          ? (((root.travelStatus.controls || {}).refresh || {}).detail || "Laptop refresh capped at 60 Hz")
-          : "No supported mode at or below 60 Hz"
-        color: root.fg
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.bodySmall
-        wrapMode: Text.WordWrap
-      }
-      Text {
-        width: parent.width
-        visible: !root.travelOwned && !root.travelCanEnable
-        text: "No supported battery-saving controls"
-        color: root.fg
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.bodySmall
-        wrapMode: Text.WordWrap
-      }
-      Text {
-        width: parent.width
-        visible: !root.cpuReductionAvailable
-        text: "Unavailable on this system"
-        color: root.fg
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.bodySmall
-      }
-      CheckBox {
+      anchors.verticalCenter: parent.verticalCenter
+      visible: vrControl.children.length === 0 || !vr.available
+      text: vr.available ? vr.value : "Unavailable"
+      color: vr.available ? root.fg : root.dim
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.body
+      font.bold: vr.available
+    }
+    Item {
+      id: vrControl
+      visible: vr.available
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      width: childrenRect.width
+      height: childrenRect.height
+    }
+  }
+
+  readonly property var travelControls: root.travelStatus.controls || ({})
+
+  Column {
+    width: parent.width
+    spacing: Style.space(4)
+    SectionHeader {
+      text: "TRAVEL MODE"
+      help: "Work longer away from an outlet. Wi-Fi, peripherals and GPU mode stay unchanged. Turning it off restores your settings."
+    }
+    ValueRow {
+      label: "Brightness cap"
+      value: "40%"
+      available: !!(root.travelControls.brightness || {}).available
+    }
+    ValueRow {
+      label: "Refresh cap"
+      value: ((root.travelControls.refresh || {}).detail || "60 Hz").replace("Laptop refresh capped at ", "")
+      available: !!(root.travelControls.refresh || {}).available
+    }
+    ValueRow {
+      label: "Reduce CPU"
+      help: "Uses power saver, turns off turbo and prefers energy saving. Heavy tasks may run slower."
+      available: root.cpuReductionAvailable
+      AccentSwitch {
         id: reduceCpuCheck
-        width: parent.width
-        text: "Reduce CPU performance"
-        checked: root.reduceCpuPerformance
-        enabled: !root.travelOwned && !root.energyPending && root.cpuReductionAvailable
-        onToggled: root.reduceCpuPerformance = checked
-        Accessible.name: text
-        Accessible.description: root.cpuReductionAvailable
-          ? "Use power saver, disable turbo boost and prefer CPU energy saving. Heavy tasks may run slower."
-          : "Unavailable on this system"
-        Accessible.checkable: true
-        Accessible.checked: checked
-        indicator: BorderSurface {
-          x: reduceCpuCheck.leftPadding
-          y: (reduceCpuCheck.height - height) / 2
-          width: Style.space(18)
-          height: Style.space(18)
-          color: Style.normalFillFor(root.fg, Commons.Color.accent)
-          borderSpec: Border.controlSpec("normal", root.fg, Commons.Color.accent)
-          radius: Style.cornerRadius
-          Text {
-            anchors.centerIn: parent
-            text: reduceCpuCheck.checked ? "✓" : ""
-            color: root.fg
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.body
-          }
-        }
-        contentItem: Text {
-          leftPadding: reduceCpuCheck.indicator.width + Style.space(8)
-          text: reduceCpuCheck.text
-          color: reduceCpuCheck.enabled ? root.fg : Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.68)
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.body
-          verticalAlignment: Text.AlignVCenter
-        }
+        checked: root.reduceCpuPerformance || !!root.travelStatus.reduceCpu
+        enabled: !root.travelOwned && !root.energyPending
+        foreground: root.fg
+        Accessible.name: "Reduce CPU performance"
+        onToggled: root.reduceCpuPerformance = !root.reduceCpuPerformance
       }
-      Text {
-        width: parent.width
-        visible: root.reduceCpuPerformance || root.travelStatus.reduceCpu
-        text: {
-          var controls = root.travelStatus.controls || ({})
-          function available(name) { return !!((controls[name] || {}).available) }
-          var epp = controls.epp || ({})
-          return (available("profile") ? "Power saver" : "Power saver unavailable")
-            + " · " + (available("turbo") ? "CPU turbo off" : "CPU turbo control unavailable")
-            + " · " + (available("epp") ? (epp.detail || "Energy-saving CPU preference") : "No saving CPU preference supported")
-            + ". Heavy tasks may run slower."
-        }
-        color: root.fg
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.bodySmall
-        wrapMode: Text.WordWrap
-      }
-      Text {
-        width: parent.width
-        text: "CPU performance unchanged"
-        visible: !root.reduceCpuPerformance && !root.travelStatus.reduceCpu
-        color: root.fg
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.bodySmall
-      }
-      Text {
-        width: parent.width
-        text: "Wi-Fi, peripherals and GPU mode stay unchanged."
-        color: root.fg
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.bodySmall
-        wrapMode: Text.WordWrap
-      }
-      Text {
-        width: parent.width
-        text: "Turn off to restore temporary settings and resume your normal power plan."
-        color: root.fg
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.bodySmall
-        wrapMode: Text.WordWrap
-      }
+    }
+    Text {
+      width: parent.width
+      visible: !root.travelOwned && !root.travelCanEnable
+      text: "No supported battery-saving controls"
+      color: root.dim
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.bodySmall
+      wrapMode: Text.WordWrap
+    }
+    Item { width: 1; height: Style.space(4) }
+    Item {
+      width: parent.width
+      implicitHeight: energyTravelButton.height
       AccentButton {
         id: energyTravelButton
-        width: parent.width
+        anchors.left: parent.left
+        anchors.right: dimInfo.left
+        anchors.rightMargin: Style.space(6)
+        height: Style.space(40)
+        iconText: "\uf072"
         text: root.energyPending ? (root.energyRestoring ? "Restoring…" : "Applying…")
           : root.travelStatus.phase === "on" ? "Turn off Travel mode"
           : root.travelStatus.phase === "incomplete" ? "Restore settings" : "Enable Travel mode"
         focusable: true
-        bordered: true
         enabled: root.travelOwned ? !root.energyPending
           : !root.energyPending && root.travelCanEnable
         selected: root.travelStatus.phase === "on"
@@ -804,70 +782,60 @@ Column {
           root.call(args)
         }
       }
-      Text {
-        width: parent.width
-        visible: (root.energyErrorAction === "travel" && root.energyError !== "") || root.travelStatus.error !== ""
-        text: root.energyErrorAction === "travel" && root.energyError !== "" ? root.energyError : (root.travelStatus.error || "")
-        color: Commons.Color.urgent
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.bodySmall
-        wrapMode: Text.WordWrap
-      }
-    }
-  }
-
-  Row {
-    width: parent.width
-    spacing: Style.space(8)
-    Column {
-      width: parent.width - energyDimButton.implicitWidth - parent.spacing
-      spacing: Style.space(3)
-      Text {
-        text: "Quick dim"
-        color: root.fg
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.body
-        font.bold: true
-      }
-      Text {
-        width: parent.width
-        text: root.travelStatus.phase === "incomplete"
-          ? "Restore Travel mode settings before using Quick dim."
+      PanelActionButton {
+        id: dimInfo
+        anchors.right: energyDimButton.left
+        anchors.rightMargin: Style.space(6)
+        anchors.verticalCenter: parent.verticalCenter
+        iconText: ""
+        tooltipText: root.travelStatus.phase === "incomplete" ? "Restore Travel mode settings before using Quick dim."
           : root.travelOwned ? "Travel mode is already dimming the screen."
           : "Temporarily cap brightness at 40%."
-        color: root.fg
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.bodySmall
-        wrapMode: Text.WordWrap
+        foreground: root.dim
+        hoverColor: root.fg
+        fontFamily: root.fontFamily
       }
-      Text {
-        width: parent.width
-        visible: (root.energyErrorAction === "quick-dim" && root.energyError !== "") || root.quickDimStatus.error !== ""
-        text: root.energyErrorAction === "quick-dim" && root.energyError !== "" ? root.energyError : root.quickDimStatus.error
-        color: Commons.Color.urgent
-        font.family: root.fontFamily
-        font.pixelSize: Style.font.bodySmall
-        wrapMode: Text.WordWrap
+      AccentButton {
+        id: energyDimButton
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        width: Style.space(128)
+        height: Style.space(40)
+        iconText: "\uf186"
+        text: root.quickDimStatus.on ? "Restore" : "Dim screen"
+        focusable: true
+        enabled: !root.energyPending && !root.travelOwned && root.quickDimStatus.available
+        selected: root.quickDimStatus.on
+        foreground: enabled ? root.fg : Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.62)
+        fontFamily: root.fontFamily
+        Accessible.role: Accessible.Button
+        Accessible.name: root.quickDimStatus.on ? "Restore brightness" : "Dim screen"
+        Accessible.description: (root.energyErrorAction === "quick-dim" ? root.energyError : "")
+          || root.quickDimStatus.error
+          || "Temporarily cap brightness at 40%."
+        Accessible.checkable: true
+        Accessible.checked: root.quickDimStatus.on
+        Accessible.onPressAction: if (enabled) clicked()
+        onClicked: root.call(["quick-dim", root.quickDimStatus.on ? "off" : "on"])
       }
     }
-    AccentButton {
-      id: energyDimButton
-      text: root.quickDimStatus.on ? "Restore brightness" : "Dim screen"
-      focusable: true
-      bordered: true
-      enabled: !root.energyPending && !root.travelOwned && root.quickDimStatus.available
-      selected: root.quickDimStatus.on
-      foreground: enabled ? root.fg : Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.62)
-      fontFamily: root.fontFamily
-      Accessible.role: Accessible.Button
-      Accessible.name: text
-      Accessible.description: (root.energyErrorAction === "quick-dim" ? root.energyError : "")
-        || root.quickDimStatus.error
-        || "Temporarily cap brightness at 40%."
-      Accessible.checkable: true
-      Accessible.checked: root.quickDimStatus.on
-      Accessible.onPressAction: if (enabled) clicked()
-      onClicked: root.call(["quick-dim", root.quickDimStatus.on ? "off" : "on"])
+    Text {
+      width: parent.width
+      visible: (root.energyErrorAction === "travel" && root.energyError !== "") || root.travelStatus.error !== ""
+      text: root.energyErrorAction === "travel" && root.energyError !== "" ? root.energyError : (root.travelStatus.error || "")
+      color: Commons.Color.urgent
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.bodySmall
+      wrapMode: Text.WordWrap
+    }
+    Text {
+      width: parent.width
+      visible: (root.energyErrorAction === "quick-dim" && root.energyError !== "") || root.quickDimStatus.error !== ""
+      text: root.energyErrorAction === "quick-dim" && root.energyError !== "" ? root.energyError : root.quickDimStatus.error
+      color: Commons.Color.urgent
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.bodySmall
+      wrapMode: Text.WordWrap
     }
   }
 

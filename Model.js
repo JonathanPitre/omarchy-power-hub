@@ -221,7 +221,7 @@ var TWEAK_INFO = [
   {
     key: "wifi",
     title: "Wi-Fi power saving",
-    blurb: "Lets the Wi-Fi radio sleep between packets on battery.",
+    blurb: "Radio sleeps between packets",
     help: "Saves roughly 0.5–1 W. Adds a few milliseconds of latency, and on some "
         + "Broadcom/Intel adapters can cause brief stalls or lower throughput on a "
         + "weak signal. Turn it off if you notice connection hiccups or video-call drops."
@@ -229,7 +229,7 @@ var TWEAK_INFO = [
   {
     key: "pcie",
     title: "PCIe runtime power",
-    blurb: "Suspends idle PCIe devices until something needs them.",
+    blurb: "Idle PCIe devices suspend",
     help: "One of the larger idle-power wins (~1–2 W) — SSD controller, card reader, "
         + "Thunderbolt/USB4. Rarely a device fails to resume and needs a reboot. The "
         + "installed TLP config already keeps the NVMe controller out of this."
@@ -237,7 +237,7 @@ var TWEAK_INFO = [
   {
     key: "usb",
     title: "USB autosuspend",
-    blurb: "Powers down idle USB devices. Keyboards and mice are always excluded.",
+    blurb: "Idle USB devices power down, except keyboards and mice",
     help: "Saves about 0.1–0.5 W per device. Some webcams, audio interfaces, DACs and "
         + "wireless dongles drop off or take a moment to wake. If a device misbehaves, "
         + "replug it or turn this off."
@@ -245,7 +245,7 @@ var TWEAK_INFO = [
   {
     key: "audio",
     title: "Audio codec power save",
-    blurb: "Powers down the audio codec about a second after sound stops.",
+    blurb: "Codec sleeps a second after sound stops",
     help: "Saves ~0.4 W. You may hear a faint pop, or lose the first fraction of a "
         + "second of playback, when it wakes. Harmless — disable it if the click bothers you."
   }
