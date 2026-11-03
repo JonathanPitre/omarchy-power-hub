@@ -21,6 +21,15 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Switches show the accent outline on hover and when on. Sleep stats put each
   label above its value, Power tweaks use shorter copy, and the scrollbar is a
   thin themed bar in the panel margin instead of over the content.
+- The GPU section shows only Asleep or Awake for the discrete GPU, read from
+  `/sys`. It no longer calls `nvidia-smi`, which could wake the card it was
+  watching.
+
+### Removed
+
+- The DEVICES section and its Logitech (Solaar) and SteelSeries
+  (HeadsetControl) battery readings.
+- The first-run `omarchy pkg add solaar headsetcontrol` install.
 
 ### Fixed
 

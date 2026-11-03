@@ -14,7 +14,7 @@ for what shipped today.
 - Per-source lid action and power profile (Power saver / Balanced / Performance). A new Plugged in plan starts on performance, and a new Battery plan starts on balanced.
 - Framework charge limit and Boost, or a UPower battery-health toggle on
   other laptops that expose charge thresholds
-- Peripheral batteries (Solaar + HeadsetControl), travel mode, and NVIDIA status when `nvidia-smi` answers
+- Travel mode, and whether the discrete GPU is Asleep or Awake
 - Device powersave without TLP
 
 Colors come from the shell `Style` tokens, so the panel follows the active theme.
@@ -43,42 +43,6 @@ preference. Heavy work may run slower. Unsupported controls are skipped.
 **Quick dim** independently caps brightness at 40% and restores the level it
 captured when turned off. It is unavailable while Travel mode owns the
 display, so the two restore points cannot overwrite one another.
-
-## Peripheral batteries
-
-The **DEVICES** section lists wireless peripherals that report a 0–100%
-battery. Kind icon (keyboard / mouse / headset) plus percent, battery glyph,
-and a thin bar. The glyph switches to the charging or full icon when the
-device reports it. A device with no reading (asleep, dongle only,
-unavailable) is omitted.
-
-Logitech devices are read straight from the receiver with Solaar's Python
-library, asking each device only for its battery (about 0.2 s, versus 10 s
-for `solaar show`). While the panel is open, `bin/logi.py watch` listens
-read-only on the receiver for the battery events a device sends when a cable
-goes in or out, so the icon changes within about a second; a device that has
-not sent one yet is re-read at the panel refresh interval. The headset is
-polled every second. Nothing runs while the panel is closed. The
-refresh icon (hover text “Re-scan peripheral batteries”) re-identifies every
-device and does not reload the rest of the panel. Devices without Solaar's
-unified battery feature fall back to `solaar show`. The laptop idle grid
-(**POWER & BATTERY**) sits directly under this list.
-
-On first load the plugin scans USB IDs and runs `omarchy pkg add` only for
-tools that are missing **and** whose hardware is present:
-
-| USB vendor | Hardware | Package |
-|---|---|---|
-| `046d` | Logitech (Bolt / Unifying, e.g. MX Keys Mini, MX Anywhere 3S) | `solaar` |
-| `1038` | SteelSeries (e.g. Arctis Nova Pro Wireless) | `headsetcontrol` |
-
-Install by hand if the first-run prompt did not run:
-
-```sh
-omarchy pkg add solaar headsetcontrol
-```
-
-`omarchy plugin add` only clones the plugin; it does not install packages.
 
 ## Charge limit and battery health
 
