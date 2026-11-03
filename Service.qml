@@ -333,27 +333,11 @@ Item {
     command: ["pkexec", root.priv, "helper-install"]
     onExited: applyProc.running = true
   }
-  Process { id: depsPkg }
-  Process {
-    id: depsNeedProc
-    command: ["python3", root.ops, "deps-needed"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        var pkgs
-        try { pkgs = JSON.parse(String(text || "[]")) } catch (e) { return }
-        if (!pkgs || !pkgs.length || depsPkg.running) return
-        depsPkg.command = ["omarchy", "pkg", "add"].concat(pkgs)
-        depsPkg.running = true
-      }
-    }
-  }
   Component.onCompleted: {
     root.refresh()
     syncProc.running = true
     ledNeedProc.running = true
     helperNeedProc.running = true
-    depsNeedProc.running = true
     saverCheck.running = true
     lidStateProc.running = true
   }

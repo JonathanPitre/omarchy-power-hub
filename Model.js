@@ -18,13 +18,6 @@ function batteryIcon(percent, status) {
   return DISCHARGE[i];
 }
 
-function kindIcon(kind) {
-  if (kind === "keyboard") return "󰌌";
-  if (kind === "mouse" || kind === "pointer") return "󰍽";
-  if (kind === "headset") return "\u{F02CE}";  // nf-md-headset
-  return "󰂱";
-}
-
 function fmtWatts(w) {
   var n = Number(w) || 0;
   return (n >= 10 ? n.toFixed(1) : n.toFixed(2)) + " W";
