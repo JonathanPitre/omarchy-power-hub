@@ -33,6 +33,19 @@ class ButtonChromeTests(unittest.TestCase):
         self.assertIn("bordered: true", src)
         self.assertIn("hot || selected || active", src)
 
+    def test_switches_use_accent_switch(self):
+        for name in ("PlanSection.qml", "Panel.qml"):
+            src = (ROOT / name).read_text()
+            self.assertNotIn("ToggleSwitch {", src, name)
+            self.assertNotIn("CheckBox {", src, name)
+        self.assertIn("AccentSwitch {", (ROOT / "Panel.qml").read_text())
+        self.assertIn("AccentSwitch {", (ROOT / "PlanSection.qml").read_text())
+
+    def test_energy_focus_targets_exist(self):
+        src = (ROOT / "PlanSection.qml").read_text()
+        for name in ("energyTravelButton", "energyDimButton", "reduceCpuCheck"):
+            self.assertIn(f"id: {name}", src)
+
     # Bare `Color` does not resolve to the theme singleton inside plugins.
     def test_theme_colors_use_qualified_singleton(self):
         for name in ("PlanSection.qml", "Panel.qml"):

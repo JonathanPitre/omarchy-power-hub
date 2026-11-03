@@ -15,6 +15,12 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Buttons get the theme's resting fill and an accent outline on hover and
   when on. The Boost bolt uses the theme's yellow, and − and + dim while
   boosting or at the 40% and 100% ends.
+- Travel mode is a plain section with Brightness cap, Refresh cap and a
+  Reduce CPU switch. Its helper text moved into info tooltips, and Dim screen
+  shares its action row. Boost and Reduce CPU have info tooltips too.
+- Switches show the accent outline on hover and when on. Sleep stats put each
+  label above its value, Power tweaks use shorter copy, and the scrollbar is a
+  thin themed bar in the panel margin instead of over the content.
 
 ### Fixed
 

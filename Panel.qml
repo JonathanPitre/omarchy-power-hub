@@ -190,7 +190,26 @@ Panel {
         boundsBehavior: Flickable.StopAtBounds
         flickableDirection: Flickable.VerticalFlick
         interactive: contentHeight > height
-        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+        // Sits in the card's right padding so it never covers content.
+        ScrollBar.vertical: ScrollBar {
+          id: vbar
+          parent: flick.parent
+          anchors.top: flick.top
+          anchors.bottom: flick.bottom
+          anchors.left: flick.right
+          anchors.leftMargin: Math.max(0, Math.round((panel.padding - width) / 2))
+          width: Style.space(4)
+          padding: 0
+          policy: ScrollBar.AsNeeded
+          background: Item {}
+          contentItem: Rectangle {
+            implicitWidth: vbar.width
+            radius: Style.cornerRadius > 0 ? width / 2 : 0
+            color: root.fg
+            opacity: vbar.pressed ? 0.6 : vbar.hovered ? 0.45 : vbar.active ? 0.3 : 0.15
+            Behavior on opacity { NumberAnimation { duration: 120 } }
+          }
+        }
 
         Column {
           id: contentColumn
@@ -519,7 +538,7 @@ Panel {
               StatPair { label: "When"; value: parent.sum.ago || "—" }
               StatPair { label: "Last draw"; value: (parent.sum.lastWatts || "—") + "  ·  " + (parent.sum.lastRate || "") }
               StatPair {
-                label: "Avg (" + (parent.sum.samples || 0) + " sleeps)"
+                label: "Avg · " + (parent.sum.samples || 0) + " sleeps"
                 value: (parent.sum.avgWatts || "—") + "  ·  " + (parent.sum.avgRate || "")
               }
             }
@@ -558,15 +577,6 @@ Panel {
               }
             }
 
-            Text {
-              width: parent.width
-              text: "Toggles apply immediately. “Keep after reboot” writes the setting into "
-                  + "the TLP config so it survives a restart."
-              color: root.dim
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.caption
-              wrapMode: Text.WordWrap
-            }
           }
 
           // ---------- Tuning (needs TLP) ----------
@@ -660,38 +670,30 @@ Panel {
 
   // ---- inline helpers -------------------------------------------------
 
-  component StatPair: Item {
+  component StatPair: Column {
     id: sp
     property string label: ""
     property string value: ""
-    // Sized for a 2-up grid; works in any Grid parent that sets columnSpacing,
-    // not just the original "Stats" one.
+    // Sized for a 2-up grid; works in any Grid parent that sets columnSpacing.
     width: parent ? (parent.width - (parent.columnSpacing || 0)) / 2 : implicitWidth
-    implicitHeight: Math.max(spLabel.implicitHeight, spValue.implicitHeight)
+    spacing: Style.space(2)
 
     Text {
-      id: spLabel
-      anchors.left: parent.left
-      anchors.verticalCenter: parent.verticalCenter
+      width: parent.width
       text: sp.label
-      color: root.fg
-      opacity: 0.55
+      color: root.dim
+      elide: Text.ElideRight
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
     }
     Text {
-      id: spValue
-      anchors.right: parent.right
-      anchors.left: spLabel.right
-      anchors.leftMargin: Style.space(6)
-      anchors.verticalCenter: parent.verticalCenter
+      width: parent.width
       text: sp.value
       color: root.fg
       elide: Text.ElideRight
       font.family: root.fontFamily
-      font.pixelSize: Style.font.bodySmall
+      font.pixelSize: Style.font.body
       font.bold: true
-      horizontalAlignment: Text.AlignRight
     }
   }
 
@@ -759,7 +761,7 @@ Panel {
           text: tw.title
           color: root.fg
           font.family: root.fontFamily
-          font.pixelSize: Style.font.subtitle
+          font.pixelSize: Style.font.body
           font.bold: true
           elide: Text.ElideRight
         }
@@ -789,7 +791,7 @@ Panel {
           anchors.verticalCenter: parent.verticalCenter
           onClicked: tw.expanded = !tw.expanded
         }
-        ToggleSwitch {
+        AccentSwitch {
           id: twSwitch
           checked: tw.on
           foreground: root.fg
