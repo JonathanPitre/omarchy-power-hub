@@ -86,11 +86,41 @@ Item {
     parkProc.running = true
   }
 
+  property var saverWindows: ({})
+
+  function saverWindow(address, open) {
+    var next = Object.assign({}, root.saverWindows)
+    if (open) next[address] = true
+    else delete next[address]
+    root.saverWindows = next
+    if (open) saverSettle.restart()
+    else if (Object.keys(next).length === 0) {
+      saverSettle.stop()
+      root.saverArmed = false
+    }
+  }
+
   Connections {
     target: Hyprland
     function onRawEvent(event) {
-      if (String(event && event.name || "") !== "monitoradded") return
-      root.park(String(event.data || "").trim())
+      var name = String(event && event.name || "")
+      var data = String(event && event.data || "")
+      if (name === "monitoradded") root.park(data.trim())
+      else if (name === "openwindow" && data.split(",")[2] === "org.omarchy.screensaver")
+        root.saverWindow(data.split(",")[0], true)
+      else if (name === "closewindow" && root.saverWindows[data]) root.saverWindow(data, false)
+    }
+  }
+
+  // Launching the screensaver hops focus across monitors, which reads as input.
+  // Arm once the last window has been up long enough for that to go idle. Still
+  // active then means real input, which may be continuous and never toggle again.
+  Timer {
+    id: saverSettle
+    interval: 2000
+    onTriggered: {
+      if (saverPointer.isIdle) root.saverArmed = true
+      else root.dismissScreensaver()
     }
   }
 
@@ -150,11 +180,7 @@ Item {
   Process {
     id: saverCheck
     command: ["bash", "-lc", "pgrep -x ttfx || pgrep -f '[o]rg.omarchy.screensaver'"]
-    onExited: function(exitCode) {
-      root.saverOn = exitCode === 0
-      if (!root.saverOn) root.saverArmed = false
-      else if (saverPointer.isIdle) root.saverArmed = true
-    }
+    onExited: function(exitCode) { root.saverOn = exitCode === 0 }
   }
   Process {
     id: wakePoll
@@ -204,16 +230,7 @@ Item {
     id: saverPointer
     timeout: 1
     respectInhibitors: false
-    onIsIdleChanged: {
-      if (!root.saverOn) {
-        root.saverArmed = false
-        return
-      }
-      if (isIdle) {
-        root.saverArmed = true
-        return
-      }
-      if (!root.saverArmed) return
+    onIsIdleChanged: if (!isIdle && root.saverArmed) {
       root.saverArmed = false
       root.dismissScreensaver()
     }
