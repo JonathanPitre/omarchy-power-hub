@@ -40,7 +40,8 @@ Travel mode also switches to Power saver and restores your normal power mode
 when turned off. Plugging the adapter back in turns Travel mode off; it does
 not come back on when you unplug again. On AMD that profile already turns CPU boost off and prefers
 energy saving. Heavy work may run slower. Without power-profiles-daemon only
-the display is changed.
+the display is changed. It also turns on Panel power saving and Reduce effects
+when they are off, and turns them back off afterwards.
 
 **Quick dim** independently caps brightness at 40% and restores the level it
 captured when turned off. It is unavailable while Travel mode owns the

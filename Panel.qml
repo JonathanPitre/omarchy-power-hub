@@ -655,6 +655,7 @@ Panel {
 
               TweakRow {
                 required property var modelData
+                visible: modelData.key !== "abm" || root.tweaks.abmAvailable === true
                 width: parent.width
                 tweakKey: modelData.key
                 title: modelData.title

@@ -17,7 +17,7 @@ Item {
                whFull: 0, whDesign: 0, cycles: 0, minutes: 0, acOnline: 0, fraction: 0 },
     rapl:   { available: false, package: 0, core: 0, gpu: 0 },
     tlp:    { installed: false, active: false, mode: "unknown", manual: false },
-    tweaks: { wifi: false, usb: false, pcie: false, audio: false },
+    tweaks: { wifi: false, usb: false, pcie: false, audio: false, abm: false, effects: false },
     sleep:  { installed: false },
     wifiFix: { chipPresent: false, installed: false, problemSeen: false, failCount: 0 }
   })

@@ -86,7 +86,7 @@ class ModelJsTests(unittest.TestCase):
           }));
         '''
         r = self._run(body)
-        self.assertEqual(r["bat"], "BATTERY · 3h 48m REMAINING")
+        self.assertEqual(r["bat"], "DISCHARGING · 3h 48m REMAINING")
         self.assertEqual(r["chg"], "CHARGING · FULL IN 1h 05m")
         self.assertEqual(r["full"], "FULLY CHARGED")
         self.assertEqual(r["hold"], "PLUGGED IN · NOT CHARGING")
@@ -104,7 +104,7 @@ class ModelJsTests(unittest.TestCase):
         '''
         self.assertEqual(self._run(body), [
             {"state": "CHARGING", "time": "FULL IN 15m"},
-            {"state": "BATTERY", "time": "4h 32m REMAINING"},
+            {"state": "DISCHARGING", "time": "4h 32m REMAINING"},
             {"state": "FULLY CHARGED", "time": ""}])
 
     def test_mode_parts_calculating_while_reading_settles(self):
@@ -118,9 +118,9 @@ class ModelJsTests(unittest.TestCase):
           ]));
         '''
         self.assertEqual(self._run(body), [
-            {"state": "BATTERY", "time": "CALCULATING…"},
+            {"state": "DISCHARGING", "time": "CALCULATING…"},
             {"state": "CHARGING", "time": "CALCULATING…"},
-            {"state": "BATTERY", "time": "2h 30m REMAINING"}])
+            {"state": "DISCHARGING", "time": "2h 30m REMAINING"}])
 
     def test_health_tier(self):
         body = r'''

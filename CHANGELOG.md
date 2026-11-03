@@ -5,6 +5,39 @@ All notable changes to this project are documented in this file.
 The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Panel power saving** in Power tweaks, AMD's adaptive backlight, shown on
+  machines that support it.
+- **Reduce effects** in Power tweaks, which turns off Hyprland's animations
+  and shadows and restores your own values afterwards.
+- Travel mode turns both on for its duration. It restores only what it turned
+  on, so a tweak you enabled yourself stays on.
+- `scripts/measure-draw.sh` measures battery draw in repeated windows and logs
+  the conditions behind each number.
+
+### Changed
+
+- The status line reads `DISCHARGING` on battery, matching `CHARGING`.
+- Pinning any Power tweak also reapplies it when the shell starts.
+
+### Removed
+
+- The 2-second idle poll, which started a Python process and a login shell
+  even with the panel closed. The lid state already comes from the wake poll
+  while the displays are off, and the screensaver check now follows window
+  events.
+
+### Fixed
+
+- Unplugging with a bus-powered USB-C monitor attached left the Plugged in
+  power mode active, because UPower's `OnBattery` never changed. The plugin
+  now also follows the battery's own state.
+- Pinned Power tweaks showed as unpinned. The panel read a TLP file, while
+  pins are saved in `power-settings-tweaks.json`.
+
 ## [0.0.51] - 2026-11-04
 
 ### Changed

@@ -6,6 +6,13 @@ HOME = pathlib.Path.home()
 CFG = HOME / ".config/omarchy/omarchy-power-settings.json"
 SHELL = HOME / ".config/omarchy/shell.json"
 TWEAKS = HOME / ".config/omarchy/power-settings-tweaks.json"
+DRM_ROOT = pathlib.Path("/sys/class/drm")
+# Saving tweaks Travel turns on for its duration when they are off.
+TRAVEL_TWEAKS = ("abm", "effects")
+EFFECT_OPTIONS = {
+    "animations:enabled": "animations = {{ enabled = {} }}",
+    "decoration:shadow:enabled": "decoration = {{ shadow = {{ enabled = {} }} }}",
+}
 BINDINGS = HOME / ".config/hypr/bindings.lua"
 RUN = pathlib.Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")) / "omarchy-power-settings"
 PRIV = pathlib.Path(__file__).resolve().parent / "ops-priv"
@@ -694,8 +701,12 @@ def _valid_travel_snapshot(state):
     if (any(not isinstance(token, str) for token in pending)
             or len(pending) != len(set(pending))):
         return False
+    tweaks = state.get("tweaks", [])
+    if not isinstance(tweaks, list) or not set(tweaks) <= set(TRAVEL_TWEAKS):
+        return False
     valid_tokens = {"profile", "turbo", "brightness", "refresh"}
     valid_tokens.update(f"epp:{index}" for index in indexes)
+    valid_tokens.update(f"tweak:{key}" for key in tweaks)
     if not set(pending) <= valid_tokens:
         return False
     epp_pending = {token for token in pending if token.startswith("epp:")}
@@ -720,6 +731,7 @@ def _valid_travel_snapshot(state):
         if turbo is not None:
             expected.add("turbo")
         expected.update(f"epp:{index}" for index in indexes)
+        expected.update(f"tweak:{key}" for key in tweaks)
         if brightness is not None:
             expected.add("brightness")
         refresh = controls.get("refresh")
@@ -1066,13 +1078,14 @@ def travel(on, cfg=None):
             saved["on"] = True
             saved["complete"] = True
             atomic_state(path, saved)
-            return ""
+            return _apply_travel_tweaks(saved, path)
         if "complete" not in state or "monitors" in state:
             return _restore_legacy_travel(state, cfg, path)
         state["error"] = ""
         state["complete"] = False
         atomic_state(path, state)
         err = _restore_cpu(state, path, cfg=cfg) if state.get("reduceCpu") else ""
+        err = err or _restore_travel_tweaks(state, path)
         if err:
             state["error"], state["complete"] = err, False
             atomic_state(path, state)
@@ -1293,6 +1306,65 @@ def tweak_state():
     except (OSError, json.JSONDecodeError):
         return {}
 
+def _hypr_option(name):
+    code, out = run(["hyprctl", "getoption", name])
+    first = out.split("\n", 1)[0].split(":")[-1].strip() if code == 0 else ""
+    return {"true": True, "1": True, "false": False, "0": False}.get(first)
+
+def tweak_on(key):
+    """Live state of a saving tweak, or None when this machine cannot do it."""
+    if key == "abm":
+        paths = sorted(DRM_ROOT.glob("*/amdgpu/panel_power_savings"))
+        return int(paths[0].read_text()) > 0 if paths else None
+    values = [_hypr_option(name) for name in EFFECT_OPTIONS]
+    return None if None in values else not any(values)
+
+def _set_effects(on):
+    state = tweak_state()
+    if on:
+        state.setdefault("effectsBefore", {name: _hypr_option(name) for name in EFFECT_OPTIONS})
+    before = {} if on else state.pop("effectsBefore", {})
+    errors = []
+    for name, lua in EFFECT_OPTIONS.items():
+        enabled = False if on else before.get(name, True) is not False
+        code, out = run(display_power.eval_argv(
+            "hl.config({ " + lua.format("true" if enabled else "false") + " })"))
+        if code:
+            errors.append(out.strip() or f"{name} could not be changed")
+    TWEAKS.parent.mkdir(parents=True, exist_ok=True)
+    TWEAKS.write_text(json.dumps(state, indent=2) + "\n")
+    return " ".join(errors)
+
+def _set_tweak(key, on):
+    return _set_effects(on) if key == "effects" else priv([key, "on" if on else "off"])
+
+def travel_tweak_targets():
+    return [key for key in TRAVEL_TWEAKS if tweak_on(key) is False]
+
+def _apply_travel_tweaks(state, path):
+    # A missing extra saving never fails Travel; only what was turned on is restored.
+    for key in travel_tweak_targets():
+        state.setdefault("tweaks", []).append(key)
+        state["pending"].append(f"tweak:{key}")
+        atomic_state(path, state)
+        if _set_tweak(key, True):
+            state["tweaks"].remove(key)
+            state["pending"].remove(f"tweak:{key}")
+            atomic_state(path, state)
+    return ""
+
+def _restore_travel_tweaks(state, path):
+    for key in state.get("tweaks", []):
+        token = f"tweak:{key}"
+        if token not in state["pending"]:
+            continue
+        err = _set_tweak(key, False)
+        if err:
+            return err
+        state["pending"].remove(token)
+        atomic_state(path, state)
+    return ""
+
 def apply_tweak(key, value, persist=False):
     if key == "turbo":
         with energy_lock():
@@ -1303,7 +1375,7 @@ def apply_tweak(key, value, persist=False):
     return _apply_tweak(key, value, persist)
 
 def _apply_tweak(key, value, persist=False):
-    err = priv([key, "on" if value else "off"])
+    err = _set_tweak(key, value)
     state = tweak_state()
     state[key] = bool(value)
     if persist:
@@ -1328,7 +1400,7 @@ def apply_saved_tweaks():
     travel = travel_state()
     cpu_owned = travel.get("on") and travel.get("reduceCpu", True)
     err = ""
-    for key in ("wifi", "pcie", "usb", "audio", "turbo"):
+    for key in ("wifi", "pcie", "usb", "audio", "abm", "effects", "turbo"):
         if key == "turbo" and cpu_owned:
             continue
         if state.get(key + "Pinned") or key in state and state.get(key + "Pinned", False):
@@ -1478,7 +1550,7 @@ def main(argv):
         print(0 if on_battery() else 1)
         return 0
     if cmd == "apply":
-        err = apply_active()
+        err = (apply_active() + " " + apply_saved_tweaks()).strip()
         if idle_wake.lid_is_open(idle_wake.acpi_lid_text()):
             err = (err + " " + priv(["hid-wakeup", "on"])).strip()
         print(err or "ok")
@@ -1623,9 +1695,6 @@ def main(argv):
         return lid_closed()
     if cmd == "lid-opened":
         return lid_opened()
-    if cmd == "lid-state":
-        print("open" if idle_wake.lid_is_open(idle_wake.acpi_lid_text()) else "closed")
-        return 0
     if cmd == "saver-past-inhibitor":
         return saver_past_inhibitor()
     if cmd == "idle-wake-poll":

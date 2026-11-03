@@ -25,10 +25,9 @@ class CopyGlossaryTests(unittest.TestCase):
         model = (ROOT / "Model.js").read_text()
         panel = (ROOT / "Panel.qml").read_text()
         self.assertIn('{ state: "PLUGGED IN · CHARGING", time: "" }', model)
-        self.assertIn('{ state: "PLUGGED IN · DISCHARGING", time: "" }', model)
         self.assertIn('{ state: "PLUGGED IN · NOT CHARGING", time: "" }', model)
         self.assertIn('{ state: "PLUGGED IN", time: "" }', model)
-        self.assertIn('{ state: "BATTERY · DISCHARGING", time: "" }', model)
+        self.assertIn('{ state: "DISCHARGING", time: t ? t + " REMAINING" : "" }', model)
         self.assertNotIn("ON AC", model)
         self.assertNotIn("ON BATTERY", model)
         self.assertIn(': "Plugged in"', panel)
@@ -65,6 +64,30 @@ class PowerPanelCleanupTests(unittest.TestCase):
         service = (ROOT / "Service.qml").read_text()
         self.assertIn("root.lastBatteryState === UPowerDeviceState.Discharging", service)
         self.assertIn('command: ["python3", root.ops, "travel", "off"]', service)
+
+    def test_no_process_polling_at_idle(self):
+        # A python3 and a login bash every 2 s kept the CPU awake with the panel closed.
+        service = (ROOT / "Service.qml").read_text()
+        self.assertNotIn("lid-state", service)
+        self.assertNotIn("pgrep", service)
+        self.assertIn('appId === "org.omarchy.screensaver"', service)
+
+    def test_power_profile_follows_battery_state_not_only_on_battery(self):
+        service = (ROOT / "Service.qml").read_text()
+        i = service.index("function onStateChanged()")
+        self.assertIn("applyProfileDebounce.restart()", service[i:i + 500])
+
+    def test_pinned_tweaks_read_the_saved_prefs_not_tlp(self):
+        data = (ROOT / "bin/battery-plus-data").read_text()
+        self.assertIn("power-settings-tweaks.json", data)
+        self.assertNotIn("/etc/tlp.d/02-battery-plus.conf", data)
+
+    def test_new_power_tweaks_are_listed_and_routed(self):
+        model = (ROOT / "Model.js").read_text()
+        self.assertIn('key: "abm"', model)
+        self.assertIn('key: "effects"', model)
+        self.assertIn("wifi|usb|pcie|audio|abm|effects)", (ROOT / "bin/battery-plus-action").read_text())
+        self.assertIn("  abm)\n", (ROOT / "bin/ops-priv").read_text())
 
     def test_panel_holds_estimate_after_plug_or_unplug(self):
         panel = (ROOT / "Panel.qml").read_text()

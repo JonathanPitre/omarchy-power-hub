@@ -18,7 +18,9 @@ Item {
   property int hibernateAfter: 0
   property bool parked: false
   property var parkQueue: []
-  property bool saverOn: false
+  readonly property bool saverOn: ToplevelManager.toplevels.values.some(function(t) {
+    return t.appId === "org.omarchy.screensaver"
+  })
   property bool lidClosed: false
   property bool saverArmed: false
 
@@ -161,28 +163,6 @@ Item {
   }
 
   Process {
-    id: lidStateProc
-    command: ["python3", root.ops, "lid-state"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: root.lidClosed = (text.trim() === "closed")
-    }
-  }
-  Timer {
-    interval: 2000
-    running: true
-    repeat: true
-    onTriggered: {
-      if (!saverCheck.running) saverCheck.running = true
-      if (!lidStateProc.running) lidStateProc.running = true
-    }
-  }
-  Process {
-    id: saverCheck
-    command: ["bash", "-lc", "pgrep -x ttfx || pgrep -f '[o]rg.omarchy.screensaver'"]
-    onExited: function(exitCode) { root.saverOn = exitCode === 0 }
-  }
-  Process {
     id: wakePoll
     stdout: StdioCollector {
       waitForEnd: true
@@ -319,6 +299,9 @@ Item {
     target: UPower.displayDevice
     function onStateChanged() {
       var s = UPower.displayDevice.state
+      // The same monitor means OnBattery may miss the switch, so re-apply the profile here too.
+      if ((s === UPowerDeviceState.Discharging) !== (root.lastBatteryState === UPowerDeviceState.Discharging))
+        applyProfileDebounce.restart()
       if (root.lastBatteryState === UPowerDeviceState.Discharging
           && (s === UPowerDeviceState.Charging || s === UPowerDeviceState.FullyCharged
               || s === UPowerDeviceState.PendingCharge)
@@ -357,7 +340,5 @@ Item {
     syncProc.running = true
     ledNeedProc.running = true
     helperNeedProc.running = true
-    saverCheck.running = true
-    lidStateProc.running = true
   }
 }

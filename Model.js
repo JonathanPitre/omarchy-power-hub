@@ -43,24 +43,22 @@ function fmtDuration(mins) {
 }
 
 // Hero meta line as { state, time }: the state is dimmed, the time is highlighted.
-// e.g. BATTERY · 3h 48m REMAINING / CHARGING · FULL IN 1h 05m / FULLY CHARGED.
+// e.g. DISCHARGING · 3h 48m REMAINING / CHARGING · FULL IN 1h 05m / FULLY CHARGED.
 function modeParts(b) {
   if (!b || !b.present) return { state: "NO BATTERY", time: "" };
   // Right after a plug or unplug the EC's smoothed current still reads low, so any
   // estimate would be hours too long.
   if (b.estimating && (b.status === "Discharging" || b.status === "Charging"))
-    return { state: b.status === "Charging" ? "CHARGING" : b.acOnline ? "DISCHARGING" : "BATTERY",
-             time: "CALCULATING…" };
+    return { state: b.status === "Charging" ? "CHARGING" : "DISCHARGING", time: "CALCULATING…" };
   var t = b.minutes > 0 ? fmtDuration(b.minutes) : "";
   // Discharging wins over ACAD: a bus-powered USB-C monitor keeps ACAD online after unplug.
-  if (b.acOnline && b.status === "Discharging")
-    return t ? { state: "DISCHARGING", time: t + " REMAINING" } : { state: "PLUGGED IN · DISCHARGING", time: "" };
+  if (b.status === "Discharging") return { state: "DISCHARGING", time: t ? t + " REMAINING" : "" };
   if (b.status === "Full" || (b.acOnline && b.percent >= 99)) return { state: "FULLY CHARGED", time: "" };
   if (b.status === "Charging")
     return t ? { state: "CHARGING", time: "FULL IN " + t } : { state: "PLUGGED IN · CHARGING", time: "" };
   if (b.acOnline && b.status === "Not charging") return { state: "PLUGGED IN · NOT CHARGING", time: "" };
   if (b.acOnline) return { state: "PLUGGED IN", time: "" };
-  return t ? { state: "BATTERY", time: t + " REMAINING" } : { state: "BATTERY · DISCHARGING", time: "" };
+  return { state: "BATTERY", time: "" };
 }
 
 function modeLabel(b) {
@@ -280,5 +278,19 @@ var TWEAK_INFO = [
     blurb: "Codec sleeps a second after sound stops",
     help: "Saves ~0.4 W. You may hear a faint pop, or lose the first fraction of a "
         + "second of playback, when it wakes. Harmless — disable it if the click bothers you."
+  },
+  {
+    key: "abm",
+    title: "Panel power saving",
+    blurb: "Lowers the backlight and boosts contrast",
+    help: "AMD's adaptive backlight. Saves display power, but colors can look less accurate "
+        + "and dark scenes can shift slightly. Travel mode turns this on for its duration."
+  },
+  {
+    key: "effects",
+    title: "Reduce effects",
+    blurb: "Turns off animations and shadows",
+    help: "Less work for the GPU on every window change. Windows open and move instantly "
+        + "instead of animating. Travel mode turns this on for its duration."
   }
 ];

@@ -18,11 +18,17 @@ _state_home = None
 
 def setUpModule():
     global _state_home
-    _state_home = mock.patch.dict(os.environ, {"XDG_STATE_HOME": tempfile.mkdtemp()})
+    _state_home = mock.patch.multiple(
+        ops, DRM_ROOT=pathlib.Path(tempfile.mkdtemp()),
+        TWEAKS=pathlib.Path(tempfile.mkdtemp()) / "tweaks.json")
     _state_home.start()
+    global _env
+    _env = mock.patch.dict(os.environ, {"XDG_STATE_HOME": tempfile.mkdtemp()})
+    _env.start()
 
 
 def tearDownModule():
+    _env.stop()
     _state_home.stop()
 
 
@@ -407,6 +413,86 @@ class EnergyControlsTests(unittest.TestCase):
                     self.assertEqual((state_dir / "battery").read_text().strip(), "balanced")
             finally:
                 ops.RUN = old_run
+
+    def _fake_tweak_env(self, tmp, hypr):
+        abm = ops.DRM_ROOT / "card2-eDP-2/amdgpu/panel_power_savings"
+        abm.parent.mkdir(parents=True, exist_ok=True)
+        abm.write_text("0\n")
+        self.addCleanup(abm.unlink, missing_ok=True)
+
+        def run(args, timeout=4):
+            if args[:2] == ["hyprctl", "getoption"]:
+                return 0, f"bool: {'true' if hypr[args[2]] else 'false'}\nset: true\n"
+            if args[:2] == ["hyprctl", "eval"]:
+                on = "enabled = true" in args[2]
+                hypr["animations:enabled" if "animations" in args[2] else "decoration:shadow:enabled"] = on
+                return 0, "ok"
+            return 1, "unexpected command"
+
+        def priv(args):
+            if args[0] == "abm":
+                abm.write_text("3\n" if args[1] == "on" else "0\n")
+            return ""
+
+        return abm, run, priv
+
+    def _travel_with_tweaks(self, tmp, hypr, abm_start="0\n"):
+        old_run = ops.RUN
+        ops.RUN = pathlib.Path(tmp) / "run"
+        self.addCleanup(setattr, ops, "RUN", old_run)
+        abm, run, priv = self._fake_tweak_env(tmp, hypr)
+        abm.write_text(abm_start)
+        patches = (mock.patch.object(ops, "run", side_effect=run),
+                   mock.patch.object(ops, "priv", side_effect=priv),
+                   mock.patch.object(ops, "monitors", return_value=[]),
+                   mock.patch.object(ops, "active_side", return_value="battery"),
+                   mock.patch.object(ops, "listed_profiles", return_value=set()))
+        for patch in patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+        return abm
+
+    def test_travel_applies_abm_and_effects_then_restores_them(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            hypr = {"animations:enabled": True, "decoration:shadow:enabled": False}
+            abm = self._travel_with_tweaks(tmp, hypr)
+            self.assertEqual(ops.travel_tweak_targets(), ["abm", "effects"])
+            state = {"on": True, "complete": False, "reduceCpu": False, "pending": [], "tweaks": [],
+                     "error": ""}
+            ops.atomic_state(ops.travel_path(), state)
+            self.assertEqual(ops._apply_travel_tweaks(state, ops.travel_path()), "")
+            self.assertEqual(ops._set_tweak("effects", True), "")
+            self.assertEqual(abm.read_text().strip(), "3")
+            self.assertEqual(hypr, {"animations:enabled": False, "decoration:shadow:enabled": False})
+            self.assertEqual(ops._restore_travel_tweaks(state, ops.travel_path()), "")
+            self.assertEqual(abm.read_text().strip(), "0")
+            # Shadows were off before Travel, so restore must not switch them on.
+            self.assertEqual(hypr, {"animations:enabled": True, "decoration:shadow:enabled": False})
+            self.assertEqual(state["pending"], [])
+
+    def test_travel_leaves_tweaks_it_did_not_turn_on(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            hypr = {"animations:enabled": False, "decoration:shadow:enabled": False}
+            abm = self._travel_with_tweaks(tmp, hypr, abm_start="3\n")
+            self.assertEqual(ops.travel_tweak_targets(), [])
+            self.assertEqual(abm.read_text().strip(), "3")
+
+    def test_travel_snapshot_with_tweaks_validates_and_rejects_unknown_keys(self):
+        base = {"on": True, "complete": False, "reduceCpu": False, "source": "battery",
+                "pending": ["tweak:abm"], "cpu": {"turbo": None, "epp": []}, "error": "",
+                "tweaks": ["abm"], "monitor": None, "brightness": None,
+                "controls": {k: {"available": False, "detail": ""}
+                             for k in ("profile", "turbo", "epp", "brightness", "refresh")}}
+        self.assertTrue(ops._valid_travel_snapshot(base))
+        self.assertFalse(ops._valid_travel_snapshot(dict(base, tweaks=["rm"], pending=["tweak:rm"])))
+        self.assertFalse(ops._valid_travel_snapshot(dict(base, tweaks=[])))
+
+    def test_saved_tweaks_reapply_new_keys(self):
+        ops.TWEAKS.write_text(json.dumps({"abm": True, "abmPinned": True, "effects": False}))
+        with mock.patch.object(ops, "apply_tweak", return_value="") as apply:
+            self.assertEqual(ops.apply_saved_tweaks(), "")
+        apply.assert_called_once_with("abm", True, persist=False)
+        ops.TWEAKS.unlink()
 
     def test_travel_skips_profile_it_cannot_read(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -57,6 +57,16 @@ case "${1:-}" in
     [ -e "$f" ] || { echo "no audio power_save" >&2; exit 1; }
     [ "$2" = on ] && echo 10 > "$f" || echo 0 > "$f"
     ;;
+  abm)
+    want "${2:-}"
+    v=0; [ "$2" = on ] && v=3
+    wrote=0
+    for f in /sys/class/drm/*/amdgpu/panel_power_savings; do
+      [ -e "$f" ] || continue
+      echo "$v" > "$f" && wrote=1
+    done
+    [ "$wrote" = 1 ]
+    ;;
   pcie)
     want "${2:-}"
     v=on; [ "$2" = on ] && v=auto
