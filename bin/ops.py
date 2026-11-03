@@ -444,20 +444,11 @@ def apply_hibernate_delay(seconds):
         return info["reason"] or "hibernate is not available"
     return priv(["hibernate-delay", str(seconds)])
 
-def gpu_status():
-    if not shutil.which("nvidia-smi"):
-        return {"present": False}
-    code, out = run(["nvidia-smi", "--query-gpu=utilization.gpu,power.draw,power.state",
-                     "--format=csv,noheader,nounits"], timeout=4)
-    if code != 0 or not out.strip():
-        return {"present": False}
-    line = out.strip().splitlines()[0]
-    parts = [p.strip() for p in line.split(",")]
-    util = parts[0] if parts else ""
-    watts = parts[1] if len(parts) > 1 else ""
-    state = parts[2] if len(parts) > 2 else ""
-    asleep = state.lower() in {"d3", "d4", "unknown"} or util in {"", "[N/A]"}
-    return {"present": True, "util": util, "watts": watts, "state": state, "asleep": asleep}
+def gpu_status(root=pathlib.Path("/sys")):
+    for dev in sorted((root / "bus" / "pci" / "devices").glob("*")):
+        if _text(dev / "class").startswith("0x03") and _text(dev / "boot_vga").strip() == "0":
+            return {"present": True, "asleep": _text(dev / "power" / "runtime_status").strip() == "suspended"}
+    return {"present": False, "asleep": False}
 
 def travel_path():
     return RUN / "travel.json"

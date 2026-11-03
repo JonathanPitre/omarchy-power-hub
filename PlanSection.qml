@@ -704,11 +704,7 @@ Column {
       color: root.dim
       font.family: root.fontFamily
       font.pixelSize: Style.font.bodySmall
-      text: {
-        var g = root.gpu
-        if (g.asleep) return "Asleep"
-        return (g.util || "—") + "%  ·  " + (g.watts || "—") + " W  ·  " + (g.state || "")
-      }
+      text: root.gpu.asleep ? "Asleep" : "Awake"
     }
   }
 
