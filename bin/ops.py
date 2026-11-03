@@ -333,13 +333,14 @@ def charge_status():
         if not tool:
             none["reason"] = "framework_tool is not installed"
             return none
-        code, out = run(["sudo", "-n", tool, "--charge-limit"], timeout=6)
-        limit = None
-        m = re.search(r"(\d{1,3})", out)
-        if m:
-            limit = int(m.group(1))
-        return {"kind": "framework", "available": code == 0,
-                "reason": "" if code == 0 else out.strip(), "limit": limit,
+        helper = helper_bin()
+        if not helper:
+            return {**none, "kind": "framework", "tool": True, "reason": "permission"}
+        code, out = run(["sudo", "-n", str(helper), "charge-limit"], timeout=6)
+        m = re.search(r"Maximum\D*(\d{1,3})", out) if code == 0 else None
+        reason = "" if m else "permission" if "password" in out else out.strip()
+        return {"kind": "framework", "available": bool(m), "reason": reason,
+                "limit": int(m.group(1)) if m else None,
                 "tool": True, "health": None, "policy": None}
     return upower_health_status()
 
@@ -366,19 +367,18 @@ def set_health(on, run_fn=None):
             failed = True
     return "" if not failed else "Failed to update charge limits"
 
-def maybe_reapply_framework_limit(cfg, ch, run_fn=None, which_fn=None):
+def maybe_reapply_framework_limit(cfg, ch, run_fn=None, helper_fn=None):
     run_fn = run_fn or run
-    which_fn = which_fn or shutil.which
     ch = ch or {}
-    if ch.get("kind") != "framework" or not ch.get("tool") or cfg.get("boost"):
+    if ch.get("kind") != "framework" or ch.get("limit") is None or cfg.get("boost"):
         return ch
     wanted = max(40, min(100, int(cfg.get("chargeLimit") or 80)))
     if ch.get("limit") == wanted:
         return ch
-    tool = which_fn("framework_tool")
-    if not tool:
+    helper = (helper_fn or helper_bin)()
+    if not helper:
         return ch
-    code, _ = run_fn(["sudo", "-n", tool, "--charge-limit", str(wanted)])
+    code, _ = run_fn(["sudo", "-n", str(helper), "charge-limit", str(wanted)])
     if code != 0:
         return ch
     next_ch = dict(ch)
@@ -1647,6 +1647,10 @@ def main(argv):
     if cmd == "devices":
         print(json.dumps({"devices": devices(), "gpu": gpu_status()}))
         return 0
+    if cmd == "helper-install":
+        code, out = run(["pkexec", str(PRIV), "helper-install"], timeout=120)
+        print("ok" if code == 0 else out.strip() or "helper install failed")
+        return code
     if cmd == "helper-needed":
         print("needed" if helper_needed() else "ok")
         return 0

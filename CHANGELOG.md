@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.49] - 2026-11-03
+
+### Changed
+
+- Redesigned Charge limit as a − 80% + stepper with a Boost button. The
+  Battery Extender note moved into an info tooltip, and the Desk use line is
+  gone.
+
+### Fixed
+
+- Charge limit showed `sudo: a password is required` and hid its controls. It
+  now reads the limit through the plugin's helper and offers Allow when the
+  helper is missing.
+- The limit was read as 0% because the parser took the minimum from
+  `framework_tool` output. The saved limit is also reapplied through the
+  helper again after the EC drifts from it.
+
 ## [0.0.48] - 2026-11-03
 
 ### Fixed

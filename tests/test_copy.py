@@ -38,7 +38,9 @@ class CopyGlossaryTests(unittest.TestCase):
         src = (ROOT / "PlanSection.qml").read_text()
         self.assertIn("CHARGE LIMIT", src)
         self.assertIn("BATTERY HEALTH", src)
-        self.assertIn("Desk use: 80%. Turn Battery Extender off in BIOS.", src)
+        self.assertNotIn("Desk use", src)
+        self.assertIn("Battery Extender in the BIOS overrides this limit", src)
+        self.assertIn('"Needs permission"', src)
         self.assertIn('root.call(["health"', src)
 
 
