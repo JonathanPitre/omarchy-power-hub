@@ -10,12 +10,23 @@ var ALERT_ICON = "󰂃";      // 󰂃
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
+// Glyph i shows (i+1)*10%, rounded down, so "full" means 100% and 95% reads as 90%.
 function batteryIcon(percent, status) {
-  var i = clamp(Math.floor((Number(percent) || 0) / 10), 0, 9);
+  var p = Number(percent) || 0;
+  var i = p >= 100 ? 9 : clamp(Math.floor(p / 10) - 1, 0, 8);
   if (status === "Full" || status === "FullyCharged") return FULL_ICON;
   if (status === "Charging") return CHARGE[i];
   if (status === "Discharging" && percent <= 10) return ALERT_ICON;
   return DISCHARGE[i];
+}
+
+// The bar percentage has one switch per power state; right-click flips the current one.
+function barPercentKey(status) {
+  return status === "Discharging" ? "showPercentageOnBattery" : "alwaysShowPercentage";
+}
+
+function showBarPercent(status, s) {
+  return status === "Discharging" ? s.showOnBattery !== false : !!s.showOnAc;
 }
 
 function fmtWatts(w) {
@@ -31,20 +42,43 @@ function fmtDuration(mins) {
   return h > 0 ? (h + "h " + (r < 10 ? "0" : "") + r + "m") : (r + "m");
 }
 
-// Hero meta line, e.g. "BATTERY · DISCHARGING" / "PLUGGED IN · CHARGING" / "FULLY CHARGED".
-function modeLabel(b) {
-  if (!b || !b.present) return "NO BATTERY";
-  if (b.status === "Full" || (b.acOnline && b.percent >= 99)) return "FULLY CHARGED";
-  if (b.status === "Charging") return "PLUGGED IN · CHARGING";
-  if (b.acOnline && b.status === "Discharging") return "PLUGGED IN · DISCHARGING";
-  if (b.acOnline && b.status === "Not charging") return "PLUGGED IN · NOT CHARGING";
-  if (b.acOnline) return "PLUGGED IN";
-  return "BATTERY · DISCHARGING";
+// Hero meta line as { state, time }: the state is dimmed, the time is highlighted.
+// e.g. BATTERY · 3h 48m REMAINING / CHARGING · FULL IN 1h 05m / FULLY CHARGED.
+function modeParts(b) {
+  if (!b || !b.present) return { state: "NO BATTERY", time: "" };
+  var t = b.minutes > 0 ? fmtDuration(b.minutes) : "";
+  // Discharging wins over ACAD: a bus-powered USB-C monitor keeps ACAD online after unplug.
+  if (b.acOnline && b.status === "Discharging")
+    return t ? { state: "DISCHARGING", time: t + " REMAINING" } : { state: "PLUGGED IN · DISCHARGING", time: "" };
+  if (b.status === "Full" || (b.acOnline && b.percent >= 99)) return { state: "FULLY CHARGED", time: "" };
+  if (b.status === "Charging")
+    return t ? { state: "CHARGING", time: "FULL IN " + t } : { state: "PLUGGED IN · CHARGING", time: "" };
+  if (b.acOnline && b.status === "Not charging") return { state: "PLUGGED IN · NOT CHARGING", time: "" };
+  if (b.acOnline) return { state: "PLUGGED IN", time: "" };
+  return t ? { state: "BATTERY", time: t + " REMAINING" } : { state: "BATTERY · DISCHARGING", time: "" };
 }
 
-function healthLabel(b) {
-  if (!b || !b.whDesign) return "—";
-  return b.health + "%   " + Number(b.whFull).toFixed(1) + " / " + Number(b.whDesign).toFixed(1) + " Wh";
+function modeLabel(b) {
+  var m = modeParts(b);
+  return m.time ? m.state + " · " + m.time : m.state;
+}
+
+// Wear level: "" healthy, "worn" below 80% (the usual cycle-life rating), "replace" below 60%.
+function healthTier(health) {
+  var h = Number(health) || 0;
+  if (!h || h >= 80) return "";
+  return h < 60 ? "replace" : "worn";
+}
+
+// Active charge cap from the plan section's `charge` state, e.g. "80%", "Off", "Auto".
+function chargeLimitLabel(c, boosting) {
+  if (!c || !c.kind) return "—";
+  if (boosting) return "100% (boost)";
+  if (c.kind === "framework") return c.tool && c.limit != null ? c.limit + "%" : "—";
+  if (!c.health) return "Off";
+  var p = String(c.policy || "");
+  if (p === "firmware") return "Auto";
+  return p ? p.split("-").pop() + "%" : "On";
 }
 
 // Which segmented power mode is active.
@@ -62,8 +96,8 @@ function raplLabel(rapl) {
 }
 
 function drawValue(b) {
-  if (b && b.status === "Discharging") return fmtWatts(b.watts);
-  return "—";
+  if (b && (b.status === "Discharging" || b.status === "Charging") && b.watts > 0) return fmtWatts(b.watts);
+  return "";
 }
 
 function historyBars(points, now) {

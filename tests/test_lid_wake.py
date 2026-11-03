@@ -10,6 +10,20 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "bin"))
 import ops  # noqa: E402
 import idle_wake as iw  # noqa: E402
 
+# Keep Omarchy's remembered power profiles (~/.local/state/omarchy/powerprofiles)
+# out of reach: ops writes them through XDG_STATE_HOME.
+_state_home = None
+
+
+def setUpModule():
+    global _state_home
+    _state_home = mock.patch.dict(os.environ, {"XDG_STATE_HOME": tempfile.mkdtemp()})
+    _state_home.start()
+
+
+def tearDownModule():
+    _state_home.stop()
+
 
 class LidWakeBindTests(unittest.TestCase):
     def setUp(self):

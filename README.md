@@ -36,9 +36,10 @@ display already running slower. External displays are left alone. Turn it
 off to restore the captured brightness and display mode; if a device cannot
 be restored, the panel keeps the restore state and offers a retry.
 
-CPU savings are optional and unchecked by default. When selected, Travel mode
-uses power-saver, disables turbo, and chooses a supported energy-saving CPU
-preference. Heavy work may run slower. Unsupported controls are skipped.
+Travel mode also switches to Power saver and restores your normal power mode
+when turned off. On AMD that profile already turns CPU boost off and prefers
+energy saving. Heavy work may run slower. Without power-profiles-daemon only
+the display is changed.
 
 **Quick dim** independently caps brightness at 40% and restores the level it
 captured when turned off. It is unavailable while Travel mode owns the

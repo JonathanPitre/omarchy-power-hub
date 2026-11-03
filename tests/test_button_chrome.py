@@ -39,11 +39,10 @@ class ButtonChromeTests(unittest.TestCase):
             self.assertNotIn("ToggleSwitch {", src, name)
             self.assertNotIn("CheckBox {", src, name)
         self.assertIn("AccentSwitch {", (ROOT / "Panel.qml").read_text())
-        self.assertIn("AccentSwitch {", (ROOT / "PlanSection.qml").read_text())
 
     def test_energy_focus_targets_exist(self):
         src = (ROOT / "PlanSection.qml").read_text()
-        for name in ("energyTravelButton", "energyDimButton", "reduceCpuCheck"):
+        for name in ("energyTravelButton", "energyDimButton"):
             self.assertIn(f"id: {name}", src)
 
     # Bare `Color` does not resolve to the theme singleton inside plugins.

@@ -5,6 +5,67 @@ All notable changes to this project are documented in this file.
 The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.50] - 2026-11-04
+
+### Changed
+
+- The status line under Battery now carries the time estimate, such as
+  `BATTERY · 3h 48m REMAINING` or `CHARGING · FULL IN 1h 05m`. The Time left
+  cell is gone, so plugged-in states no longer show a `—`.
+- In that status line the time is white and the state stays dimmed, so the
+  estimate stands out.
+- Power draw shows only while the battery is charging or discharging. While
+  charging it reads Charging at, with the charge rate in watts.
+- Battery health is a 2×2 grid of tiles: Capacity and Charge limit, then
+  Charge cycles and Health. Cycles is now Charge cycles, and Charge limit
+  shows the active cap (`80%`, `Off`, `Auto`, or `100% (boost)`).
+- Capacity and Health turn the theme's yellow below 80% and its urgent
+  colour below 60%.
+
+### Removed
+
+- The Reduce CPU switch in Travel mode. Travel mode now always switches to
+  Power saver without a separate row for it, which on AMD already turns per-CPU boost off and sets the
+  energy-saving CPU preference. The switch's extra step, global boost off,
+  saved nothing and broke power-profiles-daemon: with it off, amd_pstate
+  rejects every profile change (`policy11/boost: Invalid argument`), so
+  Restore settings failed. A Travel session already started with Reduce CPU
+  still restores; boost is turned back on before the profile. The `C`
+  shortcut and `travel on --reduce-cpu` are gone.
+
+### Fixed
+
+- Unplugging the adapter with a bus-powered USB-C monitor attached showed
+  `FULLY CHARGED` or a bare `DISCHARGING` with no time. The monitor keeps
+  `ACAD` online, so a discharging battery now wins over it and the status
+  reads `DISCHARGING · 4h 32m REMAINING`.
+- Time remaining and Power draw lagged changes such as Travel mode or Dim
+  screen, and stayed blank for about 90 s after unplugging.
+  They now come from the panel's 5 s battery poll instead of UPower, which
+  refreshes only every 30 s or so.
+- The panel repolls the battery as soon as the adapter is plugged in or
+  unplugged, so the time appears within a second or two.
+- Right-click on the bar battery hid the percentage only when plugged in. It
+  now hides or shows it for the current power state, with a new
+  **Show percentage on battery** setting beside **Show percentage when plugged
+  in**. On battery follows UPower's live state, so a bus-powered USB-C monitor
+  no longer makes the bar treat a draining battery as plugged in.
+- The battery glyph showed full from 90% to 99%, both in the bar and in the
+  panel. Each glyph now rounds down, so full means 100% and 95% shows the 90%
+  glyph. The bar tooltip says remaining instead of left.
+- Travel mode lost Power saver on every plug, unplug or shell restart and
+  showed a bare `balanced` in red. Omarchy's battery service runs
+  `omarchy-powerprofiles-set` on each power-source change, which reapplied
+  the remembered AC or battery profile over Power saver. Travel now holds
+  both remembered profiles at `power-saver` and writes your normal ones back
+  when it turns off. A failed check now reads `Power saver was replaced by
+  balanced`.
+- The bar left a wide gap between the battery glyph and its percentage. The
+  percentage is now a plain label with one space after the glyph, like the
+  bar's other battery readouts.
+- Tests no longer write to the real
+  `~/.local/state/omarchy/powerprofiles` files.
+
 ## [0.0.49] - 2026-11-03
 
 ### Changed

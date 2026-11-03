@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "bin"))
@@ -18,6 +19,20 @@ CFG = {
     "battery": {"screensaver": 0, "displaysOff": 60, "lock": 60, "sleep": 300,
                 "hibernateAfter": 60, "lid": "nothing", "profile": "balanced"},
 }
+
+# Keep Omarchy's remembered power profiles (~/.local/state/omarchy/powerprofiles)
+# out of reach: ops writes them through XDG_STATE_HOME.
+_state_home = None
+
+
+def setUpModule():
+    global _state_home
+    _state_home = mock.patch.dict(os.environ, {"XDG_STATE_HOME": tempfile.mkdtemp()})
+    _state_home.start()
+
+
+def tearDownModule():
+    _state_home.stop()
 
 
 class IdleSetTests(unittest.TestCase):

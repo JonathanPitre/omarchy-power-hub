@@ -11,6 +11,20 @@ from unittest import mock
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "bin"))
 import ops  # noqa: E402
 
+# Keep Omarchy's remembered power profiles (~/.local/state/omarchy/powerprofiles)
+# out of reach: ops writes them through XDG_STATE_HOME.
+_state_home = None
+
+
+def setUpModule():
+    global _state_home
+    _state_home = mock.patch.dict(os.environ, {"XDG_STATE_HOME": tempfile.mkdtemp()})
+    _state_home.start()
+
+
+def tearDownModule():
+    _state_home.stop()
+
 
 class EnergyControlsTests(unittest.TestCase):
     def test_brightness_read_uses_installed_display_read_form(self):
@@ -202,20 +216,11 @@ class EnergyControlsTests(unittest.TestCase):
             finally:
                 ops.RUN = old_run
 
-    def test_opted_in_cpu_overlay_restores_each_cpu_and_turbo(self):
+    def test_travel_uses_power_saver_and_leaves_boost_alone(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             old_run, old_cpu_root = ops.RUN, ops.CPU_ROOT
             ops.RUN, ops.CPU_ROOT = root / "run", root / "cpu"
-            prefs = []
-            for cpu, original in ((0, "performance"), (1, "balance_performance")):
-                pref = ops.CPU_ROOT / f"cpu{cpu}/cpufreq"
-                pref.mkdir(parents=True)
-                (pref / "energy_performance_preference").write_text(original + "\n")
-                (pref / "energy_performance_available_preferences").write_text(
-                    "performance balance_performance balance_power power\n"
-                )
-                prefs.append(pref)
             boost = ops.CPU_ROOT / "cpufreq/boost"
             boost.parent.mkdir(parents=True, exist_ok=True)
             boost.write_text("1\n")
@@ -236,203 +241,46 @@ class EnergyControlsTests(unittest.TestCase):
                 if args[0:2] == ["powerprofilesctl", "get"]:
                     return 0, profile[0]
                 if args[0:2] == ["powerprofilesctl", "set"]:
+                    # amd_pstate: with global boost off, power-profiles-daemon's per-policy
+                    # boost write fails with EINVAL for every profile.
+                    if boost.read_text().strip() == "0":
+                        return 1, "Failed to activate CPU driver 'amd_pstate': Error writing '.../policy11/boost': Invalid argument (13)"
                     profile[0] = args[2]
                     return 0, ""
                 if args[:2] == ["hyprctl", "monitors"]:
                     return 0, json.dumps(live)
                 return 1, "unexpected command"
 
-            def priv(args):
-                if args[0] == "turbo":
-                    boost.write_text("0\n" if args[1] == "off" else "1\n")
-                elif args[0] == "epp-cpu":
-                    (ops.CPU_ROOT / f"cpu{args[1]}/cpufreq/energy_performance_preference").write_text(args[2] + "\n")
-                return ""
-
             try:
                 with mock.patch.object(ops, "run", side_effect=run), mock.patch.object(
                     ops, "monitors", return_value=live
                 ), mock.patch.object(ops, "listed_profiles", return_value={"power-saver", "balanced", "performance"}), mock.patch.object(
                     ops, "active_side", side_effect=lambda *_: source[0]
-                ), mock.patch.object(ops, "priv", side_effect=priv), mock.patch.object(
+                ), mock.patch.object(ops, "priv", return_value="") as priv, mock.patch.object(
                     ops, "shell_idle", return_value=""
-                ) as shell_idle, mock.patch.object(ops, "write_lid_block") as write_lid, mock.patch.object(
+                ), mock.patch.object(ops, "write_lid_block"), mock.patch.object(
                     ops, "apply_profile", return_value=""
                 ) as apply_profile:
                     cfg = {
                         "battery": {"profile": "balanced", "screensaver": 0, "lock": 0, "lid": "nothing"},
                         "ac": {"profile": "performance", "screensaver": 0, "lock": 0, "lid": "nothing"},
                     }
-                    self.assertEqual(ops.travel(True, cfg, True), "")
+                    self.assertEqual(ops.travel(True, cfg), "")
                     self.assertEqual(profile[0], "power-saver")
-                    self.assertEqual(boost.read_text().strip(), "0")
-                    self.assertEqual([(p / "energy_performance_preference").read_text().strip() for p in prefs], ["power", "power"])
+                    self.assertEqual(ops.travel_status()["controls"]["profile"]["available"], True)
+                    # A power source change keeps Power saver while Travel is on.
                     source[0] = "ac"
                     profile[0] = "performance"
-                    boost.write_text("1\n")
-                    for pref in prefs:
-                        (pref / "energy_performance_preference").write_text("performance\n")
                     self.assertEqual(ops.apply_active(cfg), "")
                     self.assertEqual(profile[0], "power-saver")
-                    self.assertEqual(boost.read_text().strip(), "0")
-                    self.assertEqual([(p / "energy_performance_preference").read_text().strip() for p in prefs], ["power", "power"])
                     self.assertEqual(ops.travel(False, cfg), "")
                     self.assertEqual(profile[0], "performance")
                     self.assertEqual(boost.read_text().strip(), "1")
-                    self.assertEqual([(p / "energy_performance_preference").read_text().strip() for p in prefs], ["performance", "balance_performance"])
-                    shell_idle.assert_called_once_with(0, 0)
-                    write_lid.assert_called_once_with("nothing")
+                    priv.assert_not_called()
                     apply_profile.assert_not_called()
             finally:
                 ops.RUN, ops.CPU_ROOT = old_run, old_cpu_root
-    def test_epp_targets_are_selected_after_saver_profile_changes_capabilities(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            old_run, old_cpu_root = ops.RUN, ops.CPU_ROOT
-            ops.RUN, ops.CPU_ROOT = pathlib.Path(tmp) / "run", pathlib.Path(tmp) / "cpu"
-            prefs = []
-            for cpu, original, supported in (
-                    (0, "performance", "performance"),
-                    (1, "balance_performance", "balance_performance balance_power power")):
-                pref = ops.CPU_ROOT / f"cpu{cpu}/cpufreq"
-                pref.mkdir(parents=True)
-                current = pref / "energy_performance_preference"
-                current.write_text(original + "\n")
-                available = pref / "energy_performance_available_preferences"
-                available.write_text(supported + "\n")
-                prefs.append((current, available))
-            boost = ops.CPU_ROOT / "cpufreq/boost"
-            boost.parent.mkdir(parents=True)
-            boost.write_text("1\n")
-            profile = ["performance"]
-            capabilities = ["all"]
 
-            def run(args, timeout=4):
-                if args[:2] == ["powerprofilesctl", "get"]:
-                    return 0, profile[0]
-                if args[:2] == ["powerprofilesctl", "set"]:
-                    profile[0] = args[2]
-                    if profile[0] == "power-saver":
-                        if capabilities[0] == "partial":
-                            prefs[0][1].write_text("performance power\n")
-                            prefs[1][1].write_text("balance_performance\n")
-                        elif capabilities[0] == "all":
-                            prefs[0][1].write_text("performance power\n")
-                            prefs[1][1].write_text("balance_performance balance_power power\n")
-                    elif profile[0] == "balanced":
-                        prefs[0][1].write_text("performance\n")
-                        prefs[1][1].write_text("balance_performance\n")
-                    return 0, ""
-                return 1, "unexpected command"
-
-            def priv(args):
-                if args[0] == "turbo":
-                    boost.write_text("0\n" if args[1] == "off" else "1\n")
-                elif args[0] == "epp-cpu":
-                    prefs[int(args[1])][0].write_text(args[2] + "\n")
-                return ""
-
-            try:
-                with mock.patch.object(ops, "run", side_effect=run), mock.patch.object(
-                    ops, "monitors", return_value=[]
-                ), mock.patch.object(
-                    ops, "listed_profiles", return_value={"power-saver", "balanced", "performance"}
-                ), mock.patch.object(
-                    ops, "active_side", return_value="battery"
-                ), mock.patch.object(ops, "priv", side_effect=priv):
-                    cfg = {"battery": {"profile": "balanced"}}
-                    self.assertEqual(ops.travel(True, cfg, reduce_cpu=True), "")
-                    self.assertEqual([item[0].read_text().strip() for item in prefs], ["power", "power"])
-                    self.assertEqual(ops.travel(False, cfg), "")
-                    self.assertEqual([item[0].read_text().strip() for item in prefs],
-                                     ["performance", "balance_performance"])
-                    capabilities[0] = "partial"
-                    self.assertEqual(ops.travel(True, cfg, reduce_cpu=True), "")
-                    epp_status = ops.travel_status()["controls"]["epp"]
-                    self.assertTrue(epp_status["available"])
-                    self.assertEqual(epp_status["detail"],
-                                     "Energy-saving CPU preference on 1 of 2 CPUs")
-                    self.assertEqual([item[0].read_text().strip() for item in prefs],
-                                     ["power", "balance_performance"])
-                    self.assertEqual(ops.travel(False, cfg), "")
-            finally:
-                ops.RUN, ops.CPU_ROOT = old_run, old_cpu_root
-    def test_partial_cpu_restore_reapplies_current_profile_without_losing_restoration(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            old_run, old_cpu_root = ops.RUN, ops.CPU_ROOT
-            ops.RUN, ops.CPU_ROOT = pathlib.Path(tmp) / "run", pathlib.Path(tmp) / "cpu"
-            prefs = []
-            for cpu, original in ((0, "performance"), (1, "balance_performance")):
-                pref = ops.CPU_ROOT / f"cpu{cpu}/cpufreq"
-                pref.mkdir(parents=True)
-                current = pref / "energy_performance_preference"
-                current.write_text(original + "\n")
-                (pref / "energy_performance_available_preferences").write_text(
-                    "performance balance_performance balance_power power\n"
-                )
-                prefs.append(current)
-            boost = ops.CPU_ROOT / "cpufreq/boost"
-            boost.parent.mkdir(parents=True)
-            boost.write_text("1\n")
-            profile, source, fail_restore = ["performance"], ["battery"], [False]
-            cfg = {
-                "battery": {"profile": "balanced", "screensaver": 0, "lock": 0, "lid": "nothing"},
-                "ac": {"profile": "performance", "screensaver": 0, "lock": 0, "lid": "nothing"},
-            }
-
-            def run(args, timeout=4):
-                if args[:2] == ["powerprofilesctl", "get"]:
-                    return 0, profile[0]
-                if args[:2] == ["powerprofilesctl", "set"]:
-                    profile[0] = args[2]
-                    if profile[0] == "performance":
-                        boost.write_text("0\n")
-                        for pref in prefs:
-                            pref.write_text("power\n")
-                    elif profile[0] == "balanced":
-                        for pref in prefs:
-                            pref.write_text("balance_power\n")
-                    return 0, ""
-                return 1, "unexpected command"
-
-            def priv(args):
-                if args[0] == "turbo":
-                    boost.write_text("0\n" if args[1] == "off" else "1\n")
-                elif args[0] == "epp-cpu":
-                    index, value = int(args[1]), args[2]
-                    if fail_restore[0] and index == 1 and value == "balance_performance":
-                        return "CPU preference restore failed"
-                    prefs[index].write_text(value + "\n")
-                return ""
-
-            try:
-                with mock.patch.object(ops, "run", side_effect=run), mock.patch.object(
-                    ops, "monitors", return_value=[]
-                ), mock.patch.object(
-                    ops, "listed_profiles", return_value={"power-saver", "balanced", "performance"}
-                ), mock.patch.object(
-                    ops, "active_side", side_effect=lambda *_: source[0]
-                ), mock.patch.object(ops, "priv", side_effect=priv), mock.patch.object(
-                    ops, "shell_idle", return_value=""
-                ), mock.patch.object(ops, "write_lid_block"):
-                    self.assertEqual(ops.travel(True, cfg, reduce_cpu=True), "")
-                    self.assertEqual([pref.read_text().strip() for pref in prefs], ["power", "power"])
-                    fail_restore[0] = True
-                    self.assertIn("CPU preference restore failed", ops.travel(False, cfg))
-                    self.assertEqual(ops.travel_state()["complete"], False)
-                    self.assertIn("profile", ops.travel_state()["pending"])
-                    self.assertNotIn("epp:0", ops.travel_state()["pending"])
-                    source[0] = "ac"
-                    self.assertIn("CPU preference restore failed", ops.apply_active(cfg))
-                    self.assertEqual(profile[0], "balanced")
-                    self.assertEqual(prefs[0].read_text().strip(), "performance")
-                    fail_restore[0] = False
-                    self.assertEqual(ops.travel(False, cfg), "")
-                    self.assertEqual(profile[0], "performance")
-                    self.assertEqual(boost.read_text().strip(), "1")
-                    self.assertEqual([pref.read_text().strip() for pref in prefs],
-                                     ["performance", "balance_performance"])
-            finally:
-                ops.RUN, ops.CPU_ROOT = old_run, old_cpu_root
     def test_display_only_source_transition_applies_current_normal_profile(self):
         with tempfile.TemporaryDirectory() as tmp:
             old_run = ops.RUN
@@ -513,56 +361,21 @@ class EnergyControlsTests(unittest.TestCase):
             finally:
                 ops.RUN = old_run
 
-    def test_cpu_apply_rollback_does_not_change_uncaptured_profile(self):
+    def test_travel_holds_omarchy_remembered_profiles_until_restore(self):
+        # Omarchy's battery service runs `omarchy-powerprofiles-set <side>` on every
+        # power-source change (and at shell start), which applies the profile stored in
+        # ~/.local/state/omarchy/powerprofiles/<side>. Travel must hold those files.
         with tempfile.TemporaryDirectory() as tmp:
-            old_run, old_cpu_root = ops.RUN, ops.CPU_ROOT
-            ops.RUN, ops.CPU_ROOT = pathlib.Path(tmp) / "run", pathlib.Path(tmp) / "cpu"
-            boost = ops.CPU_ROOT / "cpufreq/boost"
-            boost.parent.mkdir(parents=True)
-            boost.write_text("1\n")
-            profile = ["performance"]
-            set_profiles = []
-            cfg = {"battery": {"profile": "balanced"}}
+            old_run = ops.RUN
+            ops.RUN = pathlib.Path(tmp) / "run"
+            state_dir = pathlib.Path(tmp) / "state" / "omarchy" / "powerprofiles"
+            state_dir.mkdir(parents=True)
+            (state_dir / "ac").write_text("performance\n")
+            (state_dir / "battery").write_text("balanced\n")
+            profile = ["balanced"]
 
-            def run(args, timeout=4):
-                if args[:2] == ["powerprofilesctl", "get"]:
-                    return 1, "profile unavailable"
-                if args[:2] == ["powerprofilesctl", "set"]:
-                    set_profiles.append(args[2])
-                    profile[0] = args[2]
-                    return 0, ""
-                return 1, "unexpected command"
-
-            def priv(args):
-                if args == ["turbo", "off"]:
-                    return "authorization denied"
-                if args == ["turbo", "on"]:
-                    boost.write_text("1\n")
-                return ""
-
-            try:
-                with mock.patch.object(ops, "run", side_effect=run), mock.patch.object(
-                    ops, "listed_profiles", return_value={"power-saver", "balanced", "performance"}
-                ), mock.patch.object(ops, "active_side", return_value="battery"), mock.patch.object(
-                    ops, "monitors", return_value=[]
-                ), mock.patch.object(ops, "priv", side_effect=priv):
-                    self.assertIn("authorization denied", ops.travel(True, cfg, reduce_cpu=True))
-                    self.assertEqual(profile[0], "performance")
-                    self.assertEqual(set_profiles, [])
-                    self.assertEqual(boost.read_text().strip(), "1")
-                    self.assertFalse(ops.travel_state()["on"])
-            finally:
-                ops.RUN, ops.CPU_ROOT = old_run, old_cpu_root
-
-    def test_cpu_apply_rollback_leaves_off_state_and_saved_error(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            old_run, old_cpu_root = ops.RUN, ops.CPU_ROOT
-            ops.RUN, ops.CPU_ROOT = pathlib.Path(tmp) / "run", pathlib.Path(tmp) / "cpu"
-            boost = ops.CPU_ROOT / "cpufreq/boost"
-            boost.parent.mkdir(parents=True)
-            boost.write_text("1\n")
-            profile = ["performance"]
-            cfg = {"battery": {"profile": "balanced"}}
+            def omarchy_set(side):
+                profile[0] = (state_dir / side).read_text().strip()
 
             def run(args, timeout=4):
                 if args[:2] == ["powerprofilesctl", "get"]:
@@ -572,26 +385,84 @@ class EnergyControlsTests(unittest.TestCase):
                     return 0, ""
                 return 1, "unexpected command"
 
-            def priv(args):
-                if args == ["turbo", "off"]:
-                    return "authorization denied"
-                if args == ["turbo", "on"]:
-                    boost.write_text("1\n")
-                return ""
+            cfg = {
+                "battery": {"profile": "balanced", "screensaver": 0, "lock": 0, "lid": "nothing"},
+                "ac": {"profile": "performance", "screensaver": 0, "lock": 0, "lid": "nothing"},
+            }
+            try:
+                with mock.patch.dict(os.environ, {"XDG_STATE_HOME": str(pathlib.Path(tmp) / "state")}), \
+                        mock.patch.object(ops, "run", side_effect=run), mock.patch.object(
+                    ops, "listed_profiles", return_value={"power-saver", "balanced", "performance"}
+                ), mock.patch.object(ops, "active_side", return_value="battery"), mock.patch.object(
+                    ops, "monitors", return_value=[]
+                ), mock.patch.object(ops, "_cpu_available", return_value={"profile": True, "turbo": False, "epp": False}):
+                    self.assertEqual(ops.travel(True, cfg), "")
+                    omarchy_set("ac")
+                    self.assertEqual(profile[0], "power-saver")
+                    omarchy_set("battery")
+                    self.assertEqual(profile[0], "power-saver")
+                    self.assertEqual(ops.travel(False, cfg), "")
+                    self.assertEqual(profile[0], "balanced")
+                    self.assertEqual((state_dir / "ac").read_text().strip(), "performance")
+                    self.assertEqual((state_dir / "battery").read_text().strip(), "balanced")
+            finally:
+                ops.RUN = old_run
+
+    def test_travel_skips_profile_it_cannot_read(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            old_run = ops.RUN
+            ops.RUN = pathlib.Path(tmp) / "run"
+            set_profiles = []
+
+            def run(args, timeout=4):
+                if args[:2] == ["powerprofilesctl", "get"]:
+                    return 1, "profile unavailable"
+                if args[:2] == ["powerprofilesctl", "set"]:
+                    set_profiles.append(args[2])
+                    return 0, ""
+                return 1, "unexpected command"
 
             try:
                 with mock.patch.object(ops, "run", side_effect=run), mock.patch.object(
                     ops, "listed_profiles", return_value={"power-saver", "balanced", "performance"}
                 ), mock.patch.object(ops, "active_side", return_value="battery"), mock.patch.object(
                     ops, "monitors", return_value=[]
-                ), mock.patch.object(ops, "priv", side_effect=priv):
-                    self.assertIn("authorization denied", ops.travel(True, cfg, reduce_cpu=True))
+                ):
+                    self.assertEqual(ops.travel(True, {"battery": {"profile": "balanced"}}),
+                                     "No supported battery-saving controls")
+                    self.assertEqual(set_profiles, [])
+                    self.assertFalse(ops.travel_state()["on"])
+            finally:
+                ops.RUN = old_run
+
+    def test_power_saver_failure_rolls_back_to_off_state_with_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            old_run = ops.RUN
+            ops.RUN = pathlib.Path(tmp) / "run"
+            profile = ["performance"]
+
+            def run(args, timeout=4):
+                if args[:2] == ["powerprofilesctl", "get"]:
+                    return 0, profile[0]
+                if args[:2] == ["powerprofilesctl", "set"]:
+                    if args[2] == "power-saver":
+                        return 1, "authorization denied"
+                    profile[0] = args[2]
+                    return 0, ""
+                return 1, "unexpected command"
+
+            try:
+                with mock.patch.object(ops, "run", side_effect=run), mock.patch.object(
+                    ops, "listed_profiles", return_value={"power-saver", "balanced", "performance"}
+                ), mock.patch.object(ops, "active_side", return_value="battery"), mock.patch.object(
+                    ops, "monitors", return_value=[]
+                ):
+                    self.assertIn("authorization denied", ops.travel(True, {"battery": {"profile": "balanced"}}))
                     self.assertFalse(ops.travel_state()["on"])
                     self.assertEqual(profile[0], "performance")
-                    self.assertEqual(boost.read_text().strip(), "1")
                     self.assertEqual(ops.travel_status()["error"], "authorization denied")
             finally:
-                ops.RUN, ops.CPU_ROOT = old_run, old_cpu_root
+                ops.RUN = old_run
 
     def test_failed_restore_stays_incomplete_and_retries(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -632,83 +503,45 @@ class EnergyControlsTests(unittest.TestCase):
 
 
 
-    def test_cpu_savings_without_power_saver_profile_restore_source_profile(self):
+    def test_travel_without_power_saver_profile_changes_only_the_display(self):
         with tempfile.TemporaryDirectory() as tmp:
-            old_run, old_cpu_root = ops.RUN, ops.CPU_ROOT
+            old_run = ops.RUN
             ops.RUN = pathlib.Path(tmp) / "run"
-            ops.CPU_ROOT = pathlib.Path(tmp) / "sys"
-            boost = ops.CPU_ROOT / "cpufreq/boost"
-            boost.parent.mkdir(parents=True)
-            boost.write_text("1\n")
-            profile, source = ["balanced"], ["battery"]
+            set_profiles = []
 
             def run(args, timeout=4):
                 if args[:2] == ["powerprofilesctl", "get"]:
-                    return 0, profile[0]
+                    return 0, "balanced"
                 if args[:2] == ["powerprofilesctl", "set"]:
-                    profile[0] = args[2]
+                    set_profiles.append(args[2])
                     return 0, ""
                 return 1, "unexpected command"
 
-            def priv(args):
-                if args == ["turbo", "off"]:
-                    boost.write_text("0\n")
-                elif args == ["turbo", "on"]:
-                    boost.write_text("1\n")
-                return ""
-
-            cfg = {
-                "battery": {"profile": "balanced", "screensaver": 0, "lock": 0, "lid": "nothing"},
-                "ac": {"profile": "performance", "screensaver": 0, "lock": 0, "lid": "nothing"},
-            }
             try:
                 with mock.patch.object(ops, "monitors", return_value=[]), mock.patch.object(
                     ops, "listed_profiles", return_value={"balanced", "performance"}
                 ), mock.patch.object(ops, "run", side_effect=run), mock.patch.object(
-                    ops, "priv", side_effect=priv
-                ), mock.patch.object(ops, "active_side", side_effect=lambda *_: source[0]), mock.patch.object(
-                    ops, "apply_profile", return_value=""
-                ) as apply_profile, mock.patch.object(ops, "shell_idle", return_value=""), mock.patch.object(
-                    ops, "write_lid_block"
+                    ops, "active_side", return_value="battery"
                 ):
-                    self.assertEqual(ops.travel(True, cfg, reduce_cpu=True), "")
-                    self.assertEqual(boost.read_text().strip(), "0")
-                    self.assertFalse(ops.travel_status()["controls"]["profile"]["available"])
-                    source[0] = "ac"
-                    self.assertEqual(ops.apply_active(cfg), "")
-                    apply_profile.assert_called_once_with("ac", "performance")
-                    self.assertEqual(boost.read_text().strip(), "0")
-                    self.assertEqual(ops.travel(False, cfg), "")
-                    self.assertEqual(profile[0], "performance")
-                    self.assertEqual(boost.read_text().strip(), "1")
+                    self.assertEqual(ops.travel(True, {"battery": {"profile": "balanced"}}),
+                                     "No supported battery-saving controls")
+                    self.assertEqual(set_profiles, [])
             finally:
-                ops.RUN, ops.CPU_ROOT = old_run, old_cpu_root
+                ops.RUN = old_run
+
     def test_intel_no_turbo_node_uses_inverted_values(self):
         with tempfile.TemporaryDirectory() as tmp:
-            old_run, old_cpu_root = ops.RUN, ops.CPU_ROOT
-            ops.RUN = pathlib.Path(tmp) / "run"
+            old_cpu_root = ops.CPU_ROOT
             ops.CPU_ROOT = pathlib.Path(tmp) / "sys"
             node = ops.CPU_ROOT / "intel_pstate/no_turbo"
             node.parent.mkdir(parents=True)
-            node.write_text("0\n")
-
-            def priv(args):
-                node.write_text(("1" if args[1] == "off" else "0") + "\n")
-                return ""
-
             try:
-                with mock.patch.object(ops, "monitors", return_value=[]), mock.patch.object(
-                    ops, "listed_profiles", return_value=set()
-                ), mock.patch.object(ops, "run", return_value=(0, "balanced\n")), mock.patch.object(
-                    ops, "priv", side_effect=priv
-                ):
-                    cfg = {"battery": {"profile": "balanced"}}
-                    self.assertEqual(ops.travel(True, cfg, reduce_cpu=True), "")
-                    self.assertEqual(node.read_text().strip(), "1")
-                    self.assertEqual(ops.travel(False, cfg), "")
-                    self.assertEqual(node.read_text().strip(), "0")
+                node.write_text("0\n")
+                self.assertIs(ops._turbo_value(), True)
+                node.write_text("1\n")
+                self.assertIs(ops._turbo_value(), False)
             finally:
-                ops.RUN, ops.CPU_ROOT = old_run, old_cpu_root
+                ops.CPU_ROOT = old_cpu_root
 
     def test_refresh_cap_requires_same_resolution_and_never_increases(self):
         current = {"width": 2560, "height": 1600, "refreshRate": 165,

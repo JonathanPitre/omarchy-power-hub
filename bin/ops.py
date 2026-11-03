@@ -175,6 +175,15 @@ def remember_profile(side, name):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(name + "\n")
 
+# Omarchy's battery service runs `omarchy-powerprofiles-set <side>` on every
+# power-source change and at shell start, applying the profile remembered here.
+# Travel holds both files at power-saver so that handler cannot undo it, and
+# restore writes the normal profiles back.
+def remember_travel_profiles(cfg, held=None):
+    for side in ("ac", "battery"):
+        if held or side in cfg:
+            remember_profile(side, held or canonical_profile(cfg[side]["profile"], side))
+
 def apply_profile(side, mode, live=True):
     which = "battery" if side == "battery" else "ac"
     name = canonical_profile(mode, which)
@@ -793,13 +802,20 @@ def _cpu_available():
 
 def _apply_cpu_overlay(state):
     if state.get("profile") and state["controls"]["profile"]["available"]:
+        # A re-apply finds boost already off; power-profiles-daemon then fails every
+        # profile on amd_pstate, so lift it first. The turbo step below turns it off again.
+        if state.get("cpu", {}).get("turbo") is not None and _turbo_value() is False:
+            err = priv(["turbo", "on"])
+            if err:
+                return err
+        remember_travel_profiles(None, held="power-saver")
         code, out = run(["powerprofilesctl", "set", "power-saver"])
         if code:
             return out.strip() or "Power saver could not be applied"
         atomic_state(travel_path(), state)
         code, out = run(["powerprofilesctl", "get"])
         if code or out.strip() != "power-saver":
-            return out.strip() or "Power saver could not be verified"
+            return f"Power saver was replaced by {out.strip()}" if out.strip() else "Power saver could not be verified"
     turbo = state.get("cpu", {}).get("turbo")
     if turbo is not None:
         atomic_state(travel_path(), state)
@@ -863,9 +879,17 @@ def _restore_cpu(state, path, rollback=False, cfg=None):
             if token not in pending:
                 pending.append(token)
         atomic_state(path, state)
+        # amd_pstate rejects policyN/boost=1 while global boost is off, which makes
+        # power-profiles-daemon fail balanced/performance. Re-enable boost first;
+        # the turbo step below then restores the saved value.
+        if "turbo" in pending:
+            err = priv(["turbo", "on"])
+            if err:
+                return err
         code, out = run(["powerprofilesctl", "set", desired])
         if code:
             return out.strip() or "Power profile restoration failed"
+        remember_travel_profiles(cfg or load())
         code, out = run(["powerprofilesctl", "get"])
         if code or out.strip() != desired:
             return "Power profile restoration could not be verified"
@@ -909,14 +933,14 @@ def _restore_cpu(state, path, rollback=False, cfg=None):
         pending.remove(token)
         atomic_state(path, state)
     return ""
-def travel(on, cfg=None, reduce_cpu=False):
+def travel(on, cfg=None):
     with energy_lock():
         cfg = cfg or load()
         state = travel_state()
         if state.get("invalid"):
             return state.get("error", "Travel restore point is malformed")
         if on and state.get("on"):
-            return "Travel mode state is already owned; turn it off before changing its scope" if state.get("reduceCpu") != reduce_cpu else ""
+            return ""
         if not on and not state.get("on"):
             return ""
         path = travel_path()
@@ -932,21 +956,17 @@ def travel(on, cfg=None, reduce_cpu=False):
                 except (TypeError, ValueError):
                     pass
             target = _target_refresh(mon) if saved_mon else None
-            available = _cpu_available()
+            # Travel always switches to Power saver. On amd_pstate that already turns
+            # per-CPU boost off and sets EPP to power, so turbo and EPP are left alone
+            # (turning global boost off also breaks power-profiles-daemon).
+            profiles = listed_profiles() or set()
             profile = None
-            if reduce_cpu:
-                profiles = listed_profiles() or set()
+            if _cpu_available().get("profile") and "power-saver" in profiles:
                 code, out = run(["powerprofilesctl", "get"])
                 profile = out.strip() if code == 0 and out.strip() in profiles else None
-                available["profile"] = bool(available.get("profile") and profile)
-            turbo = _turbo_value() if reduce_cpu and available.get("turbo") else None
-            if reduce_cpu:
-                available["turbo"] = turbo is not None
-            preferences = _cpu_preferences() if reduce_cpu else []
-            if reduce_cpu:
-                available["epp"] = any(_epp_saving_target(entry["cpu"]) for entry in preferences)
-            if reduce_cpu and not any(available.values()):
-                return "CPU power-saving controls are unavailable"
+            reduce_cpu = profile is not None
+            available = {"profile": reduce_cpu, "turbo": False, "epp": False}
+            turbo, preferences = None, []
             if before is None and target is None and not reduce_cpu:
                 return "No supported battery-saving controls"
             try:
@@ -1392,7 +1412,8 @@ def set_key(side, key, value):
             travel = travel_state()
             cpu_owned = travel.get("on") and travel.get("reduceCpu", True)
             save(cfg)
-            return apply_profile(side, src["profile"], live=not cpu_owned)
+            # Travel holds Omarchy's remembered profiles; restore writes this one back.
+            return "" if cpu_owned else apply_profile(side, src["profile"])
     save(cfg)
     travel_on = travel_state().get("on")
     if travel_on or side != active_side():
@@ -1543,15 +1564,11 @@ def main(argv):
         print("holding")
         return 0
     if cmd == "travel":
-        if len(argv) == 3 and argv[2] in {"on", "off"}:
-            enable, reduce_cpu = argv[2] == "on", False
-        elif len(argv) == 4 and argv[2:] == ["on", "--reduce-cpu"]:
-            enable, reduce_cpu = True, True
-        else:
-            print("usage: travel on [--reduce-cpu] | travel off")
+        if len(argv) != 3 or argv[2] not in {"on", "off"}:
+            print("usage: travel on|off")
             return 2
         try:
-            err = travel(enable, None, reduce_cpu)
+            err = travel(argv[2] == "on")
         except OSError as error:
             err = f"Travel operation could not save its recovery state: {error}"
         print(err or "ok")

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "omarchy-power-settings",
   "name": "Omarchy Power Settings",
-  "version": "0.0.49",
+  "version": "0.0.50",
   "author": "Jonathan Pitre",
   "license": "MIT",
   "description": "Theme-aware power panel with reversible Travel mode, Quick dim, optional CPU savings, battery controls, idle settings, and device status.",
@@ -22,9 +22,15 @@
     },
     "schema": [
       {
+        "key": "showPercentageOnBattery",
+        "type": "boolean",
+        "label": "Show percentage on battery",
+        "defaultValue": true
+      },
+      {
         "key": "alwaysShowPercentage",
         "type": "boolean",
-        "label": "Always show percentage (including when plugged in)",
+        "label": "Show percentage when plugged in",
         "defaultValue": false
       },
       {

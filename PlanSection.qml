@@ -30,7 +30,6 @@ Column {
   property var state: ({})
   property bool opened: false
   property int pollMs: 5000
-  property bool reduceCpuPerformance: false
   property bool energyPending: false
   property bool energyRestoring: false
   property string energyError: ""
@@ -98,8 +97,7 @@ Column {
 
   function focusEnergy(which) {
     var item = which === "travel" ? energyTravelButton
-      : which === "quickDim" ? energyDimButton
-      : which === "cpu" ? reduceCpuCheck : null
+      : which === "quickDim" ? energyDimButton : null
     if (item && item.enabled) item.forceActiveFocus()
     return item && item.enabled ? item : null
   }
@@ -107,8 +105,6 @@ Column {
   function activateEnergyFocus() {
     if (energyTravelButton.activeFocus && energyTravelButton.enabled) energyTravelButton.clicked()
     else if (energyDimButton.activeFocus && energyDimButton.enabled) energyDimButton.clicked()
-    else if (reduceCpuCheck.activeFocus && reduceCpuCheck.enabled)
-      root.reduceCpuPerformance = !root.reduceCpuPerformance
   }
 
   function next() {
@@ -135,8 +131,6 @@ Column {
         try { parsed = JSON.parse(text) } catch (e) { return }
         if (proc.startedAt !== root.edits) return
         root.state = parsed
-        if (parsed.travel && parsed.travel.phase !== "off")
-          root.reduceCpuPerformance = !!parsed.travel.reduceCpu
       }
     }
     onExited: if (root.reloadAgain) {
@@ -471,10 +465,6 @@ Column {
     }
   }
 
-  readonly property bool cpuReductionAvailable:
-    !!(((root.travelStatus.controls || {}).profile || {}).available)
-    || !!(((root.travelStatus.controls || {}).turbo || {}).available)
-    || !!(((root.travelStatus.controls || {}).epp || {}).available)
   readonly property bool travelOwned: root.travelStatus.phase !== "off"
   readonly property bool travelRefreshActionable:
     !!(((root.travelStatus.controls || {}).refresh || {}).available)
@@ -482,7 +472,7 @@ Column {
   readonly property bool travelCanEnable:
     !!(((root.travelStatus.controls || {}).brightness || {}).available)
     || root.travelRefreshActionable
-    || (root.reduceCpuPerformance && root.cpuReductionAvailable)
+    || !!(((root.travelStatus.controls || {}).profile || {}).available)
   readonly property var quickDimStatus: root.state.quickDim || ({ on: false, available: false, error: "" })
 
   component SectionHeader: Item {
@@ -580,19 +570,6 @@ Column {
       value: ((root.travelControls.refresh || {}).detail || "60 Hz").replace("Laptop refresh capped at ", "")
       available: !!(root.travelControls.refresh || {}).available
     }
-    ValueRow {
-      label: "Reduce CPU"
-      help: "Uses power saver, turns off turbo and prefers energy saving. Heavy tasks may run slower."
-      available: root.cpuReductionAvailable
-      AccentSwitch {
-        id: reduceCpuCheck
-        checked: root.reduceCpuPerformance || !!root.travelStatus.reduceCpu
-        enabled: !root.travelOwned && !root.energyPending
-        foreground: root.fg
-        Accessible.name: "Reduce CPU performance"
-        onToggled: root.reduceCpuPerformance = !root.reduceCpuPerformance
-      }
-    }
     Text {
       width: parent.width
       visible: !root.travelOwned && !root.travelCanEnable
@@ -631,10 +608,7 @@ Column {
         Accessible.checked: root.travelStatus.phase === "on"
         Accessible.onPressAction: if (enabled) clicked()
         onClicked: {
-          var enable = !root.travelOwned
-          var args = ["travel", enable ? "on" : "off"]
-          if (enable && root.reduceCpuPerformance) args.push("--reduce-cpu")
-          root.call(args)
+          root.call(["travel", root.travelOwned ? "off" : "on"])
         }
       }
       PanelActionButton {

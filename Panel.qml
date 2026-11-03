@@ -36,13 +36,16 @@ Panel {
   readonly property bool charging: batStatus === "Charging"
 
   // Merge live UPower values with the polled extras (cycles, health).
+  // Watts and minutes prefer the 5 s sysfs poll: UPower reports no rate for
+  // ~90 s after unplug and then refreshes only every ~30 s.
   readonly property var b: ({
     present: root.batPresent,
     percent: root.batPct,
     status: root.batStatus,
-    watts: root.batPresent ? Math.abs(Number(dev.changeRate) || 0) : 0,
+    watts: root.batPresent ? (Number(service.battery.watts) || Math.abs(Number(dev.changeRate) || 0)) : 0,
     minutes: root.batPresent
-      ? Math.round((root.charging ? (Number(dev.timeToFull) || 0) : (Number(dev.timeToEmpty) || 0)) / 60)
+      ? ((service.battery.status === root.batStatus && Number(service.battery.minutes))
+         || Math.round((root.charging ? (Number(dev.timeToFull) || 0) : (Number(dev.timeToEmpty) || 0)) / 60))
       : 0,
     fraction: root.batPresent ? Math.max(0, Math.min(1, dev.percentage)) : 0,
     acOnline: Number(service.battery.acOnline) === 1 ? 1 : 0,
@@ -56,19 +59,31 @@ Panel {
   readonly property var sleepData: service.sleep
   readonly property var wifiFix: service.wifiFix
   property bool historyOpen: false
+  readonly property color healthColor: Model.healthTier(b.health) === "replace" ? root.urgent
+    : Model.healthTier(b.health) === "worn" ? planSection.yellow : root.fg
   property var historyPts: []
 
-  readonly property bool alwaysShowPercentage: setting("alwaysShowPercentage", false) === true
   readonly property bool vertical: bar ? bar.vertical : false
-  readonly property bool showBarPercent: !vertical && (alwaysShowPercentage || !b.acOnline)
+  // "On battery" follows UPower's live state, not the polled ACAD flag: a
+  // bus-powered USB-C monitor keeps ACAD online after unplug.
+  readonly property bool showBarPercent: !vertical && Model.showBarPercent(batStatus, {
+    showOnBattery: setting("showPercentageOnBattery", true) === true,
+    showOnAc: setting("alwaysShowPercentage", false) === true
+  })
 
-  implicitWidth: button.implicitWidth
-  implicitHeight: button.implicitHeight
+  implicitWidth: barButton.implicitWidth
+  implicitHeight: barButton.implicitHeight
 
+  // Right-click hides or shows the percentage for the current power state only.
   function togglePercentage() {
-    root.settings = Object.assign({}, root.settings, { alwaysShowPercentage: !root.alwaysShowPercentage })
+    var patch = {}
+    patch[Model.barPercentKey(root.batStatus)] = !root.showBarPercent
+    root.settings = Object.assign({}, root.settings, patch)
     if (bar && bar.shell && bar.shell.updateEntryInline) bar.shell.updateEntryInline(moduleName, root.settings)
   }
+
+  // Repoll as soon as UPower sees the adapter change, so time and watts follow within a second.
+  onBatStatusChanged: service.refresh()
 
   function focusEnergy(which) {
     var item = planSection.focusEnergy(which)
@@ -131,28 +146,45 @@ Panel {
     function refresh(): string { service.refresh(); return "ok" }
   }
 
+  readonly property string barTooltip: root.b.present
+    ? ("Battery " + root.b.percent + "%"
+       + (root.b.status === "Discharging" ? "  ·  " + Model.fmtWatts(root.b.watts) : "")
+       + (root.b.status === "Discharging" ? "  ·  " + Model.fmtDuration(root.b.minutes) + " remaining" : ""))
+    : "Plugged in"
+  readonly property Item barButton: root.showBarPercent ? percentButton : button
+
+  function barPressed(btn) {
+    if (btn === Qt.RightButton) root.togglePercentage()
+    else root.toggle()
+  }
+
+  // Icon only: BarIconButton keeps the glyph optically centred in the standard slot.
   BarIconButton {
     id: button
+    visible: !root.showBarPercent
     anchors.fill: parent
     bar: root.bar
-    text: root.showBarPercent
-      ? (Model.batteryIcon(root.b.percent, root.b.status) + "  " + root.b.percent + "%")
-      : Model.batteryIcon(root.b.percent, root.b.status)
-    slotSize: Style.bar.iconSlot * (root.showBarPercent ? 2.3 : 1)
-    tooltipText: root.b.present
-      ? ("Battery " + root.b.percent + "%"
-         + (root.b.status === "Discharging" ? "  ·  " + Model.fmtWatts(root.b.watts) : "")
-         + (root.b.status === "Discharging" ? "  ·  " + Model.fmtDuration(root.b.minutes) + " left" : ""))
-      : "Plugged in"
-    onPressed: function(btn) {
-      if (btn === Qt.RightButton) root.togglePercentage()
-      else root.toggle()
-    }
+    text: Model.batteryIcon(root.b.percent, root.b.status)
+    tooltipText: root.barTooltip
+    onPressed: function(btn) { root.barPressed(btn) }
+  }
+
+  // With the percentage: a plain label, one space after the glyph, like the
+  // bar's other battery readouts. BarIconButton would centre the whole string
+  // as one oversized glyph in a fixed-width slot.
+  WidgetButton {
+    id: percentButton
+    visible: root.showBarPercent
+    anchors.fill: parent
+    bar: root.bar
+    text: Model.batteryIcon(root.b.percent, root.b.status) + " " + root.b.percent + "%"
+    tooltipText: root.barTooltip
+    onPressed: function(btn) { root.barPressed(btn) }
   }
 
   KeyboardPanel {
     id: panel
-    anchorItem: button
+    anchorItem: root.barButton
     owner: root
     bar: root.bar
     open: root.opened
@@ -177,7 +209,6 @@ Panel {
         if (t === "r" || t === "R") service.refresh()
         else if (t === "t" || t === "T") root.focusEnergy("travel")
         else if (t === "d" || t === "D") root.focusEnergy("quickDim")
-        else if (t === "c" || t === "C") root.focusEnergy("cpu")
       }
       onActivateRequested: planSection.activateEnergyFocus()
 
@@ -217,29 +248,73 @@ Panel {
           spacing: Style.space(14)
 
           // ---------- Hero ----------
-          PanelHero {
+          // Same geometry as qs.Ui.PanelHero, whose meta line is one dimmed plain
+          // label; this one dims the state and highlights the time.
+          Item {
+            id: hero
             width: parent.width
-            title: "Battery"
-            meta: Model.modeLabel(root.b)
-            foreground: root.fg
-            fontFamily: root.fontFamily
-            iconComponent: Component {
-              Text {
-                text: Model.batteryIcon(root.b.percent, root.b.status)
-                color: root.charging ? root.fg : (root.b.percent <= 10 ? root.urgent : root.fg)
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.display
-                Behavior on color { ColorAnimation { duration: 200 } }
-              }
+            readonly property var mode: Model.modeParts(root.b)
+            implicitHeight: Math.max(heroIcon.implicitHeight, heroLabels.implicitHeight, heroPct.implicitHeight)
+
+            Text {
+              id: heroIcon
+              anchors.left: parent.left
+              anchors.verticalCenter: parent.verticalCenter
+              text: Model.batteryIcon(root.b.percent, root.b.status)
+              color: root.charging ? root.fg : (root.b.percent <= 10 ? root.urgent : root.fg)
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.display
+              Behavior on color { ColorAnimation { duration: 200 } }
             }
-            trailingControl: Component {
+
+            Column {
+              id: heroLabels
+              anchors.left: heroIcon.right
+              anchors.leftMargin: Style.space(14)
+              anchors.right: heroPct.left
+              anchors.rightMargin: Style.space(12)
+              anchors.verticalCenter: parent.verticalCenter
+              spacing: Style.space(2)
+
               Text {
-                text: (root.b.percent || 0) + "%"
+                text: "Battery"
                 color: root.fg
                 font.family: root.fontFamily
-                font.pixelSize: Style.font.displayLarge
+                font.pixelSize: Style.font.title
                 font.bold: true
               }
+              Row {
+                width: parent.width
+                clip: true
+                Text {
+                  text: hero.mode.state + (hero.mode.time ? " · " : "")
+                  color: Qt.darker(root.fg, 1.4)
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                  font.bold: true
+                  font.letterSpacing: 1.2
+                }
+                Text {
+                  visible: text !== ""
+                  text: hero.mode.time.toUpperCase()
+                  color: root.fg
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                  font.bold: true
+                  font.letterSpacing: 1.2
+                }
+              }
+            }
+
+            Text {
+              id: heroPct
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              text: (root.b.percent || 0) + "%"
+              color: root.fg
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.displayLarge
+              font.bold: true
             }
           }
 
@@ -319,28 +394,35 @@ Panel {
             }
           }
 
-          // ---------- Stats grid ----------
+          // ---------- Live power (only while energy is flowing) ----------
+          StatRow {
+            visible: value !== ""
+            label: root.charging ? "Charging at" : "Power draw"
+            value: Model.drawValue(root.b)
+          }
+
+          // ---------- Battery health tiles ----------
           Grid {
-            id: statsGrid
             width: parent.width
             columns: 2
-            columnSpacing: Style.space(16)
-            rowSpacing: Style.spacing.sm
+            columnSpacing: Style.space(6)
+            rowSpacing: Style.space(6)
 
-            StatPair {
-              label: root.b.status === "Charging" ? "To full" : "Time left"
-              value: root.b.status === "Discharging" || root.b.status === "Charging"
-                ? Model.fmtDuration(root.b.minutes) : "—"
-            }
-            StatPair {
-              label: "Power draw"
-              value: Model.drawValue(root.b)
-            }
-            StatPair { label: "Health"; value: (root.b.health || 0) + "%" }
-            StatPair { label: "Cycles"; value: String(root.b.cycles || "—") }
-            StatPair {
+            StatTile {
               label: "Capacity"
-              value: Number(root.b.whFull).toFixed(1) + "/" + Number(root.b.whDesign).toFixed(1) + " Wh"
+              value: root.b.whDesign > 0
+                ? Number(root.b.whFull).toFixed(1) + " / " + Number(root.b.whDesign).toFixed(1) + " Wh" : "—"
+              valueColor: root.healthColor
+            }
+            StatTile {
+              label: "Charge limit"
+              value: Model.chargeLimitLabel(planSection.state.charge, !!planSection.state.boost)
+            }
+            StatTile { label: "Charge cycles"; value: root.b.cycles ? String(root.b.cycles) : "—" }
+            StatTile {
+              label: "Health"
+              value: root.b.health ? root.b.health + "%" : "—"
+              valueColor: root.healthColor
             }
           }
 
@@ -694,6 +776,70 @@ Panel {
       font.family: root.fontFamily
       font.pixelSize: Style.font.body
       font.bold: true
+    }
+  }
+
+  component StatRow: Item {
+    id: sr
+    property string label: ""
+    property string value: ""
+    width: parent ? parent.width : implicitWidth
+    implicitHeight: srValue.implicitHeight
+
+    Text {
+      anchors.left: parent.left
+      anchors.verticalCenter: parent.verticalCenter
+      text: sr.label
+      color: root.dim
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.bodySmall
+    }
+    Text {
+      id: srValue
+      anchors.right: parent.right
+      text: sr.value
+      color: root.fg
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.body
+      font.bold: true
+    }
+  }
+
+  component StatTile: Rectangle {
+    id: tile
+    property string label: ""
+    property string value: ""
+    property color valueColor: root.fg
+    width: parent ? (parent.width - (parent.columnSpacing || 0)) / 2 : implicitWidth
+    implicitHeight: tileCol.implicitHeight + Style.space(16)
+    radius: Style.cornerRadius
+    color: Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.04)
+
+    Column {
+      id: tileCol
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.leftMargin: Style.space(10)
+      anchors.rightMargin: Style.space(10)
+      spacing: Style.space(2)
+      Text {
+        width: parent.width
+        text: tile.label
+        color: root.dim
+        elide: Text.ElideRight
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+      }
+      Text {
+        width: parent.width
+        text: tile.value
+        color: tile.valueColor
+        elide: Text.ElideRight
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.body
+        font.bold: true
+      }
     }
   }
 

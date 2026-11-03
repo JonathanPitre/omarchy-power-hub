@@ -24,11 +24,11 @@ class CopyGlossaryTests(unittest.TestCase):
     def test_hero_and_tooltip_use_glossary(self):
         model = (ROOT / "Model.js").read_text()
         panel = (ROOT / "Panel.qml").read_text()
-        self.assertIn('return "PLUGGED IN · CHARGING"', model)
-        self.assertIn('return "PLUGGED IN · DISCHARGING"', model)
-        self.assertIn('return "PLUGGED IN · NOT CHARGING"', model)
-        self.assertIn('return "PLUGGED IN";', model)
-        self.assertIn('return "BATTERY · DISCHARGING"', model)
+        self.assertIn('{ state: "PLUGGED IN · CHARGING", time: "" }', model)
+        self.assertIn('{ state: "PLUGGED IN · DISCHARGING", time: "" }', model)
+        self.assertIn('{ state: "PLUGGED IN · NOT CHARGING", time: "" }', model)
+        self.assertIn('{ state: "PLUGGED IN", time: "" }', model)
+        self.assertIn('{ state: "BATTERY · DISCHARGING", time: "" }', model)
         self.assertNotIn("ON AC", model)
         self.assertNotIn("ON BATTERY", model)
         self.assertIn(': "Plugged in"', panel)
@@ -52,10 +52,16 @@ class PowerPanelCleanupTests(unittest.TestCase):
         self.assertNotIn("function drawLabel(b)", model)
         self.assertNotIn("function ecLabel(raw)", model)
 
+    def test_panel_time_and_watts_prefer_sysfs_poll(self):
+        # UPower has no rate for ~90 s after unplug and refreshes every ~30 s.
+        panel = (ROOT / "Panel.qml").read_text()
+        self.assertIn("Number(service.battery.watts) || Math.abs(Number(dev.changeRate)", panel)
+        self.assertIn("service.battery.status === root.batStatus && Number(service.battery.minutes)", panel)
+
     def test_panel_battery_usage_not_sparkline(self):
         panel = (ROOT / "Panel.qml").read_text()
         self.assertIn('text: "BATTERY USAGE"', panel)
-        self.assertIn('label: "Power draw"', panel)
+        self.assertIn('label: root.charging ? "Charging at" : "Power draw"', panel)
         self.assertIn("property bool historyOpen: false", panel)
         self.assertIn("Model.drawValue", panel)
         self.assertIn("battery-history", panel)

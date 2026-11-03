@@ -30,6 +30,35 @@ class ModelJsTests(unittest.TestCase):
             pathlib.Path(path).unlink(missing_ok=True)
         return json.loads(out)
 
+    def test_battery_icon_shows_full_only_at_100(self):
+        body = r'''
+          console.log(JSON.stringify({
+            d95: batteryIcon(95, "Discharging") === DISCHARGE[8],
+            d100: batteryIcon(100, "Discharging") === DISCHARGE[9],
+            c95: batteryIcon(95, "Charging") === CHARGE[8],
+            d15: batteryIcon(15, "Discharging") === DISCHARGE[0],
+            d25: batteryIcon(25, "Discharging") === DISCHARGE[1],
+            alert: batteryIcon(8, "Discharging") === ALERT_ICON,
+            full: batteryIcon(97, "Full") === FULL_ICON
+          }));
+        '''
+        self.assertEqual(self._run(body), {"d95": True, "d100": True, "c95": True, "d15": True,
+                                           "d25": True, "alert": True, "full": True})
+
+    def test_bar_percent_toggles_on_battery_too(self):
+        body = r'''
+          var on = { showOnBattery: true, showOnAc: false };
+          console.log(JSON.stringify({
+            battery: barPercentKey("Discharging"),
+            ac: barPercentKey("Charging"),
+            shownOnBattery: showBarPercent("Discharging", on),
+            hiddenOnAc: showBarPercent("Full", on),
+            hiddenOnBattery: showBarPercent("Discharging", { showOnBattery: false, showOnAc: false })
+          }));
+        '''
+        self.assertEqual(self._run(body), {"battery": "showPercentageOnBattery", "ac": "alwaysShowPercentage",
+            "shownOnBattery": True, "hiddenOnAc": False, "hiddenOnBattery": False})
+
     def test_draw_value_discharging_charging_idle(self):
         body = r'''
           console.log(JSON.stringify({
@@ -41,9 +70,63 @@ class ModelJsTests(unittest.TestCase):
         '''
         r = self._run(body)
         self.assertEqual(r["dis"], "12.3 W")
-        self.assertEqual(r["chg"], "—")
-        self.assertEqual(r["idle"], "—")
-        self.assertEqual(r["none"], "—")
+        self.assertEqual(r["chg"], "20.0 W")
+        self.assertEqual(r["idle"], "")
+        self.assertEqual(r["none"], "")
+
+    def test_mode_label_carries_time(self):
+        body = r'''
+          console.log(JSON.stringify({
+            bat: modeLabel({ present: true, status: "Discharging", minutes: 228, percent: 62 }),
+            chg: modeLabel({ present: true, status: "Charging", minutes: 65, acOnline: 1, percent: 47 }),
+            full: modeLabel({ present: true, status: "Full", acOnline: 1, percent: 100 }),
+            hold: modeLabel({ present: true, status: "Not charging", acOnline: 1, percent: 80 }),
+            est: modeLabel({ present: true, status: "Charging", minutes: 0, acOnline: 1, percent: 47 }),
+            busPowered: modeLabel({ present: true, status: "Discharging", minutes: 294, acOnline: 1, percent: 100 })
+          }));
+        '''
+        r = self._run(body)
+        self.assertEqual(r["bat"], "BATTERY · 3h 48m REMAINING")
+        self.assertEqual(r["chg"], "CHARGING · FULL IN 1h 05m")
+        self.assertEqual(r["full"], "FULLY CHARGED")
+        self.assertEqual(r["hold"], "PLUGGED IN · NOT CHARGING")
+        self.assertEqual(r["est"], "PLUGGED IN · CHARGING")
+        # A bus-powered USB-C monitor keeps ACAD online after the adapter is unplugged.
+        self.assertEqual(r["busPowered"], "DISCHARGING · 4h 54m REMAINING")
+
+    def test_mode_parts_split_state_and_time(self):
+        body = r'''
+          console.log(JSON.stringify([
+            modeParts({ present: true, status: "Charging", minutes: 15, acOnline: 1, percent: 95 }),
+            modeParts({ present: true, status: "Discharging", minutes: 272, percent: 92 }),
+            modeParts({ present: true, status: "Full", acOnline: 1, percent: 100 })
+          ]));
+        '''
+        self.assertEqual(self._run(body), [
+            {"state": "CHARGING", "time": "FULL IN 15m"},
+            {"state": "BATTERY", "time": "4h 32m REMAINING"},
+            {"state": "FULLY CHARGED", "time": ""}])
+
+    def test_health_tier(self):
+        body = r'''
+          console.log(JSON.stringify([healthTier(93), healthTier(80), healthTier(79), healthTier(60), healthTier(59), healthTier(0)]));
+        '''
+        self.assertEqual(self._run(body), ["", "", "worn", "worn", "replace", ""])
+
+    def test_charge_limit_label(self):
+        body = r'''
+          console.log(JSON.stringify({
+            fw: chargeLimitLabel({ kind: "framework", tool: true, limit: 80 }, false),
+            fwMissing: chargeLimitLabel({ kind: "framework", tool: false, limit: null }, false),
+            boost: chargeLimitLabel({ kind: "framework", tool: true, limit: 80 }, true),
+            off: chargeLimitLabel({ kind: "upower", health: false, policy: "80" }, false),
+            range: chargeLimitLabel({ kind: "upower", health: true, policy: "75-80" }, false),
+            auto: chargeLimitLabel({ kind: "upower", health: true, policy: "firmware" }, false),
+            none: chargeLimitLabel(undefined, false)
+          }));
+        '''
+        self.assertEqual(self._run(body), {"fw": "80%", "fwMissing": "—", "boost": "100% (boost)",
+            "off": "Off", "range": "80%", "auto": "Auto", "none": "—"})
 
     def test_history_bars_empty_are_unknown(self):
         body = r'''
