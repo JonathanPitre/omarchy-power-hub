@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell.Io
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "Model.js" as Model
 
@@ -10,8 +11,22 @@ Column {
   id: root
   spacing: Style.space(10)
 
-  property color fg: Color.foreground
+  property color fg: Commons.Color.foreground
   property color dim: Qt.darker(fg, 1.5)
+  // Commons.Color drops the theme's yellow, so read it from colors.toml.
+  property string themeColors: ""
+  readonly property color yellow: (themeColors.match(/^\s*(?:yellow|color3)\s*=\s*["']?(#[0-9A-Fa-f]{6})/m) || [, fg])[1]
+  FileView {
+    id: themeColorsFile
+    path: Commons.Color.currentThemePath + "/colors.toml"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.themeColors = text()
+  }
+  // Theme switches arrive over IPC, so re-read when the accent changes.
+  readonly property color themeAccent: Commons.Color.accent
+  onThemeAccentChanged: themeColorsFile.reload()
   property string fontFamily: Style.font.family
   property var state: ({})
   property bool opened: false
@@ -263,7 +278,7 @@ Column {
           Layout.preferredWidth: Style.space(16)
           horizontalAlignment: Text.AlignHCenter
           text: Model.kindIcon(modelData.kind)
-          color: modelData.percent <= 10 ? Color.urgent : root.fg
+          color: modelData.percent <= 10 ? Commons.Color.urgent : root.fg
           font.family: root.fontFamily
           font.pixelSize: Style.font.body
         }
@@ -271,7 +286,7 @@ Column {
           Layout.fillWidth: true
           elide: Text.ElideRight
           text: modelData.name
-          color: modelData.percent <= 10 ? Color.urgent : root.fg
+          color: modelData.percent <= 10 ? Commons.Color.urgent : root.fg
           font.family: root.fontFamily
           font.pixelSize: Style.font.bodySmall
         }
@@ -288,7 +303,7 @@ Column {
               width: parent.width * (modelData.percent / 100)
               height: parent.height
               radius: 3
-              color: modelData.percent <= 10 ? Color.urgent : root.fg
+              color: modelData.percent <= 10 ? Commons.Color.urgent : root.fg
             }
           }
         }
@@ -296,7 +311,7 @@ Column {
           Layout.preferredWidth: percentMetrics.width
           horizontalAlignment: Text.AlignRight
           text: modelData.percent + "%"
-          color: modelData.percent <= 10 ? Color.urgent : root.fg
+          color: modelData.percent <= 10 ? Commons.Color.urgent : root.fg
           font.family: root.fontFamily
           font.pixelSize: Style.font.bodySmall
         }
@@ -304,7 +319,7 @@ Column {
           Layout.preferredWidth: Style.space(16)
           horizontalAlignment: Text.AlignHCenter
           text: Model.batteryIcon(modelData.percent, modelData.status)
-          color: modelData.percent <= 10 ? Color.urgent : root.fg
+          color: modelData.percent <= 10 ? Commons.Color.urgent : root.fg
           font.family: root.fontFamily
           font.pixelSize: Style.font.body
         }
@@ -472,7 +487,7 @@ Column {
         font.family: root.fontFamily
         font.pixelSize: Style.font.body
       }
-      Button {
+      AccentButton {
         id: allowBtn
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
@@ -489,7 +504,7 @@ Column {
         anchors.left: parent.left
         anchors.verticalCenter: parent.verticalCenter
         spacing: Style.space(8)
-        Button {
+        AccentButton {
           width: chargeRow.side
           height: chargeRow.side
           text: "−"
@@ -511,7 +526,7 @@ Column {
           font.pixelSize: Style.font.heading
           font.bold: true
         }
-        Button {
+        AccentButton {
           width: chargeRow.side
           height: chargeRow.side
           text: "+"
@@ -524,19 +539,38 @@ Column {
           onClicked: root.call(["charge", String(Math.min(100, Number(chargeRow.c.limit) + 10))])
         }
       }
-      Button {
+      AccentButton {
         visible: chargeRow.ready
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
         width: Style.space(128)
         height: chargeRow.side
-        iconText: ""
-        text: chargeRow.boosting ? "Boosting" : "Boost"
+        id: boostButton
         bordered: true
         selected: chargeRow.boosting
         foreground: root.fg
         fontFamily: root.fontFamily
         onClicked: root.call(["boost", chargeRow.boosting ? "off" : "on"])
+        // Ui.Button tints its icon like the label; the bolt keeps the theme yellow.
+        Row {
+          anchors.centerIn: parent
+          spacing: Style.spacing.controlGap
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            text: ""
+            color: root.yellow
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.icon
+          }
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            text: chargeRow.boosting ? "Boosting" : "Boost"
+            color: boostButton.selected ? boostButton._selectedColor : root.fg
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.body
+            font.bold: boostButton.selected
+          }
+        }
       }
     }
     Text {
@@ -560,7 +594,7 @@ Column {
         return c.health ? "Battery health on" : "Charge to 100% for travel"
       }
     }
-    Button {
+    AccentButton {
       visible: (root.state.charge || {}).kind === "upower"
       text: (root.state.charge || {}).health ? "Battery health on" : "Battery health"
       bordered: true
@@ -589,8 +623,8 @@ Column {
     width: parent.width
     height: travelCard.implicitHeight + Style.space(24)
     radius: Style.cornerRadius
-    color: Style.normalFillFor(root.fg, Color.accent)
-    borderSpec: Border.controlSpec("normal", root.fg, Color.accent)
+    color: Style.normalFillFor(root.fg, Commons.Color.accent)
+    borderSpec: Border.controlSpec("normal", root.fg, Commons.Color.accent)
     Column {
       id: travelCard
       anchors.left: parent.left
@@ -613,7 +647,7 @@ Column {
           id: travelStateLabel
           text: root.travelStatus.phase === "on" ? "On"
             : root.travelStatus.phase === "incomplete" ? "Incomplete" : "Off"
-          color: root.travelStatus.phase === "incomplete" ? Color.urgent : root.fg
+          color: root.travelStatus.phase === "incomplete" ? Commons.Color.urgent : root.fg
           font.family: root.fontFamily
           font.pixelSize: Style.font.body
         }
@@ -681,8 +715,8 @@ Column {
           y: (reduceCpuCheck.height - height) / 2
           width: Style.space(18)
           height: Style.space(18)
-          color: Style.normalFillFor(root.fg, Color.accent)
-          borderSpec: Border.controlSpec("normal", root.fg, Color.accent)
+          color: Style.normalFillFor(root.fg, Commons.Color.accent)
+          borderSpec: Border.controlSpec("normal", root.fg, Commons.Color.accent)
           radius: Style.cornerRadius
           Text {
             anchors.centerIn: parent
@@ -742,7 +776,7 @@ Column {
         font.pixelSize: Style.font.bodySmall
         wrapMode: Text.WordWrap
       }
-      Button {
+      AccentButton {
         id: energyTravelButton
         width: parent.width
         text: root.energyPending ? (root.energyRestoring ? "Restoring…" : "Applying…")
@@ -774,7 +808,7 @@ Column {
         width: parent.width
         visible: (root.energyErrorAction === "travel" && root.energyError !== "") || root.travelStatus.error !== ""
         text: root.energyErrorAction === "travel" && root.energyError !== "" ? root.energyError : (root.travelStatus.error || "")
-        color: Color.urgent
+        color: Commons.Color.urgent
         font.family: root.fontFamily
         font.pixelSize: Style.font.bodySmall
         wrapMode: Text.WordWrap
@@ -810,13 +844,13 @@ Column {
         width: parent.width
         visible: (root.energyErrorAction === "quick-dim" && root.energyError !== "") || root.quickDimStatus.error !== ""
         text: root.energyErrorAction === "quick-dim" && root.energyError !== "" ? root.energyError : root.quickDimStatus.error
-        color: Color.urgent
+        color: Commons.Color.urgent
         font.family: root.fontFamily
         font.pixelSize: Style.font.bodySmall
         wrapMode: Text.WordWrap
       }
     }
-    Button {
+    AccentButton {
       id: energyDimButton
       text: root.quickDimStatus.on ? "Restore brightness" : "Dim screen"
       focusable: true
