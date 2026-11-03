@@ -9,9 +9,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "bin"))
 import ops  # noqa: E402
 
 
-def pci_dev(root, addr, cls="0x030000", boot_vga=None, runtime="active"):
+def pci_dev(root, addr, cls="0x030000", boot_vga=None, runtime="active", driver=None):
     d = root / "bus" / "pci" / "devices" / addr
     (d / "power").mkdir(parents=True)
+    if driver:
+        (root / "bus" / "pci" / "drivers" / driver).mkdir(parents=True, exist_ok=True)
+        (d / "driver").symlink_to(root / "bus" / "pci" / "drivers" / driver)
     (d / "class").write_text(cls + "\n")
     (d / "power" / "runtime_status").write_text(runtime + "\n")
     if boot_vga is not None:
@@ -33,12 +36,22 @@ class GpuStatusTests(unittest.TestCase):
 
     def test_active_discrete_gpu_is_awake(self):
         pci_dev(self.root, "0000:c1:00.0", boot_vga="1", runtime="suspended")
-        pci_dev(self.root, "0000:c2:00.0", cls="0x030200", boot_vga="0")
+        pci_dev(self.root, "0000:c2:00.0", boot_vga="0")
         self.assertEqual(ops.gpu_status(self.root), {"present": True, "asleep": False})
+
+    def test_optimus_3d_controller_without_boot_vga_is_found(self):
+        pci_dev(self.root, "0000:00:02.0", boot_vga="1")
+        pci_dev(self.root, "0000:01:00.0", cls="0x030200", runtime="suspended", driver="nvidia")
+        self.assertEqual(ops.gpu_status(self.root), {"present": True, "asleep": True})
+
+    def test_nvidia_boot_gpu_is_skipped(self):
+        pci_dev(self.root, "0000:01:00.0", boot_vga="1", driver="nvidia")
+        pci_dev(self.root, "0000:02:00.0", cls="0x030200", runtime="suspended", driver="nvidia")
+        self.assertEqual(ops.gpu_status(self.root), {"present": True, "asleep": True})
 
     def test_integrated_only_is_absent(self):
         pci_dev(self.root, "0000:00:02.0", boot_vga="1")
-        pci_dev(self.root, "0000:00:03.0")
+        pci_dev(self.root, "0000:00:03.0", cls="0x038000", driver="amdgpu")
         pci_dev(self.root, "0000:01:00.0", cls="0x020000", boot_vga="0")
         self.assertFalse(ops.gpu_status(self.root)["present"])
 
