@@ -58,6 +58,20 @@ class PowerPanelCleanupTests(unittest.TestCase):
         self.assertIn("Number(service.battery.watts) || Math.abs(Number(dev.changeRate)", panel)
         self.assertIn("service.battery.status === root.batStatus && Number(service.battery.minutes)", panel)
 
+    def test_travel_labels_and_auto_off_on_plug_in(self):
+        plan = (ROOT / "PlanSection.qml").read_text()
+        self.assertIn('label: "Max brightness"', plan)
+        self.assertIn('label: "Max refresh rate"', plan)
+        service = (ROOT / "Service.qml").read_text()
+        self.assertIn("root.lastBatteryState === UPowerDeviceState.Discharging", service)
+        self.assertIn('command: ["python3", root.ops, "travel", "off"]', service)
+
+    def test_panel_holds_estimate_after_plug_or_unplug(self):
+        panel = (ROOT / "Panel.qml").read_text()
+        self.assertIn("estimating: root.estimating", panel)
+        self.assertIn("interval: 30000; onTriggered: root.estimating = false", panel)
+        self.assertIn('if (root.lastStatus !== "Unknown")', panel)
+
     def test_panel_battery_usage_not_sparkline(self):
         panel = (ROOT / "Panel.qml").read_text()
         self.assertIn('text: "BATTERY USAGE"', panel)

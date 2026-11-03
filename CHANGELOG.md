@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.51] - 2026-11-04
+
+### Changed
+
+- Plugging the adapter back in turns Travel mode off. It keys on the battery
+  leaving Discharging, so a bus-powered USB-C monitor that keeps AC online
+  does not matter, and a Travel session started while plugged in stays on.
+  Travel does not come back on by itself when you unplug again.
+- Travel mode rows read Max brightness and Max refresh rate instead of
+  Brightness cap and Refresh cap.
+
+### Fixed
+
+- Right after unplugging, the time remaining read hours too long (7 h
+  instead of 2.5 h) and then fell. The embedded controller smooths battery
+  current over about 8 s, so a 28 W load first reads 10 W. For 30 s after a
+  plug or unplug the status line now reads `CALCULATING…`, and the bar
+  tooltip says calculating.
+- A disabled Dim screen button still looked live: with Quick dim on and
+  Travel mode then enabled, `Restore` kept its selected fill and full label.
+  Disabled buttons now grey out completely.
+
 ## [0.0.50] - 2026-11-04
 
 ### Changed

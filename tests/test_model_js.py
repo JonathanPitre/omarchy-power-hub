@@ -107,6 +107,21 @@ class ModelJsTests(unittest.TestCase):
             {"state": "BATTERY", "time": "4h 32m REMAINING"},
             {"state": "FULLY CHARGED", "time": ""}])
 
+    def test_mode_parts_calculating_while_reading_settles(self):
+        # The EC smooths current_now (~8 s): 30 s after unplug a 28 W load first reads
+        # 9.9 W, so the first estimate was 431 min instead of ~150.
+        body = r'''
+          console.log(JSON.stringify([
+            modeParts({ present: true, status: "Discharging", minutes: 431, percent: 92, estimating: true }),
+            modeParts({ present: true, status: "Charging", minutes: 526, acOnline: 1, percent: 92, estimating: true }),
+            modeParts({ present: true, status: "Discharging", minutes: 150, percent: 92, estimating: false })
+          ]));
+        '''
+        self.assertEqual(self._run(body), [
+            {"state": "BATTERY", "time": "CALCULATING…"},
+            {"state": "CHARGING", "time": "CALCULATING…"},
+            {"state": "BATTERY", "time": "2h 30m REMAINING"}])
+
     def test_health_tier(self):
         body = r'''
           console.log(JSON.stringify([healthTier(93), healthTier(80), healthTier(79), healthTier(60), healthTier(59), healthTier(0)]));

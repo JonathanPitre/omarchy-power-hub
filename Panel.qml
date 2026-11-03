@@ -52,8 +52,13 @@ Panel {
     health: Number(service.battery.health) || 0,
     whFull: Number(service.battery.whFull) || 0,
     whDesign: Number(service.battery.whDesign) || 0,
-    cycles: Number(service.battery.cycles) || 0
+    cycles: Number(service.battery.cycles) || 0,
+    estimating: root.estimating
   })
+  // The EC smooths battery current over ~8 s, so for ~25 s after a plug or unplug
+  // the power reads low and the time estimate hours long. Hold the estimate back.
+  property bool estimating: false
+  Timer { id: settleTimer; interval: 30000; onTriggered: root.estimating = false }
   readonly property var tlp: service.tlp
   readonly property var tweaks: service.tweaks
   readonly property var sleepData: service.sleep
@@ -83,7 +88,16 @@ Panel {
   }
 
   // Repoll as soon as UPower sees the adapter change, so time and watts follow within a second.
-  onBatStatusChanged: service.refresh()
+  property string lastStatus: "Unknown"
+  onBatStatusChanged: {
+    // Not on the first known status at shell start: the reading has long settled.
+    if (root.lastStatus !== "Unknown") {
+      root.estimating = true
+      settleTimer.restart()
+    }
+    root.lastStatus = root.batStatus
+    service.refresh()
+  }
 
   function focusEnergy(which) {
     var item = planSection.focusEnergy(which)
@@ -149,7 +163,8 @@ Panel {
   readonly property string barTooltip: root.b.present
     ? ("Battery " + root.b.percent + "%"
        + (root.b.status === "Discharging" ? "  ·  " + Model.fmtWatts(root.b.watts) : "")
-       + (root.b.status === "Discharging" ? "  ·  " + Model.fmtDuration(root.b.minutes) + " remaining" : ""))
+       + (root.b.status === "Discharging"
+          ? "  ·  " + (root.estimating ? "calculating…" : Model.fmtDuration(root.b.minutes) + " remaining") : ""))
     : "Plugged in"
   readonly property Item barButton: root.showBarPercent ? percentButton : button
 

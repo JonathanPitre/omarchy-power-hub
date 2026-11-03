@@ -9,4 +9,6 @@ Button {
   borderSpec: _showFocusRing ? _focusBorderSpec
     : enabled && (hot || selected || active) ? Border.flat(accent, Math.max(1, Style.normalBorderWidth))
     : _normalBorderSpec
+  // Disabled greys out the whole button, a selected fill included.
+  opacity: enabled ? 1 : 0.35
 }

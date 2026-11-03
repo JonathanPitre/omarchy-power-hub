@@ -37,7 +37,8 @@ off to restore the captured brightness and display mode; if a device cannot
 be restored, the panel keeps the restore state and offers a retry.
 
 Travel mode also switches to Power saver and restores your normal power mode
-when turned off. On AMD that profile already turns CPU boost off and prefers
+when turned off. Plugging the adapter back in turns Travel mode off; it does
+not come back on when you unplug again. On AMD that profile already turns CPU boost off and prefers
 energy saving. Heavy work may run slower. Without power-profiles-daemon only
 the display is changed.
 

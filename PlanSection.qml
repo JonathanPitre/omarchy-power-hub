@@ -359,7 +359,6 @@ Column {
           text: "−"
           bordered: true
           enabled: !chargeRow.boosting && chargeRow.c.limit > 40
-          opacity: enabled ? 1 : 0.35
           foreground: root.fg
           fontFamily: root.fontFamily
           fontSize: Style.font.title
@@ -381,7 +380,6 @@ Column {
           text: "+"
           bordered: true
           enabled: !chargeRow.boosting && chargeRow.c.limit < 100
-          opacity: enabled ? 1 : 0.35
           foreground: root.fg
           fontFamily: root.fontFamily
           fontSize: Style.font.title
@@ -561,12 +559,12 @@ Column {
       help: "Work longer away from an outlet. Wi-Fi, peripherals and GPU mode stay unchanged. Turning it off restores your settings."
     }
     ValueRow {
-      label: "Brightness cap"
+      label: "Max brightness"
       value: "40%"
       available: !!(root.travelControls.brightness || {}).available
     }
     ValueRow {
-      label: "Refresh cap"
+      label: "Max refresh rate"
       value: ((root.travelControls.refresh || {}).detail || "60 Hz").replace("Laptop refresh capped at ", "")
       available: !!(root.travelControls.refresh || {}).available
     }
@@ -597,7 +595,7 @@ Column {
         enabled: root.travelOwned ? !root.energyPending
           : !root.energyPending && root.travelCanEnable
         selected: root.travelStatus.phase === "on"
-        foreground: enabled ? root.fg : Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.62)
+        foreground: root.fg
         fontFamily: root.fontFamily
         Accessible.role: Accessible.Button
         Accessible.name: text
@@ -635,7 +633,7 @@ Column {
         focusable: true
         enabled: !root.energyPending && !root.travelOwned && root.quickDimStatus.available
         selected: root.quickDimStatus.on
-        foreground: enabled ? root.fg : Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.62)
+        foreground: root.fg
         fontFamily: root.fontFamily
         Accessible.role: Accessible.Button
         Accessible.name: root.quickDimStatus.on ? "Restore brightness" : "Dim screen"

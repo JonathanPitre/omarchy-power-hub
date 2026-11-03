@@ -308,6 +308,25 @@ Item {
     target: UPower
     function onOnBatteryChanged() { applyProfileDebounce.restart() }
   }
+
+  // Plugging back in turns Travel mode off. Keyed on the battery leaving
+  // Discharging, not on OnBattery: a bus-powered USB-C monitor keeps AC online
+  // after unplug, so OnBattery may never change. A Travel session started while
+  // already plugged in sees no such transition and stays on.
+  property int lastBatteryState: -1
+  Process { id: travelOffProc; command: ["python3", root.ops, "travel", "off"]; onExited: root.refresh() }
+  Connections {
+    target: UPower.displayDevice
+    function onStateChanged() {
+      var s = UPower.displayDevice.state
+      if (root.lastBatteryState === UPowerDeviceState.Discharging
+          && (s === UPowerDeviceState.Charging || s === UPowerDeviceState.FullyCharged
+              || s === UPowerDeviceState.PendingCharge)
+          && !travelOffProc.running)
+        travelOffProc.running = true
+      root.lastBatteryState = s
+    }
+  }
   Process {
     id: ledNeedProc
     command: ["python3", root.ops, "led-sudo-needed"]

@@ -40,6 +40,11 @@ class ButtonChromeTests(unittest.TestCase):
             self.assertNotIn("CheckBox {", src, name)
         self.assertIn("AccentSwitch {", (ROOT / "Panel.qml").read_text())
 
+    def test_disabled_accent_buttons_grey_out(self):
+        # A disabled button kept the selected fill and label colour, so Dim screen's
+        # "Restore" looked live while Travel mode owned the display.
+        self.assertIn("opacity: enabled ? 1 : 0.35", (ROOT / "AccentButton.qml").read_text())
+
     def test_energy_focus_targets_exist(self):
         src = (ROOT / "PlanSection.qml").read_text()
         for name in ("energyTravelButton", "energyDimButton"):

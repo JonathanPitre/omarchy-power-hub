@@ -46,6 +46,11 @@ function fmtDuration(mins) {
 // e.g. BATTERY · 3h 48m REMAINING / CHARGING · FULL IN 1h 05m / FULLY CHARGED.
 function modeParts(b) {
   if (!b || !b.present) return { state: "NO BATTERY", time: "" };
+  // Right after a plug or unplug the EC's smoothed current still reads low, so any
+  // estimate would be hours too long.
+  if (b.estimating && (b.status === "Discharging" || b.status === "Charging"))
+    return { state: b.status === "Charging" ? "CHARGING" : b.acOnline ? "DISCHARGING" : "BATTERY",
+             time: "CALCULATING…" };
   var t = b.minutes > 0 ? fmtDuration(b.minutes) : "";
   // Discharging wins over ACAD: a bus-powered USB-C monitor keeps ACAD online after unplug.
   if (b.acOnline && b.status === "Discharging")
