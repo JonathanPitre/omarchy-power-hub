@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "omarchy-power-settings",
   "name": "Omarchy Power Settings",
-  "version": "0.0.47",
+  "version": "0.0.48",
   "author": "Jonathan Pitre",
   "license": "MIT",
   "description": "Theme-aware power panel with reversible Travel mode, Quick dim, optional CPU savings, battery controls, idle settings, and device status.",

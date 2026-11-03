@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.48] - 2026-11-03
+
+### Fixed
+
+- Moving the mouse right as the screensaver appeared, or while it was
+  appearing, did not dismiss it. You had to stop, then move again or press a
+  key. The screensaver now waits for its windows to settle and dismisses on
+  input that is still under way, and its own launch no longer closes it.
+
 ## [0.0.47] - 2026-10-24
 
 ### Removed
