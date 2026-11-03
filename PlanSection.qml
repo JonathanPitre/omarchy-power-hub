@@ -425,57 +425,118 @@ Column {
     width: parent.width
     visible: !!(root.state.framework) || (root.state.charge || {}).kind === "upower"
     spacing: Style.space(6)
-    PanelSectionHeader {
-      text: (root.state.charge || {}).kind === "upower" ? "BATTERY HEALTH" : "CHARGE LIMIT"
-      foreground: root.fg
-      fontFamily: root.fontFamily
-    }
-    Text {
+    Item {
       width: parent.width
-      color: root.fg
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.body
+      implicitHeight: Math.max(chargeHeader.implicitHeight, chargeInfo.implicitHeight)
+      PanelSectionHeader {
+        id: chargeHeader
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
+        text: (root.state.charge || {}).kind === "upower" ? "BATTERY HEALTH" : "CHARGE LIMIT"
+        foreground: root.fg
+        fontFamily: root.fontFamily
+      }
+      PanelActionButton {
+        id: chargeInfo
+        visible: (root.state.charge || {}).kind === "framework"
+        anchors.left: chargeHeader.right
+        anchors.leftMargin: Style.space(6)
+        anchors.verticalCenter: parent.verticalCenter
+        iconText: ""
+        tooltipText: "80% keeps the battery healthy when you're plugged in most of the day. Battery Extender in the BIOS overrides this limit, so turn it off."
+        foreground: root.dim
+        hoverColor: root.fg
+        fontFamily: root.fontFamily
+      }
+    }
+    Item {
+      readonly property var c: root.state.charge || ({})
+      readonly property bool ready: !!c.tool && c.limit !== null && c.limit !== undefined
+      readonly property bool boosting: !!root.state.boost
+      readonly property real side: Style.space(40)
+      width: parent.width
+      height: side
       visible: (root.state.charge || {}).kind !== "upower"
-      text: {
-        var c = root.state.charge || ({})
-        if (!c.tool) return c.reason || "framework_tool is not installed"
-        if (c.limit === null || c.limit === undefined) return c.reason || "Charge limit unavailable"
-        return "Ceiling " + c.limit + "%"
+      id: chargeRow
+
+      Text {
+        anchors.left: parent.left
+        anchors.right: allowBtn.visible ? allowBtn.left : parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        visible: !chargeRow.ready
+        text: !chargeRow.c.tool ? (chargeRow.c.reason || "framework_tool is not installed")
+          : chargeRow.c.reason === "permission" ? "Needs permission"
+          : (chargeRow.c.reason || "Charge limit unavailable")
+        color: root.fg
+        elide: Text.ElideRight
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.body
       }
-    }
-    Text {
-      width: parent.width
-      color: root.dim
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.bodySmall
-      wrapMode: Text.Wrap
-      visible: !!(root.state.framework) && !!(root.state.charge && root.state.charge.tool)
-      text: "Desk use: 80%. Turn Battery Extender off in BIOS."
-    }
-    Row {
-      spacing: Style.space(8)
-      visible: !!(root.state.charge && root.state.charge.tool)
       Button {
-        text: "−10"
+        id: allowBtn
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        visible: !chargeRow.ready && chargeRow.c.reason === "permission"
+        text: "Allow"
         bordered: true
         foreground: root.fg
         fontFamily: root.fontFamily
-        onClicked: root.call(["charge", String(Math.max(40, Number((root.state.charge || {}).limit || 80) - 10))])
+        onClicked: root.call(["helper-install"])
+      }
+
+      Row {
+        visible: chargeRow.ready
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: Style.space(8)
+        Button {
+          width: chargeRow.side
+          height: chargeRow.side
+          text: "−"
+          bordered: true
+          enabled: !chargeRow.boosting && chargeRow.c.limit > 40
+          opacity: enabled ? 1 : 0.35
+          foreground: root.fg
+          fontFamily: root.fontFamily
+          fontSize: Style.font.title
+          onClicked: root.call(["charge", String(Math.max(40, Number(chargeRow.c.limit) - 10))])
+        }
+        Text {
+          width: Style.space(64)
+          anchors.verticalCenter: parent.verticalCenter
+          horizontalAlignment: Text.AlignHCenter
+          text: chargeRow.c.limit + "%"
+          color: root.fg
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.heading
+          font.bold: true
+        }
+        Button {
+          width: chargeRow.side
+          height: chargeRow.side
+          text: "+"
+          bordered: true
+          enabled: !chargeRow.boosting && chargeRow.c.limit < 100
+          opacity: enabled ? 1 : 0.35
+          foreground: root.fg
+          fontFamily: root.fontFamily
+          fontSize: Style.font.title
+          onClicked: root.call(["charge", String(Math.min(100, Number(chargeRow.c.limit) + 10))])
+        }
       }
       Button {
-        text: "+10"
+        visible: chargeRow.ready
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        width: Style.space(128)
+        height: chargeRow.side
+        iconText: ""
+        text: chargeRow.boosting ? "Boosting" : "Boost"
         bordered: true
+        selected: chargeRow.boosting
         foreground: root.fg
         fontFamily: root.fontFamily
-        onClicked: root.call(["charge", String(Math.min(100, Number((root.state.charge || {}).limit || 80) + 10))])
-      }
-      Button {
-        text: root.state.boost ? "Boost on" : "Boost to 100%"
-        bordered: true
-        selected: !!root.state.boost
-        foreground: root.fg
-        fontFamily: root.fontFamily
-        onClicked: root.call(["boost", root.state.boost ? "off" : "on"])
+        onClicked: root.call(["boost", chargeRow.boosting ? "off" : "on"])
       }
     }
     Text {

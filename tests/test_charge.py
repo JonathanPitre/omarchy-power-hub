@@ -72,20 +72,45 @@ class FrameworkChargeTests(unittest.TestCase):
         self._fw = ops.framework
         self._which = ops.shutil.which
         self._run = ops.run
+        self._helper = ops.helper_bin
+        ops.helper_bin = lambda: ops.pathlib.Path("/helper/ops-priv")
 
     def tearDown(self):
         ops.framework = self._fw
         ops.shutil.which = self._which
         ops.run = self._run
+        ops.helper_bin = self._helper
 
     def test_framework_prefers_ec_not_upower(self):
         ops.framework = lambda: True
         ops.shutil.which = lambda name: "/usr/bin/framework_tool" if name == "framework_tool" else None
-        ops.run = lambda args, timeout=4: (0, "Maximum charge limit: 80\n")
+        ops.run = lambda args, timeout=4: (0, "Minimum 0%, Maximum 80%\n")
         st = ops.charge_status()
         self.assertEqual(st["kind"], "framework")
         self.assertEqual(st["limit"], 80)
         self.assertTrue(st["tool"])
+
+    def test_reads_limit_through_helper(self):
+        calls = []
+        ops.framework = lambda: True
+        ops.shutil.which = lambda name: "/usr/bin/framework_tool"
+        ops.run = lambda args, timeout=4: calls.append(list(args)) or (0, "Maximum charge limit: 80\n")
+        ops.charge_status()
+        self.assertEqual(calls, [["sudo", "-n", "/helper/ops-priv", "charge-limit"]])
+
+    def test_missing_helper_needs_permission(self):
+        ops.framework = lambda: True
+        ops.shutil.which = lambda name: "/usr/bin/framework_tool"
+        ops.helper_bin = lambda: None
+        st = ops.charge_status()
+        self.assertEqual((st["reason"], st["limit"]), ("permission", None))
+
+    def test_sudo_password_error_is_not_shown(self):
+        ops.framework = lambda: True
+        ops.shutil.which = lambda name: "/usr/bin/framework_tool"
+        ops.run = lambda args, timeout=4: (1, "sudo: a password is required\n")
+        st = ops.charge_status()
+        self.assertEqual((st["reason"], st["limit"]), ("permission", None))
 
     def test_non_framework_uses_upower(self):
         ops.framework = lambda: False
@@ -118,11 +143,10 @@ class ReapplyTests(unittest.TestCase):
             {"chargeLimit": 80, "boost": False},
             ch,
             run,
-            lambda name: "/usr/bin/framework_tool",
+            lambda: "/helper/ops-priv",
         )
         self.assertEqual(out["limit"], 80)
-        self.assertEqual(calls[0][:3], ["sudo", "-n", "/usr/bin/framework_tool"])
-        self.assertEqual(calls[0][-2:], ["--charge-limit", "80"])
+        self.assertEqual(calls, [["sudo", "-n", "/helper/ops-priv", "charge-limit", "80"]])
 
     def test_skips_while_boost_on(self):
         calls = []
@@ -130,7 +154,7 @@ class ReapplyTests(unittest.TestCase):
             {"chargeLimit": 80, "boost": True},
             {"kind": "framework", "available": True, "tool": True, "limit": 100},
             lambda args, timeout=4: calls.append(args) or (0, ""),
-            lambda name: "/usr/bin/framework_tool",
+            lambda: "/helper/ops-priv",
         )
         self.assertEqual(calls, [])
 
