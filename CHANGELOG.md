@@ -12,6 +12,9 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Redesigned Charge limit as a − 80% + stepper with a Boost button. The
   Battery Extender note moved into an info tooltip, and the Desk use line is
   gone.
+- Buttons get the theme's resting fill and an accent outline on hover and
+  when on. The Boost bolt uses the theme's yellow, and − and + dim while
+  boosting or at the 40% and 100% ends.
 
 ### Fixed
 
@@ -21,6 +24,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - The limit was read as 0% because the parser took the minimum from
   `framework_tool` output. The saved limit is also reapplied through the
   helper again after the EC drifts from it.
+- Low-battery red, Travel warnings, and accent colors were `undefined`
+  because bare `Color` does not resolve to the theme inside plugins.
 
 ## [0.0.48] - 2026-11-03
 

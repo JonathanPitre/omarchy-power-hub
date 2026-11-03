@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Services.UPower
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "Model.js" as Model
 
@@ -14,10 +15,10 @@ Panel {
   ipcTarget: moduleName
   manageIpc: false
 
-  readonly property color fg: bar ? bar.foreground : Color.foreground
+  readonly property color fg: bar ? bar.foreground : Commons.Color.foreground
   readonly property color dim: Qt.darker(fg, 1.5)
   readonly property color faint: Qt.rgba(fg.r, fg.g, fg.b, 0.12)
-  readonly property color urgent: bar ? bar.urgent : Color.urgent
+  readonly property color urgent: bar ? bar.urgent : Commons.Color.urgent
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
 
   // Live battery state comes from UPower (event-driven) so the bar icon is
@@ -288,7 +289,7 @@ Panel {
                 font.pixelSize: Style.font.bodySmall
                 wrapMode: Text.WordWrap
               }
-              Button {
+              AccentButton {
                 text: "Install Wi-Fi suspend fix"
                 bordered: true
                 focusable: true
@@ -381,7 +382,7 @@ Panel {
                 property var pts: root.historyPts
                 property var bars: []
                 property color fill: root.fg
-                property color charge: Color.accent
+                property color charge: Commons.Color.accent
                 function rebuild() {
                   bars = Model.historyBars(pts, Date.now())
                   requestPaint()
@@ -480,7 +481,7 @@ Panel {
                 font.pixelSize: Style.font.bodySmall
                 wrapMode: Text.WordWrap
               }
-              Button {
+              AccentButton {
                 id: sleepOptInBtn
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
@@ -573,8 +574,8 @@ Panel {
             visible: false
             width: parent.width
             implicitHeight: installCol.implicitHeight + Style.space(24)
-            color: Style.normalFillFor(root.fg, Color.accent)
-            borderSpec: Border.controlSpec("normal", root.fg, Color.accent)
+            color: Style.normalFillFor(root.fg, Commons.Color.accent)
+            borderSpec: Border.controlSpec("normal", root.fg, Commons.Color.accent)
             radius: Style.cornerRadius
 
             Column {
@@ -601,7 +602,7 @@ Panel {
                 font.pixelSize: Style.font.bodySmall
                 wrapMode: Text.WordWrap
               }
-              Button {
+              AccentButton {
                 text: "Install power tuning"
                 bordered: true
                 focusable: true
@@ -707,7 +708,7 @@ Panel {
 
     Repeater {
       model: seg.options
-      Button {
+      AccentButton {
         required property var modelData
         width: seg.cell
         text: modelData.label
@@ -782,7 +783,7 @@ Panel {
         PanelActionButton {
           iconText: tw.expanded ? "\uf056" : "\uf05a"
           tooltipText: tw.expanded ? "Hide details" : tw.help
-          foreground: tw.expanded ? Color.accent : root.dim
+          foreground: tw.expanded ? Commons.Color.accent : root.dim
           hoverColor: root.fg
           fontFamily: root.fontFamily
           anchors.verticalCenter: parent.verticalCenter
@@ -792,7 +793,7 @@ Panel {
           id: twSwitch
           checked: tw.on
           foreground: root.fg
-          accent: Color.accent
+          accent: Commons.Color.accent
           anchors.verticalCenter: parent.verticalCenter
           onToggled: tw.setOn(!tw.on)
         }
@@ -825,7 +826,7 @@ Panel {
         lineHeight: 1.15
       }
 
-      Button {
+      AccentButton {
         text: tw.pinned ? "\uf00c  Kept after reboot" : "Keep after reboot"
         fontSize: Style.font.caption
         bordered: true
