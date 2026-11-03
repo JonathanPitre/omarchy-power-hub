@@ -446,7 +446,10 @@ def apply_hibernate_delay(seconds):
 
 def gpu_status(root=pathlib.Path("/sys")):
     for dev in sorted((root / "bus" / "pci" / "devices").glob("*")):
-        if _text(dev / "class").startswith("0x03") and _text(dev / "boot_vga").strip() == "0":
+        # boot_vga exists only on VGA-class devices; Optimus cards are 3D controllers without it.
+        boot_vga = _text(dev / "boot_vga").strip()
+        discrete = boot_vga == "0" or (not boot_vga and (dev / "driver").resolve().name in {"nvidia", "nouveau"})
+        if _text(dev / "class").startswith("0x03") and discrete:
             return {"present": True, "asleep": _text(dev / "power" / "runtime_status").strip() == "suspended"}
     return {"present": False, "asleep": False}
 
