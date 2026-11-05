@@ -7,6 +7,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [0.0.52] - 2026-11-05
+
 ### Added
 
 - **Panel power saving** in Power tweaks, AMD's adaptive backlight, shown on
@@ -24,6 +26,9 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   Config, state, helper, sudoers, sleep, and service names follow the new ID.
 - The status line reads `DISCHARGING` on battery, matching `CHARGING`.
 - Pinning any Power tweak also reapplies it when the shell starts.
+- The Screen saver menu offers only times before Displays off. If Displays off
+  moves past it, Screen saver shows Never and your saved time returns when
+  Displays off moves back.
 
 ### Removed
 
@@ -34,6 +39,11 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Fixed
 
+- Displays off turned the screens back on about a second later and left them
+  on until the next input. The wake poll compared the cursor with its position
+  from the previous blank and read the difference as motion.
+- Displays off could delay Auto-lock by closing the screen saver, which Omarchy
+  treats as the user returning. Auto-lock now keeps its time.
 - Unplugging with a bus-powered USB-C monitor attached left the Plugged in
   power mode active, because UPower's `OnBattery` never changed. The plugin
   now also follows the battery's own state.

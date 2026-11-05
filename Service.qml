@@ -4,6 +4,7 @@ import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Services.UPower
+import "Model.js" as Model
 
 Item {
   id: root
@@ -14,6 +15,7 @@ Item {
   property bool displaysOff: false
   property int displaysTimeout: 0
   property int saverTimeout: 0
+  property int lockTimeout: 0
   property int sleepTimeout: 0
   property int hibernateAfter: 0
   property bool parked: false
@@ -56,7 +58,8 @@ Item {
     var side = parsed.side === "battery" ? "battery" : "ac"
     var src = (parsed.config && parsed.config[side]) || ({})
     root.displaysTimeout = Number(src.displaysOff) || 0
-    root.saverTimeout = Number(src.screensaver) || 0
+    root.saverTimeout = Model.effectiveSaver(src.screensaver, src.displaysOff)
+    root.lockTimeout = Number(src.lock) || 0
     root.sleepTimeout = Number(src.sleep) || 0
     root.hibernateAfter = Number(src.hibernateAfter) || 0
   }
@@ -245,6 +248,14 @@ Item {
     }
   }
 
+
+  // Holds the lock deadline across Displays off, including a tie: see idle_lock in ops.py.
+  Timer {
+    interval: Math.max(1, (root.lockTimeout - root.displaysTimeout) * 1000)
+    running: root.displaysIdle && root.lockTimeout >= root.displaysTimeout && root.lockTimeout > 0
+    onTriggered: if (!idleLockProc.running) idleLockProc.running = true
+  }
+  Process { id: idleLockProc; command: ["python3", root.ops, "idle-lock"] }
 
   Instantiator {
     model: root.sleepTimeout > 0 ? [root.sleepTimeout] : []

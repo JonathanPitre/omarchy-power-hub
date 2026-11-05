@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Omarchy Power Hub control plane. Stdlib only."""
-import json, os, pathlib, re, shutil, subprocess, sys
+import json, os, pathlib, re, shutil, subprocess, sys, time
 
 HOME = pathlib.Path.home()
 CFG = HOME / ".config/omarchy/omarchy-power-hub.json"
@@ -15,6 +15,7 @@ EFFECT_OPTIONS = {
 }
 BINDINGS = HOME / ".config/hypr/bindings.lua"
 RUN = pathlib.Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")) / "omarchy-power-hub"
+CURSOR_FRESH_SECONDS = 5
 PRIV = pathlib.Path(__file__).resolve().parent / "ops-priv"
 HELPER_DIR = pathlib.Path("/usr/local/libexec/omarchy-power-hub")
 HELPER_FILES = ("ops-priv", "hid_wakeup.py")
@@ -166,10 +167,16 @@ def shell_idle(screensaver, lock):
     SHELL.write_text(json.dumps(data, indent=2) + "\n")
     return ""
 
+# Displays going off first would close the saver, so it never starts. Mirrors
+# effectiveSaver in Model.js; the saved value returns if Displays off moves past it.
+def effective_saver(src):
+    saver, displays = int(src["screensaver"]), int(src.get("displaysOff") or 0)
+    return 0 if 0 < displays <= saver else saver
+
 def idle_for_blank(blank, cfg=None):
     cfg = cfg or load()
     src = cfg[active_side(cfg)]
-    return shell_idle(0 if blank else src["screensaver"], src["lock"])
+    return shell_idle(0 if blank else effective_saver(src), src["lock"])
 
 def profile_state_dir():
     base = os.environ.get("XDG_STATE_HOME")
@@ -1438,7 +1445,7 @@ def apply_active(cfg=None):
                     state["complete"], state["error"] = False, err
                     atomic_state(travel_path(), state)
         profile_error = apply_profile(side, src["profile"]) if not cpu_owned else ""
-        source_error = shell_idle(src["screensaver"], src["lock"])
+        source_error = shell_idle(effective_saver(src), src["lock"])
         if int(src.get("hibernateAfter") or 0) > 0:
             source_error = (source_error + " "
                             + apply_hibernate_delay(int(src["hibernateAfter"]))).strip()
@@ -1490,23 +1497,34 @@ def set_key(side, key, value):
     travel_on = travel_state().get("on")
     if travel_on or side != active_side():
         return ""
-    if key in ("screensaver", "lock"):
-        return shell_idle(src["screensaver"], src["lock"])
+    if key in ("screensaver", "displaysOff", "lock"):
+        return shell_idle(effective_saver(src), src["lock"])
     if key == "hibernateAfter" and src[key] > 0:
         return apply_hibernate_delay(src[key])
     if key == "lid":
         write_lid_block(src["lid"])
     return ""
 
+# Polls only run while blanked or parked, so an older cursor is from the last
+# blank and would read as motion, waking the displays a second after they go off.
 def idle_cursor_prev(cursor):
     state_path = RUN / "idle-wake.json"
     try:
-        prev = json.loads(state_path.read_text()).get("cursor")
+        fresh = time.time() - state_path.stat().st_mtime < CURSOR_FRESH_SECONDS
+        prev = json.loads(state_path.read_text()).get("cursor") if fresh else None
     except (OSError, json.JSONDecodeError):
         prev = None
     RUN.mkdir(parents=True, exist_ok=True)
     state_path.write_text(json.dumps({"cursor": cursor}) + "\n")
     return prev
+
+# Closing the saver for Displays off reads to Omarchy as the user returning,
+# which cancels its lock countdown, so the plugin keeps that deadline itself.
+def idle_lock():
+    if (HOME / ".local/state/omarchy/indicators/stay-awake").exists():
+        return 0
+    run(["omarchy-system-lock"], timeout=8)
+    return 0
 
 # Omarchy's idle timer honors Wayland idle inhibitors (a playing video in a
 # browser holds one), so it never starts the screensaver. Only step in then;
@@ -1695,6 +1713,8 @@ def main(argv):
         return lid_closed()
     if cmd == "lid-opened":
         return lid_opened()
+    if cmd == "idle-lock":
+        return idle_lock()
     if cmd == "saver-past-inhibitor":
         return saver_past_inhibitor()
     if cmd == "idle-wake-poll":

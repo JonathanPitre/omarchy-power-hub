@@ -191,6 +191,19 @@ function idleOptions(stops, current) {
   return values.map(function(v) { return { value: String(v), label: fmtIdleLong(v) }; });
 }
 
+// Displays going off first would close the saver, so it counts as Never.
+// Mirrors effective_saver in ops.py.
+function effectiveSaver(saver, displaysOff) {
+  var s = Number(saver) || 0, d = Number(displaysOff) || 0;
+  return d > 0 && d <= s ? 0 : s;
+}
+
+function saverOptions(stops, saver, displaysOff) {
+  var d = Number(displaysOff) || 0;
+  return idleOptions(stops.filter(function(s) { return d === 0 || s < d; }),
+                     effectiveSaver(saver, d));
+}
+
 function fmtPctPerHour(v) {
   return (Number(v) || 0).toFixed(2) + "%/hr";
 }
