@@ -122,7 +122,7 @@ case "${1:-}" in
     exec /usr/bin/framework_tool --fp-led-level "$2"
     ;;
   led-sudoers)
-    file=/etc/sudoers.d/omarchy-power-settings-leds
+    file=/etc/sudoers.d/omarchy-power-hub-leds
     umask 177
     printf '%s\n' \
       '%wheel ALL=(root) NOPASSWD: /usr/bin/tee /sys/class/leds/chromeos\:white\:power/brightness' \
@@ -140,7 +140,7 @@ case "${1:-}" in
       ''|*[!0-9]*) echo "bad delay" >&2; exit 2 ;;
     esac
     dir=/etc/systemd/sleep.conf.d
-    file=$dir/90-omarchy-power-settings.conf
+    file=$dir/90-omarchy-power-hub.conf
     mkdir -p "$dir"
     if [ "$sec" = 0 ]; then
       rm -f "$file"
@@ -157,11 +157,11 @@ case "${1:-}" in
     esac
     case "$user" in *[!a-z0-9_-]*) echo "bad user" >&2; exit 2 ;; esac
     src=$(dirname "$(readlink -f "$0")")
-    dir=/usr/local/libexec/omarchy-power-settings
+    dir=/usr/local/libexec/omarchy-power-hub
     install -d -m 755 -o root -g root "$dir"
     install -m 755 -o root -g root "$src/ops-priv" "$dir/ops-priv"
     install -m 644 -o root -g root "$src/hid_wakeup.py" "$dir/hid_wakeup.py"
-    file=/etc/sudoers.d/omarchy-power-settings
+    file=/etc/sudoers.d/omarchy-power-hub
     umask 177
     printf '%s\n' "$user ALL=(root) NOPASSWD: $dir/ops-priv" > "$file.new"
     visudo -cf "$file.new" >/dev/null || { rm -f "$file.new"; exit 1; }

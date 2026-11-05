@@ -12,12 +12,12 @@ SAFE = re.compile(r"^[A-Za-z0-9._-]+$")
 DESC_SAFE = re.compile(r"^[A-Za-z0-9 ._()+-]+$")
 STATE_PATH = (
     pathlib.Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"))
-    / "omarchy-power-settings"
+    / "omarchy-power-hub"
     / "display-off.json"
 )
 DROPPERS_PATH = (
     pathlib.Path(os.environ.get("XDG_STATE_HOME") or pathlib.Path.home() / ".local/state")
-    / "omarchy-power-settings"
+    / "omarchy-power-hub"
     / "bus-droppers.json"
 )
 

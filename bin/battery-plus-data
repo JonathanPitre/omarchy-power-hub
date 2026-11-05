@@ -128,7 +128,7 @@ effects_on=false
 
 # which tweaks are pinned to survive a reboot
 pins=$(jq -c 'with_entries(select(.key | endswith("Pinned")))' \
-  "${HOME}/.config/omarchy/power-settings-tweaks.json" 2>/dev/null) || pins='{}'
+  "${HOME}/.config/omarchy/power-hub-tweaks.json" 2>/dev/null) || pins='{}'
 [ -n "$pins" ] || pins='{}'
 
 # ---------- sleep-drain tracking (extras/sleep-tracking) --------------

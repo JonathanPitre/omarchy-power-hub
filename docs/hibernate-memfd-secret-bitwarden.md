@@ -14,7 +14,7 @@ Upstream: [bitwarden/clients#21661](https://github.com/bitwarden/clients/issues/
 “Sleep verb … is not configured or configuration is not supported by kernel.”
 Quitting Bitwarden restores the disk modes immediately.
 
-Omarchy Power Settings reports this on the idle plan as Bitwarden holding
+Omarchy Power Hub reports this on the idle plan as Bitwarden holding
 secret memory, and falls back to plain suspend so the laptop still sleeps.
 
 ## Confirm

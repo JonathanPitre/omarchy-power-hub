@@ -11,7 +11,7 @@ import "Model.js" as Model
 Panel {
   id: root
 
-  moduleName: "omarchy-power-settings"
+  moduleName: "omarchy-power-hub"
   ipcTarget: moduleName
   manageIpc: false
 

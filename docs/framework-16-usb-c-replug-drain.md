@@ -1,6 +1,6 @@
 # Framework Laptop 16 AMD: battery discharges after adapter replug with JSAUX FlipGo attached
 
-Public firmware report for Framework. Omarchy Power Settings only reflects EC/UPower state; it cannot raise charger input above what the EC allows.
+Public firmware report for Framework. Omarchy Power Hub only reflects EC/UPower state; it cannot raise charger input above what the EC allows.
 
 ## GitHub
 
@@ -136,7 +136,7 @@ Kernel log (also seen when charging works; context only):
 
 FlipGo partner PDOs: 5 V/3 A, 9 V/560 mA, 12 V/420 mA.
 
-## Omarchy Power Settings (plugin)
+## Omarchy Power Hub (plugin)
 
 When the hero line shows **ON AC · DISCHARGING**, that matches EC/UPower: mains present (including FlipGo backfeed or brick) while `BAT1` is discharging. The plugin uses USB-C contract **≥15 W** for “AC” detection and applies the **battery** power profile while discharging to reduce replug freezes; it does **not** fix the 800 mA EC cap.
 

@@ -79,7 +79,7 @@ class PowerPanelCleanupTests(unittest.TestCase):
 
     def test_pinned_tweaks_read_the_saved_prefs_not_tlp(self):
         data = (ROOT / "bin/battery-plus-data").read_text()
-        self.assertIn("power-settings-tweaks.json", data)
+        self.assertIn("power-hub-tweaks.json", data)
         self.assertNotIn("/etc/tlp.d/02-battery-plus.conf", data)
 
     def test_new_power_tweaks_are_listed_and_routed(self):

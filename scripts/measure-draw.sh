@@ -6,13 +6,13 @@ set -uo pipefail
 label=${1:-run} windows=${2:-5} seconds=${3:-60}
 bat=$(ls -d /sys/class/power_supply/BAT* | head -1)
 gpu=/sys/bus/pci/devices/0000:c2:00.0
-out=${XDG_STATE_HOME:-$HOME/.local/state}/omarchy-power-settings/measure-draw.log
+out=${XDG_STATE_HOME:-$HOME/.local/state}/omarchy-power-hub/measure-draw.log
 mkdir -p "$(dirname "$out")"
 
 [ "$(cat "$bat/status")" = Discharging ] || { echo "not discharging: unplug first" >&2; exit 1; }
 # Battery idle settings would otherwise blank or suspend the machine mid-run.
-ops=$HOME/.config/omarchy/plugins/omarchy-power-settings/bin/ops.py
-cfg=$HOME/.config/omarchy/omarchy-power-settings.json
+ops=$HOME/.config/omarchy/plugins/omarchy-power-hub/bin/ops.py
+cfg=$HOME/.config/omarchy/omarchy-power-hub.json
 keys="screensaver displaysOff lock sleep hibernateAfter"
 restore=""
 for k in $keys; do

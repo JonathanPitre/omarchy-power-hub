@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Omarchy Power Settings control plane. Stdlib only."""
+"""Omarchy Power Hub control plane. Stdlib only."""
 import json, os, pathlib, re, shutil, subprocess, sys
 
 HOME = pathlib.Path.home()
-CFG = HOME / ".config/omarchy/omarchy-power-settings.json"
+CFG = HOME / ".config/omarchy/omarchy-power-hub.json"
 SHELL = HOME / ".config/omarchy/shell.json"
-TWEAKS = HOME / ".config/omarchy/power-settings-tweaks.json"
+TWEAKS = HOME / ".config/omarchy/power-hub-tweaks.json"
 DRM_ROOT = pathlib.Path("/sys/class/drm")
 # Saving tweaks Travel turns on for its duration when they are off.
 TRAVEL_TWEAKS = ("abm", "effects")
@@ -14,11 +14,11 @@ EFFECT_OPTIONS = {
     "decoration:shadow:enabled": "decoration = {{ shadow = {{ enabled = {} }} }}",
 }
 BINDINGS = HOME / ".config/hypr/bindings.lua"
-RUN = pathlib.Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")) / "omarchy-power-settings"
+RUN = pathlib.Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")) / "omarchy-power-hub"
 PRIV = pathlib.Path(__file__).resolve().parent / "ops-priv"
-HELPER_DIR = pathlib.Path("/usr/local/libexec/omarchy-power-settings")
+HELPER_DIR = pathlib.Path("/usr/local/libexec/omarchy-power-hub")
 HELPER_FILES = ("ops-priv", "hid_wakeup.py")
-HIBERNATE_DROPIN = pathlib.Path("/etc/systemd/sleep.conf.d/90-omarchy-power-settings.conf")
+HIBERNATE_DROPIN = pathlib.Path("/etc/systemd/sleep.conf.d/90-omarchy-power-hub.conf")
 SYS_POWER_DISK = pathlib.Path("/sys/power/disk")
 LOCKDOWN = pathlib.Path("/sys/kernel/security/lockdown")
 CMDLINE = pathlib.Path("/proc/cmdline")
@@ -30,8 +30,8 @@ import idle_wake  # noqa: E402
 import kblight  # noqa: E402
 from display_power import laptop_monitor, set_displays  # noqa: E402
 WEEK = 7 * 24 * 3600
-BEGIN = "-- BEGIN Omarchy Power Settings lid action override"
-END = "-- END Omarchy Power Settings lid action override"
+BEGIN = "-- BEGIN Omarchy Power Hub lid action override"
+END = "-- END Omarchy Power Hub lid action override"
 LID_ACTIONS = ("nothing", "display-off", "suspend", "hibernate")
 PROFILE_ALIASES = {
     "auto": "balanced",
@@ -1385,14 +1385,14 @@ def _apply_tweak(key, value, persist=False):
     if persist:
         unit_dir = HOME / ".config/systemd/user"
         unit_dir.mkdir(parents=True, exist_ok=True)
-        unit = unit_dir / "omarchy-power-settings-tweaks.service"
+        unit = unit_dir / "omarchy-power-hub-tweaks.service"
         unit.write_text(
-            "[Unit]\nDescription=Omarchy Power Settings device tweaks\n\n"
+            "[Unit]\nDescription=Omarchy Power Hub device tweaks\n\n"
             "[Service]\nType=oneshot\n"
             f"ExecStart={sys.executable} {pathlib.Path(__file__).resolve()} apply-tweaks\n\n"
             "[Install]\nWantedBy=default.target\n"
         )
-        run(["systemctl", "--user", "enable", "--now", "omarchy-power-settings-tweaks.service"], timeout=8)
+        run(["systemctl", "--user", "enable", "--now", "omarchy-power-hub-tweaks.service"], timeout=8)
     return err
 
 def apply_saved_tweaks():

@@ -39,7 +39,7 @@ Item {
   // Panel edits land here within ~a second instead of on the 30 s poll. The
   // debounce skips the truncated file between ops.py's truncate and write.
   FileView {
-    path: Quickshell.env("HOME") + "/.config/omarchy/omarchy-power-settings.json"
+    path: Quickshell.env("HOME") + "/.config/omarchy/omarchy-power-hub.json"
     watchChanges: true
     onFileChanged: configDebounce.restart()
   }
@@ -199,7 +199,7 @@ Item {
   Process {
     id: inhibitProc
     running: true
-    command: ["systemd-inhibit", "--what=handle-lid-switch", "--who=omarchy-power-settings",
+    command: ["systemd-inhibit", "--what=handle-lid-switch", "--who=omarchy-power-hub",
               "--why=managed lid action", "--mode=block", "sleep", "infinity"]
   }
 

@@ -1,6 +1,6 @@
 # Framework Laptop 16 AMD Ryzen AI 300: hibernate resume rejected (E820)
 
-Public firmware/kernel report. Omarchy Power Settings can only ask logind
+Public firmware/kernel report. Omarchy Power Hub can only ask logind
 whether hibernation is allowed and fall back to suspend. It cannot make
 resume succeed when the firmware memory map changes across boots.
 

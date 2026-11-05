@@ -20,6 +20,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Changed
 
+- The plugin is now **Omarchy Power Hub**, with the ID `omarchy-power-hub`.
+  Config, state, helper, sudoers, sleep, and service names follow the new ID.
 - The status line reads `DISCHARGING` on battery, matching `CHARGING`.
 - Pinning any Power tweak also reapplies it when the shell starts.
 

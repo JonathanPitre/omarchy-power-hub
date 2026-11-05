@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "omarchy-power-settings",
-  "name": "Omarchy Power Settings",
+  "id": "omarchy-power-hub",
+  "name": "Omarchy Power Hub",
   "version": "0.0.51",
   "author": "Jonathan Pitre",
   "license": "MIT",
@@ -12,7 +12,7 @@
     "service": "Service.qml"
   },
   "barWidget": {
-    "displayName": "Omarchy Power Settings",
+    "displayName": "Omarchy Power Hub",
     "description": "Battery, Travel mode, Quick dim, charge limit, and device power settings.",
     "category": "System",
     "allowMultiple": false,

@@ -8,7 +8,7 @@ import subprocess
 
 STATE_PATH = (
     pathlib.Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"))
-    / "omarchy-power-settings"
+    / "omarchy-power-hub"
     / "kblight.json"
 )
 LEVEL = re.compile(r"(?:Brightness|Keyboard backlight):\s*(\d{1,3})\s*%")
