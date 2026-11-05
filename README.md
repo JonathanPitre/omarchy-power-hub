@@ -1,98 +1,143 @@
-# Omarchy Power Settings
+# Omarchy Power Hub
 
-Theme-aware Omarchy 4 bar plugin. Forked from [Battery+](https://github.com/amikeal/omarchy-battery-plus).
+Omarchy Power Hub is a theme-aware power panel and bar widget for Omarchy.
 
-The working copy is this directory. The shell loads it through
-`~/.config/omarchy/plugins/omarchy-power-settings`. See [CHANGELOG.md](CHANGELOG.md)
-for what shipped today.
+![Omarchy Power Hub panel showing battery status, power plans, and charge limit](preview.png)
 
-## What it does
+I built this because every other power plugin I tried caused issues on my
+Framework Laptop 16. It's the only plugin I'm aware of that works properly on
+that machine.
 
-- Battery hero, time left, power draw, health, cycles, capacity, and a 24-hour battery-usage chart
-- Per-source screensaver, displays off, auto-lock, sleep, and hibernate-after-sleep
-- Displays off (idle and lid) apply to every Hyprland output, not a hardcoded laptop panel
-- Per-source lid action and power profile (Power saver / Balanced / Performance). A new Plugged in plan starts on performance, and a new Battery plan starts on balanced.
-- Framework charge limit and Boost, or a UPower battery-health toggle on
-  other laptops that expose charge thresholds
-- Travel mode, and whether the discrete GPU is Asleep or Awake
-- Device powersave without TLP
+It's developed and tested primarily on the Framework Laptop 16. Other laptops
+are supported where they expose the required Linux controls. See
+[CHANGELOG.md](CHANGELOG.md) for release history.
 
-Colors come from the shell `Style` tokens, so the panel follows the active theme.
+## ✨ Supported features
 
-## Automatic lock can stop after display blanking
+- **Battery status:** charge level, charging state, estimated time remaining,
+  live power draw, battery health, charge cycles, and design capacity.
+- **Battery history:** expandable 24-hour charge and discharge chart, with
+  power readings when available.
+- **Sleep drain tracking:** optional measurement of battery use during sleep.
+- **Per-power-source plans:** separate settings for plugged-in and battery use:
+  power mode, screen saver, displays-off timeout, auto-lock, sleep timeout,
+  hibernate timeout, and lid-close action.
+- **Display idle control:** turns off every Hyprland output, including external
+  displays.
+- **Travel mode:** temporarily reduces internal display brightness and refresh
+  rate, and applies supported power-saving options. Restore the captured
+  settings when turning it off.
+- **Quick dim:** temporarily caps brightness and restores the prior level.
+  Quick dim is unavailable while Travel mode controls the display.
+- **Charging controls:** Framework charge limit and one-time 100% Boost, or a
+  UPower battery-health toggle on hardware that exposes charge thresholds.
+- **Power tweaks:** optional device power saving for Wi-Fi, PCIe, USB, audio,
+  and display settings, depending on available tools and hardware.
+- **GPU status:** shows whether a supported discrete GPU is asleep or awake.
+- **Framework lighting:** controls supported keyboard and fingerprint power
+  button lights.
+- **Bar widget:** battery icon and optional percentage, configurable for
+  battery and plugged-in states.
 
-Quickshell 0.3.1 can lose idle notifications when a running timer changes.
-This plugin can trigger the bug when displays turn off or wake up, leaving
-the desktop unlocked despite the saved auto-lock setting. See
-[Quickshell idle timer failure](docs/quickshell-idle-timer-failure.md)
-for the diagnosis, installed 0.3.1 backport, rollback instructions, and
-verification steps.
+The panel uses the active Omarchy theme colors. Features that depend on
+hardware, firmware, or optional system services are shown only when available.
 
-## Travel mode and Quick dim
+## 🚀 Install
 
-**Travel mode** temporarily caps the internal laptop display at 40%
-brightness and uses a supported mode at or below 60 Hz without increasing a
-display already running slower. External displays are left alone. Turn it
-off to restore the captured brightness and display mode; if a device cannot
-be restored, the panel keeps the restore state and offers a retry.
+```sh
+omarchy plugin add https://github.com/JonathanPitre/omarchy-power-hub.git --enable
+```
 
-Travel mode also switches to Power saver and restores your normal power mode
-when turned off. Plugging the adapter back in turns Travel mode off; it does
-not come back on when you unplug again. On AMD that profile already turns CPU boost off and prefers
-energy saving. Heavy work may run slower. Without power-profiles-daemon only
-the display is changed. It also turns on Panel power saving and Reduce effects
-when they are off, and turns them back off afterwards.
-
-**Quick dim** independently caps brightness at 40% and restores the level it
-captured when turned off. It is unavailable while Travel mode owns the
-display, so the two restore points cannot overwrite one another.
-
-## Charge limit and battery health
-
-**Framework:** the panel uses `framework_tool --charge-limit` (EC ceiling),
-not Linux start/stop thresholds. This board has no
-`charge_control_*` sysfs files. Install once:
+Optional controls may need additional system tools. For Framework charge
+limits, install:
 
 ```sh
 omarchy pkg add framework-system
 ```
 
-Desk-docked default is 80%. The service re-applies that saved ceiling after
-login if firmware forgot it (skipped while Boost is on). Turn **Battery
-Extender** off in BIOS when using a custom ceiling; the two fight.
+For the bar percentage, configure **Show percentage on battery** and **Show
+percentage when plugged in** in the plugin settings. Right-clicking the bar
+widget toggles the percentage for the current power state.
 
-The panel sets the limit with `framework_tool --charge-limit`. That needs a
-passwordless sudoers rule for that command, or a polkit prompt. Boost
-temporarily charges to 100%, then restores the saved ceiling.
+## 🔋 Charging and battery health
 
-**Other laptops:** if UPower reports charge thresholds, the panel shows
-**Battery health**. On uses the firmware band (often 75–80% or LongLife).
-Off charges to 100% for travel. No sudo. If UPower has no threshold
-support, the section is hidden.
+On Framework laptops, the charge limit uses `framework_tool --charge-limit`
+to set the embedded controller ceiling. It does not use Linux start/stop
+threshold files. The default desk-docked limit is 80%; the service reapplies
+the saved limit after login if firmware resets it. Boost temporarily charges
+to 100%, then restores the saved limit. A passwordless sudoers rule for the
+command or a polkit prompt is required. Turn off **Battery Extender** in BIOS
+when setting a custom limit because it overrides the same control.
 
-Do not run this plugin together with another charge-threshold plugin.
+On other laptops, **Battery health** appears when UPower reports charge
+threshold support. It uses the firmware's charge band when enabled and allows
+charging to 100% when disabled. The section stays hidden when thresholds are
+not supported.
 
-Laptop 16 with a USB-C monitor can fail to charge after the adapter is
-unplugged and plugged back in. That is a firmware issue. Public report:
-[docs/framework-16-usb-c-replug-drain.md](docs/framework-16-usb-c-replug-drain.md).
+Do not use this plugin alongside another charge-threshold plugin. Framework
+Laptop 16 systems with a USB-C monitor may fail to charge after reconnecting
+the adapter; see [the USB-C charging note](docs/framework-16-usb-c-replug-drain.md).
 
-## Hibernate
+## 🧳 Travel mode and Quick dim
 
-The kernel disables hibernation while any process holds `memfd_secret`.
-Bitwarden Desktop does this after login. Details and the mlock workaround:
-[docs/hibernate-memfd-secret-bitwarden.md](docs/hibernate-memfd-secret-bitwarden.md).
-The panel names that cause and falls back to plain sleep.
+Travel mode caps the internal display at 40% brightness and selects a
+supported refresh rate at or below 60 Hz without raising a display already
+running slower. External displays are unchanged. It also selects Power saver
+when power-profiles-daemon is available, and restores the previous power mode
+when disabled. On AMD, that profile disables CPU boost and favors energy
+saving. Without power-profiles-daemon, only display controls are changed.
 
-Laptop 16 (AMD Ryzen AI 300) can still cold-boot on resume after hibernation
-is allowed: firmware moves a small ACPI region, so the kernel rejects the
-image. The plugin cannot fix that.
-[docs/framework-16-hibernate-resume.md](docs/framework-16-hibernate-resume.md).
+Travel mode enables Panel power saving and Reduce effects if they were off,
+then turns them back off when restoring. Plugging in turns Travel mode off;
+unplugging does not turn it back on. Wi-Fi, peripherals, and GPU mode are not
+changed. If a display setting cannot be restored, the panel keeps the restore
+state and offers a retry.
 
-## Framework keyboard and power-button lights
+Quick dim independently caps brightness at 40% and restores the captured
+level when turned off. It cannot run at the same time as Travel mode because
+both controls need to own the display restore state.
 
-Laptop 16 key backlight uses `qmk_hid`. Laptop 12 and 13 use `framework_tool --kblight`. The fingerprint power button is `/sys/class/leds/chromeos:white:power`. That node is root-only, and `framework_tool --fp-brightness 0` does not turn it off.
+## 🛠️ System power controls
 
-The first time this plugin applies a Framework plan, polkit may ask for a
-password to install `/etc/sudoers.d/omarchy-power-settings-leds`. After that,
-displays-off can write the LED without a prompt. You can also install it
-yourself with `pkexec` on this plugin's `bin/ops-priv led-sudoers`.
+Power-saving controls depend on available hardware and system services. TLP
+and supported MacBook tunables provide additional power modes and device
+controls. The panel can also manage device powersave settings without TLP.
+Power plans use Power saver, Balanced, or Performance where supported. New
+plugged-in plans default to Performance; new battery plans default to
+Balanced.
+
+Framework keyboard lighting uses `qmk_hid` on Laptop 16 and `framework_tool
+--kblight` on Laptop 12 and 13. The fingerprint power button light uses
+`/sys/class/leds/chromeos:white:power`, a root-owned device. The first applied
+Framework plan may prompt through polkit to install a sudoers rule. To install
+that rule manually:
+
+```sh
+pkexec bin/ops-priv led-sudoers
+```
+
+## 💤 Hibernate and idle locking
+
+Hibernate is unavailable while a process holds `memfd_secret`. Bitwarden
+Desktop can do this after login; the panel reports the cause and falls back
+to ordinary sleep. See [the hibernation note](docs/hibernate-memfd-secret-bitwarden.md)
+for details and a workaround.
+
+On Framework Laptop 16 with AMD Ryzen AI 300, firmware may move an ACPI region
+during hibernation resume, causing the kernel to reject the saved image. The
+plugin cannot correct this firmware behavior; see
+[the Framework resume note](docs/framework-16-hibernate-resume.md).
+
+Quickshell 0.3.1 can lose idle notifications when a running timer changes.
+That may prevent automatic locking after displays turn off or wake. See
+[the idle timer diagnosis](docs/quickshell-idle-timer-failure.md) for the
+installed backport, rollback steps, and verification.
+
+## 📚 Troubleshooting notes
+
+- [Slow display lock and wake](docs/slow-display-lock-wake.md)
+- [Cursor screensaver workaround](docs/cursor-screensaver-workaround.md)
+- [Framework 16 USB-C charging after replug](docs/framework-16-usb-c-replug-drain.md)
+- [Framework 16 hibernate resume](docs/framework-16-hibernate-resume.md)
+- [Hibernation blocked by `memfd_secret`](docs/hibernate-memfd-secret-bitwarden.md)
+- [Quickshell idle timer failure](docs/quickshell-idle-timer-failure.md)
