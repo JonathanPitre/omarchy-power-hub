@@ -7,6 +7,15 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [0.0.53] - 2026-11-06
+
+### Fixed
+
+- The NVIDIA GPU on hybrid laptops stayed awake about a third of the time while
+  idle, which costs battery. Every status poll ran `lspci` to look for a
+  Broadcom Wi-Fi chip, and `lspci` wakes a sleeping GPU. The check now reads the
+  kernel's cached device list, so the GPU stays asleep.
+
 ## [0.0.52] - 2026-11-05
 
 ### Added

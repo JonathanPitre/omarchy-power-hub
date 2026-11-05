@@ -165,7 +165,8 @@ fi
 # hardware present, the fix isn't already installed, and suspend_stats shows
 # the specific errno -5 failure at that device — not just "this chip exists".
 wifi_chip=false
-lspci -nn 2>/dev/null | grep -q '14e4:4488' && wifi_chip=true
+# Not lspci: reading PCI config space wakes a sleeping NVIDIA GPU on every poll.
+grep -qs 'v000014E4d00004488' /sys/bus/pci/devices/*/modalias && wifi_chip=true
 wifi_fix_installed=false
 [ -x /usr/lib/systemd/system-sleep/battery-plus-wifi-suspend-fix ] && wifi_fix_installed=true
 wifi_problem=false
