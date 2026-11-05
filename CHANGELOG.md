@@ -7,6 +7,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [0.0.52] - 2026-11-05
+
 ### Added
 
 - **Panel power saving** in Power tweaks, AMD's adaptive backlight, shown on
