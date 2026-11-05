@@ -260,11 +260,14 @@ Column {
             width: root.colWidth
             showLabel: false
             fontFamily: root.fontFamily
+            readonly property var displaysOff: root.sideCfg(modelData.side).displaysOff
             options: idleRow.modelData.key === "profile" ? Model.PROFILE_OPTIONS
               : idleRow.modelData.key === "lid" ? Model.LID_OPTIONS
+              : idleRow.modelData.key === "screensaver" ? Model.saverOptions(idleRow.modelData.stops, saved, displaysOff)
               : Model.idleOptions(idleRow.modelData.stops, saved)
             value: idleRow.modelData.key === "profile" ? String(saved || "balanced")
               : idleRow.modelData.key === "lid" ? String(saved || "suspend")
+              : idleRow.modelData.key === "screensaver" ? String(Math.round(Model.effectiveSaver(saved, displaysOff)))
               : String(Math.max(0, Math.round(Number(saved) || 0)))
             onChanged: function(v) {
               if (v !== String(saved)) root.call(["set", modelData.side, idleRow.modelData.key, v])

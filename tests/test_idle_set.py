@@ -105,6 +105,50 @@ class IdleSetTests(unittest.TestCase):
         self.assertEqual(cfg["battery"]["lid"], "suspend")
         self.assertEqual(ops.set_key("ac", "lid", "system-default"), "bad lid action")
 
+    def shell_saver(self):
+        return json.loads(ops.SHELL.read_text())["idle"]["screensaver"]
+
+    def test_saver_at_or_after_displays_off_never_starts(self):
+        ops.set_key("battery", "screensaver", 60)
+        self.assertEqual(self.shell_saver(), ops.WEEK)
+        ops.set_key("battery", "screensaver", 300)
+        self.assertEqual(self.shell_saver(), ops.WEEK)
+        self.assertEqual(ops.load()["battery"]["screensaver"], 300)
+
+    def test_saved_saver_returns_when_displays_off_moves_past_it(self):
+        ops.set_key("battery", "screensaver", 300)
+        ops.set_key("battery", "displaysOff", 600)
+        self.assertEqual(self.shell_saver(), 300)
+        ops.set_key("battery", "displaysOff", 0)
+        self.assertEqual(self.shell_saver(), 300)
+
+    def test_waking_displays_keeps_a_skipped_saver_off(self):
+        ops.set_key("battery", "screensaver", 60)
+        ops.idle_for_blank(False)
+        self.assertEqual(self.shell_saver(), ops.WEEK)
+
+    def test_first_cursor_poll_of_a_blank_has_no_baseline(self):
+        ops.RUN.mkdir()
+        state = ops.RUN / "idle-wake.json"
+        state.write_text(json.dumps({"cursor": "148, 331"}))
+        os.utime(state, (1, 1))
+        self.assertIsNone(ops.idle_cursor_prev("1075, 888"))
+        self.assertEqual(ops.idle_cursor_prev("1075, 889"), "1075, 888")
+
+    def test_idle_lock_locks(self):
+        with mock.patch.object(ops, "HOME", pathlib.Path(self.tmp.name)):
+            ops.idle_lock()
+        self.assertIn(["omarchy-system-lock"], self.calls)
+
+    def test_idle_lock_respects_stay_awake(self):
+        root = pathlib.Path(self.tmp.name)
+        flag = root / ".local/state/omarchy/indicators/stay-awake"
+        flag.parent.mkdir(parents=True)
+        flag.touch()
+        with mock.patch.object(ops, "HOME", root):
+            ops.idle_lock()
+        self.assertEqual(self.calls, [])
+
 
 def run_model(expr):
     src = (ROOT / "Model.js").read_text().replace(".pragma library", "")
@@ -130,6 +174,23 @@ class IdleOptionTests(unittest.TestCase):
         opts = run_model("idleOptions(HIBERNATE_STOPS, 3600)")
         self.assertEqual(len(opts), 17)
         self.assertEqual(run_model("idleOptions(HIBERNATE_STOPS, 60)")[1]["label"], "1 minute")
+
+    def test_saver_is_never_once_displays_go_off_first(self):
+        self.assertEqual(run_model("[effectiveSaver(60, 180), effectiveSaver(180, 180), "
+                                   "effectiveSaver(300, 180), effectiveSaver(300, 0)]"),
+                         [60, 0, 0, 300])
+
+    def test_saver_menu_offers_only_times_before_displays_off(self):
+        self.assertEqual([o["value"] for o in run_model("saverOptions(IDLE_STOPS, 300, 180)")],
+                         ["0", "60", "120"])
+        self.assertEqual(len(run_model("saverOptions(IDLE_STOPS, 60, 0)")), 9)
+
+
+class IdleWiringTests(unittest.TestCase):
+    def test_lock_timer_outlives_the_saver_displays_off_closes(self):
+        src = (ROOT / "Service.qml").read_text()
+        self.assertIn("root.displaysIdle && root.lockTimeout >= root.displaysTimeout", src)
+        self.assertIn('"idle-lock"', src)
 
 
 if __name__ == "__main__":
