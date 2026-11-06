@@ -149,6 +149,16 @@ class ChargeParity(unittest.TestCase):
             r = s.rust("boost-check")
             self.assertEqual((r.stdout.strip(), r.calls), ("ok", []))
 
+    def test_boost_off_forks_nothing_without_valid_saved_profiles(self):
+        for raw in (None, "", "{", '{"boost": false}', '{"boost": 0, "ac": 5}'):
+            with self.subTest(raw=raw), Sandbox() as s:
+                if raw is not None:
+                    s.write(s.CONFIG_PATH, raw)
+                r = s.rust("boost-check")
+                self.assertEqual((r.code, r.stdout.strip(), r.calls), (0, "ok", []))
+                if raw != '{"boost": 0, "ac": 5}':  # Python crashes on a non-object side
+                    assert_same(s.python("boost-check"), r)
+
     def test_boost_restores_saved_limit_when_full(self):
         with Sandbox() as s:
             s.framework(); s.install_helper()

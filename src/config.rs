@@ -58,9 +58,14 @@ fn read_json(p: &std::path::Path) -> Value {
     fs::read_to_string(p).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or(Value::Null)
 }
 
+/// The saved file as is (Null when missing or malformed); never forks.
+pub fn raw() -> Value {
+    read_json(&paths::cfg_file())
+}
+
 /// Saved settings merged over defaults; asks power-profiles-daemon only when a side lacks a valid profile.
 pub fn load() -> Value {
-    let raw = read_json(&paths::cfg_file());
+    let raw = raw();
     let mut available: Option<Option<Vec<String>>> = None;
     let mut cfg = Map::new();
     for (k, v) in [("chargeLimit", json!(80)), ("boost", json!(false)), ("boostSavedLimit", json!(80))] {

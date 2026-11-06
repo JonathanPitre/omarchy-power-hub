@@ -207,10 +207,11 @@ fn percentage(out: &str) -> Option<u64> {
 
 /// Runs every 30 s: returns before any fork while boost is off.
 pub fn boost_check() -> (i32, String) {
-    let mut cfg = config::load();
-    if !truthy(&cfg["boost"]) {
+    // load() forks busctl for a side without a valid saved profile, so decide from the raw file first.
+    if !truthy(&config::raw()["boost"]) {
         return (0, "ok".into());
     }
+    let mut cfg = config::load();
     let (_, out) = exec::run(&["upower", "-i", "/org/freedesktop/UPower/devices/DisplayDevice"], secs(4));
     let full = out.contains("fully-charged") || out.to_lowercase().contains("fully charged");
     if full || (percentage(&out).is_some_and(|p| p >= 100) && !power::on_battery()) {
