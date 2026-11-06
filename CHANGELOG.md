@@ -9,6 +9,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Changed
 
+- Panel data loads faster and background polling costs far less CPU. The plugin
+  now ships an x86-64 binary (`bin/power-hub`) for these paths.
 - Recommend an 80% everyday charge limit, and clarify that the BIOS charge
   limit should match the plugin value and Battery Extender can override it.
 
