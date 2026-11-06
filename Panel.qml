@@ -121,7 +121,6 @@ Panel {
 
 
   readonly property string hubBin: String(Qt.resolvedUrl("bin/power-hub")).replace(/^file:\/\//, "")
-  Process { id: planOps }
 
   function loadHistory() {
     if (histProc.running) return

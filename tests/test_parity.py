@@ -191,6 +191,26 @@ class ChargeParity(unittest.TestCase):
             self.assertEqual((rs.code, rs.stdout.strip()), (1, "privilege required"))
             self.assertIn("charge-limit 70", rs.calls_text)
 
+    def test_boost_full_battery_spellings_follow_power_source(self):
+        cases = [("percentage: 100%\n", True, "restored"), ("percentage: 100%\n", False, "holding"), ("state: fully charged\n", False, "restored")]
+        for out, ac, expected in cases:
+            with self.subTest(out=out, ac=ac), Sandbox() as s:
+                s.framework(); s.install_helper()
+                s.stub("sudo", "charge-limit 75", 0)
+                s.stub("upower", "-i", 0, out)
+                if ac:
+                    s.ucsi("USBC000:001", True, 20, 3.25)
+                else:
+                    s.ucsi("USBC000:001", True, 5, 2)
+                s.config(boost=True, boostSavedLimit=75)
+                py = s.python("boost-check")
+                s.config(boost=True, boostSavedLimit=75)
+                rs = s.rust("boost-check")
+                assert_same(py, rs)
+                self.assertEqual(rs.stdout.strip(), expected)
+                self.assertEqual(f"sudo -n {s.helper_dir}/ops-priv charge-limit 75" in rs.calls_text, expected == "restored")
+                self.assertEqual(s.read_config()["boost"], expected == "holding")
+
     def test_led_sudo_skip_when_not_framework(self):
         with Sandbox() as s:
             s.write("/sys/class/leds/chromeos:white:power/brightness", "0\n")
@@ -394,6 +414,22 @@ class StatusParity(unittest.TestCase):
             self.assertIn("charge-limit 80", s.rust("status").calls_text)
             self.assertEqual(json.loads(s.rust("status").stdout)["charge"], {
                 "kind": "framework", "available": True, "reason": "", "limit": 80, "tool": True, "health": None, "policy": None})
+
+    def test_failed_reapply_keeps_the_stale_limit(self):
+        with Sandbox() as s:
+            s.framework(); s.install_helper(); s.config(chargeLimit=80)
+            s.stub("sudo", "charge-limit 80", 1)
+            s.charge_limit(90)
+            st = status_of(s)
+            self.assertEqual((st["charge"]["limit"], st["charge"]["available"]), (90, True))
+            self.assertIn(f"sudo -n {s.helper_dir}/ops-priv charge-limit 80", s.rust("status").calls_text)
+
+    def test_reapplied_limit_is_clamped_to_40_100(self):
+        for saved, sent in ((30, 40), (120, 100)):
+            with self.subTest(saved=saved), Sandbox() as s:
+                s.framework(); s.install_helper(); s.config(chargeLimit=saved); s.charge_limit(90)
+                self.assertEqual(status_of(s)["charge"]["limit"], sent)
+                self.assertIn(f"charge-limit {sent}", s.rust("status").calls_text)
 
     def test_framework_limit_that_matches_is_left_alone(self):
         with Sandbox() as s:

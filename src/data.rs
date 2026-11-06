@@ -1,4 +1,4 @@
-//! The `data` verb: port of `bin/battery-plus-data`, one JSON object for the panel.
+//! The `data` verb: port of `tests/fixtures/battery-plus-data`, one JSON object for the panel.
 use crate::{config, exec, hypr, paths, power};
 use serde_json::{Map, Value, json};
 use std::fs;

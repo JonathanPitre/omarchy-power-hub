@@ -48,6 +48,8 @@ hardware, firmware, or optional system services are shown only when available.
 omarchy plugin add https://github.com/JonathanPitre/omarchy-power-hub.git --enable
 ```
 
+The plugin ships an x86-64 Linux binary; other CPUs are not supported.
+
 Optional controls may need additional system tools. For Framework charge
 limits, install:
 
