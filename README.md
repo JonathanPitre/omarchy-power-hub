@@ -66,8 +66,9 @@ to set the embedded controller ceiling. It does not use Linux start/stop
 threshold files. The default desk-docked limit is 80%; the service reapplies
 the saved limit after login if firmware resets it. Boost temporarily charges
 to 100%, then restores the saved limit. A passwordless sudoers rule for the
-command or a polkit prompt is required. Turn off **Battery Extender** in BIOS
-when setting a custom limit because it overrides the same control.
+command or a polkit prompt is required. In BIOS, set **Battery charge limit**
+to match the plugin (80%) and turn off **Battery Extender**, which can reset the
+same control to 100%; see [the longevity note](docs/framework-battery-longevity.md).
 
 On other laptops, **Battery health** appears when UPower reports charge
 threshold support. It uses the firmware's charge band when enabled and allows
@@ -138,6 +139,7 @@ installed backport, rollback steps, and verification.
 - [Slow display lock and wake](docs/slow-display-lock-wake.md)
 - [Cursor screensaver workaround](docs/cursor-screensaver-workaround.md)
 - [Framework 16 USB-C charging after replug](docs/framework-16-usb-c-replug-drain.md)
+- [Framework battery longevity: BIOS limit and Battery Extender](docs/framework-battery-longevity.md)
 - [Framework 16 hibernate resume](docs/framework-16-hibernate-resume.md)
 - [Hibernation blocked by `memfd_secret`](docs/hibernate-memfd-secret-bitwarden.md)
 - [Quickshell idle timer failure](docs/quickshell-idle-timer-failure.md)
