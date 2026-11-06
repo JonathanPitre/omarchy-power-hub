@@ -15,10 +15,9 @@ cargo build --locked --release --target "$target"
 built=$tmp/$target/release/power-hub
 
 if [[ $mode == --check ]]; then
-  want=$(cut -d' ' -f1 bin/power-hub.sha256)
-  got=$(sha256sum "$built" | cut -d' ' -f1)
-  [[ $want == "$got" ]] || { echo "bin/power-hub is stale: expected $want, built $got" >&2; exit 1; }
-  echo "bin/power-hub matches source ($got)"
+  cmp -s "$built" bin/power-hub && [[ -x bin/power-hub ]] && (cd bin && sha256sum -c --quiet power-hub.sha256) \
+    || { echo "bin/power-hub is stale" >&2; exit 1; }
+  echo "bin/power-hub matches source"
 else
   install -m 755 "$built" bin/power-hub
   (cd bin && sha256sum power-hub > power-hub.sha256)
