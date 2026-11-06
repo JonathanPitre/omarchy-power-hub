@@ -3,6 +3,7 @@
 
 mod charge;
 mod config;
+mod data;
 mod exec;
 mod hypr;
 mod paths;
@@ -22,6 +23,7 @@ fn main() {
     match args.first().map(String::as_str) {
         Some("status") => out(system::status()),
         Some("gpu") => out(system::gpu_status()),
+        Some("data") => out(data::collect()),
         Some("config") => {
             let cfg = config::load();
             out(serde_json::json!({"side": power::active_side(&cfg), "config": cfg}));
@@ -37,7 +39,7 @@ fn main() {
             std::process::exit(code);
         }
         _ => {
-            eprintln!("usage: power-hub status|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|boost-check");
+            eprintln!("usage: power-hub status|data|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|boost-check");
             std::process::exit(2);
         }
     }

@@ -203,6 +203,21 @@ class Sandbox:
         (bat / "status").write_text(status + "\n")
         (bat / "capacity").write_text(f"{percent}\n")
 
+    def battery(self, name="BAT0", charge_units=False, **fields):
+        """A pack with sysfs files in energy units (or charge units); a None field removes its file."""
+        units = ({"charge_now": 3500000, "charge_full": 4200000, "charge_full_design": 4500000, "current_now": 1000000}
+                 if charge_units else
+                 {"energy_now": 40000000, "energy_full": 50000000, "energy_full_design": 55000000, "power_now": 10000000})
+        files = {"status": "Discharging", "capacity": 70, "voltage_now": 12000000, "voltage_min_design": 11400000,
+                 "cycle_count": 123, **units, **fields}
+        bat = self.root / "sys/class/power_supply" / name
+        bat.mkdir(parents=True, exist_ok=True)
+        for key, value in files.items():
+            if value is None:
+                (bat / key).unlink(missing_ok=True)
+            else:
+                (bat / key).write_text(f"{value}\n")
+
     def ucsi(self, name, online, volts, amps):
         port = self.root / "sys/class/power_supply" / f"ucsi-source-psy-{name}"
         port.mkdir(parents=True, exist_ok=True)

@@ -2,6 +2,7 @@
 import json
 import os
 import sys
+import threading
 import unittest
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -494,6 +495,194 @@ class StatusParity(unittest.TestCase):
             self.assertNotIn("powerprofilesctl", r.calls_text)
             self.assertNotIn("omarchy-powerprofiles-list", r.calls_text)
             self.assertNotIn("hyprctl", r.calls_text)
+
+
+def data_of(s):
+    py, rs = s.bash_data(), s.rust("data")
+    assert_same(py, rs)
+    return json.loads(rs.stdout)
+
+
+class DataParity(unittest.TestCase):
+    def test_discharging_energy_battery(self):
+        with Sandbox() as s:
+            s.battery()
+            s.framework()
+            s.discharging(percent=90)
+            s.ucsi("USBC000:001", True, 20, 3.25)
+            s.config(chargeLimit=85)
+            d = data_of(s)
+            self.assertEqual(d["battery"], {"present": True, "percent": 90, "status": "Discharging", "watts": 10.0,
+                                            "health": 91, "whFull": 50.0, "whDesign": 55.0, "cycles": 123, "minutes": 240,
+                                            "acOnline": 1, "fraction": 0.9, "drainTo": 85})
+            self.assertEqual(d["rapl"], {"available": False, "package": 0, "core": 0, "gpu": 0})
+
+    def test_charging_charge_units_battery(self):
+        with Sandbox() as s:
+            s.battery(charge_units=True, status="Charging", capacity=80, current_now="-1000000")
+            s.stub("busctl", "OnBattery", 0, "b false\n")
+            d = data_of(s)
+            self.assertEqual((d["battery"]["whFull"], d["battery"]["whDesign"], d["battery"]["watts"]), (47.9, 51.3, 12.0))
+            self.assertEqual((d["battery"]["minutes"], d["battery"]["acOnline"], d["battery"]["drainTo"]), (39, 1, 0))
+            s.battery(charge_units=True, status="Discharging", current_now=None, current_avg="500000", power_now=None)
+            s.stub("busctl", "OnBattery", 0, "b true\n")
+            d = data_of(s)
+            self.assertEqual((d["battery"]["watts"], d["battery"]["minutes"], d["battery"]["acOnline"]), (6.0, 399, 0))
+
+    def test_no_battery_desktop(self):
+        with Sandbox() as s:
+            r = s.rust("data")
+            self.assertFalse(json.loads(r.stdout)["battery"]["present"])
+            assert_same(s.bash_data(), r)
+
+    def test_garbage_in_capacity_gives_valid_json(self):
+        with Sandbox() as s:
+            s.battery(capacity="n/a")
+            r = s.rust("data")
+            self.assertEqual(r.code, 0)
+            battery = json.loads(r.stdout)["battery"]
+            self.assertEqual((battery["present"], battery["percent"], battery["whFull"], battery["status"]),
+                             (True, 0, 50.0, "Discharging"))
+            s.battery(energy_now="x", power_now="", voltage_now="1e9", cycle_count="?")
+            r = s.rust("data")
+            self.assertEqual(r.code, 0)
+            self.assertTrue(json.loads(r.stdout)["battery"]["present"])
+
+    def test_tlp_manual_and_last_pwr(self):
+        with Sandbox() as s:
+            s._write_stub("tlp")
+            s.stub("systemctl", "is-active", 0)
+            s.write("/run/tlp/last_pwr", "1 1700000000\n")
+            tlp = data_of(s)["tlp"]
+            self.assertEqual(tlp, {"installed": True, "active": True, "mode": "battery", "manual": False})
+            s.write("/run/tlp/manual_mode", "0\n")
+            self.assertEqual(data_of(s)["tlp"], {"installed": True, "active": True, "mode": "ac", "manual": True})
+            s.write("/run/tlp/manual_mode", "2\n")
+            s.write("/run/tlp/last_pwr", "0 1\n")
+            self.assertEqual(data_of(s)["tlp"]["mode"], "battery")
+            s.write("/run/tlp/manual_mode", "")
+            self.assertEqual(data_of(s)["tlp"], {"installed": True, "active": True, "mode": "ac", "manual": False})
+
+    def test_tlp_mode_falls_back_to_the_adapter(self):
+        with Sandbox() as s:
+            s.stub("busctl", "OnBattery", 0, "b true\n")
+            self.assertEqual(data_of(s)["tlp"], {"installed": False, "active": False, "mode": "battery", "manual": False})
+            s.stub("busctl", "OnBattery", 0, "b false\n")
+            self.assertEqual(data_of(s)["tlp"]["mode"], "ac")
+
+    def test_tweaks_counts_and_pins(self):
+        with Sandbox() as s:
+            s.write("/sys/class/net/wlan0/address", "00\n")
+            s.stub("iw", "dev wlan0 get power_save", 0, "Power save: on\n")
+            for n, mode in enumerate(("auto", "auto", "on")):
+                s.write(f"/sys/bus/pci/devices/0000:00:0{n}.0/power/control", mode + "\n")
+            for n, mode in enumerate(("auto", "on")):
+                s.write(f"/sys/bus/usb/devices/1-{n}/power/control", mode + "\n")
+            s.write("/sys/module/snd_hda_intel/parameters/power_save", "1\n")
+            s.write("/sys/class/drm/card1/amdgpu/panel_power_savings", "3\n")
+            s.hypr["getoption animations:enabled"] = "bool: false\nset: true\n"
+            s.write("home/.config/omarchy/power-hub-tweaks.json",
+                    json.dumps({"wifiPinned": True, "usbPinned": False, "audioPinned": 3, "other": 1, "wifi": "no"}))
+            r = s.rust("data")
+            d = data_of(s)
+            self.assertEqual(d["tweaks"], {"wifi": True, "usb": False, "pcie": True, "audio": True, "abm": True,
+                                           "abmAvailable": True, "effects": True,
+                                           "wifiPinned": True, "usbPinned": False, "audioPinned": 3})
+            self.assertEqual(r.requests, ["getoption animations:enabled"])
+            self.assertIn("iw dev wlan0 get power_save", r.calls_text)
+
+    def test_tweaks_default_off(self):
+        with Sandbox() as s:
+            s.write("/sys/class/net/wlan0/address", "00\n")
+            s.write("/sys/class/drm/card1/amdgpu/panel_power_savings", "0\n")
+            s.write("/sys/module/snd_hda_intel/parameters/power_save", "0\n")
+            self.assertEqual(data_of(s)["tweaks"], {"wifi": False, "usb": False, "pcie": False, "audio": False,
+                                                    "abm": False, "abmAvailable": True, "effects": False})
+
+    def test_tweaks_file_holding_a_list(self):
+        with Sandbox() as s:
+            s.write("home/.config/omarchy/power-hub-tweaks.json", "[1, 2]")
+            assert_same(s.bash_data(), s.rust("data"))
+            self.assertNotIn("Pinned", s.rust("data").stdout)
+
+    def test_sleep_log_rolling_average(self):
+        with Sandbox() as s:
+            watts = (0.9, 1.1, 1.7, 2.2, 2.9, 3.4, 4.1)
+            pph = (-3.1, -2.2, -1.9, -1.4, -1.1, -0.8, -0.6)
+            rows = [f"2026-11-0{i + 1}T10:00:00+00:00 duration={600 + i} pre_cap={80 - i} post_cap={79 - i} drop_wh=0.5 "
+                    f"watts={w} pct_per_hour={p}" for i, (w, p) in enumerate(zip(watts, pph))]
+            rows.insert(1, "")
+            s.write("/var/log/battery-plus-sleep.log", "\n".join(rows) + "\n")
+            p = s.write("/usr/lib/systemd/system-sleep/battery-plus-sleep", "#!/bin/sh\n")
+            p.chmod(0o755)
+            sleep = data_of(s)["sleep"]
+            self.assertEqual((sleep["installed"], sleep["samples"], sleep["lastAt"]), (True, 7, "2026-11-07T10:00:00+00:00"))
+            self.assertEqual((sleep["lastDurationSec"], sleep["lastPreCap"], sleep["lastPostCap"]), (606, 74, 73))
+            self.assertAlmostEqual(sleep["avgWatts"], 2.86)
+            self.assertAlmostEqual(sleep["avgPctPerHour"], -1.16)
+            self.assertEqual((sleep["lastWatts"], sleep["lastPctPerHour"]), (4.1, -0.6))
+
+    def test_sleep_log_absent_or_blank(self):
+        with Sandbox() as s:
+            self.assertEqual(data_of(s)["sleep"], {"installed": False})
+            s.write("/var/log/battery-plus-sleep.log", "\n\n")
+            self.assertEqual(data_of(s)["sleep"], {"installed": False})
+
+    def test_wifi_suspend_problem_detected(self):
+        with Sandbox() as s:
+            s.write("/sys/bus/pci/devices/0000:03:00.0/modalias", "pci:v000014E4d00004488sv00001028sd00000001bc02sc80i00\n")
+            s.write("/sys/bus/pci/devices/0000:03:00.0/vendor", "0x14e4\n")
+            s.write("/sys/bus/pci/devices/0000:03:00.0/device", "0x4488\n")
+            s.write("/sys/power/suspend_stats/fail", "2\n")
+            s.write("/sys/power/suspend_stats/last_failed_dev", "0000:03:00.0\n")
+            s.write("/sys/power/suspend_stats/last_failed_errno", "-5\n")
+            self.assertEqual(data_of(s)["wifiFix"], {"chipPresent": True, "installed": False, "problemSeen": True, "failCount": 2})
+            s.write("/sys/power/suspend_stats/last_failed_errno", "-22\n")
+            self.assertEqual(data_of(s)["wifiFix"]["problemSeen"], False)
+            s.write("/sys/power/suspend_stats/last_failed_errno", "-5\n")
+            s.write("/sys/bus/pci/devices/0000:03:00.0/device", "0x4377\n")
+            self.assertEqual(data_of(s)["wifiFix"]["problemSeen"], False)
+            p = s.write("/usr/lib/systemd/system-sleep/battery-plus-wifi-suspend-fix", "#!/bin/sh\n")
+            p.chmod(0o755)
+            self.assertTrue(data_of(s)["wifiFix"]["installed"])
+
+    def test_rapl_readable(self):
+        with Sandbox() as s:
+            rapl = "/sys/class/powercap/intel-rapl:0"
+            s.write(f"{rapl}/energy_uj", "5000000\n")
+            s.write(f"{rapl}:0/energy_uj", "100\n")
+            s.write(f"{rapl}/max_energy_range_uj", "10000000\n")
+            self.assertEqual(data_of(s)["rapl"], {"available": True, "package": 0, "core": 0, "gpu": 0})
+
+            def counter_moves(run):
+                s.write(f"{rapl}/energy_uj", "9000000\n")
+                s.write(f"{rapl}:0/energy_uj", "1000000\n")
+                s.write(f"{rapl}:0/max_energy_range_uj", "0\n")
+                timer = threading.Timer(0.25, lambda: (s.write(f"{rapl}/energy_uj", "1000000\n"),
+                                                       s.write(f"{rapl}:0/energy_uj", "3000000\n")))
+                timer.start()
+                try:
+                    return run()
+                finally:
+                    timer.join()
+
+            py, rs = counter_moves(s.bash_data), counter_moves(lambda: s.rust("data"))
+            assert_same(py, rs)
+            # package wrapped past max_energy_range (+2 J over 0.4 s); core rose 2 J with no wrap range
+            self.assertEqual(json.loads(rs.stdout)["rapl"], {"available": True, "package": 5.0, "core": 5.0, "gpu": 0})
+
+    def test_data_never_calls_lspci_or_python(self):
+        with Sandbox() as s:
+            forbidden = ("lspci", "python3", "hyprctl", "jq", "awk")
+            for tool in forbidden:
+                s._write_stub(tool)
+            s.battery()
+            r = s.rust("data")
+            self.assertEqual(r.code, 0)
+            for tool in forbidden:
+                self.assertNotIn(tool, r.calls_text)
+            self.assertTrue(r.calls)
+            self.assertTrue(all(c.split()[0] in ("busctl", "iw", "systemctl") for c in r.calls), r.calls)
 
 
 if __name__ == "__main__":
