@@ -3,6 +3,7 @@ import json
 import os
 import sys
 import threading
+import time
 import unittest
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -683,6 +684,195 @@ class DataParity(unittest.TestCase):
                 self.assertNotIn(tool, r.calls_text)
             self.assertTrue(r.calls)
             self.assertTrue(all(c.split()[0] in ("busctl", "iw", "systemctl") for c in r.calls), r.calls)
+
+IDLE_FILE = "run/omarchy-power-hub/idle-wake.json"
+STATE_FILE = "run/omarchy-power-hub/display-off.json"
+
+
+def seed_cursor(s, cursor, age=0):
+    path = s.write(IDLE_FILE, json.dumps({"cursor": cursor}) + "\n")
+    os.utime(path, (time.time() - age,) * 2)
+
+
+def poll_both(s, *args, prev=None, age=0):
+    """Python then Rust, each from the same cursor file; returns the Rust result and the file it left."""
+    out = []
+    for run in (s.python, s.rust):
+        s._target(IDLE_FILE).unlink(missing_ok=True)
+        if prev is not None:
+            seed_cursor(s, prev, age)
+        r = run("idle-wake-poll", *args)
+        out.append((r, s._target(IDLE_FILE).read_text()))
+    (py, py_file), (rs, rs_file) = out
+    assert_same(py, rs)
+    unittest.TestCase().assertEqual(py_file, rs_file)
+    return rs, rs_file
+
+
+EDP = {"name": "eDP-1", "dpmsStatus": True}
+
+
+def device_eval(name, enabled):
+    return f'hl.device({{ name = "{name}", enabled = {enabled} }})'
+
+
+class IdleParity(unittest.TestCase):
+    def test_cursor_moved_wakes(self):
+        with Sandbox() as s:
+            s.monitors({"name": "eDP-1", "dpmsStatus": False})
+            s.devices(mice=["m"], keyboards=["kb"])
+            s.hypr["cursorpos"] = "500, 300\n"
+            r, f = poll_both(s, "blanked", prev="10, 10")
+            self.assertEqual(r.stdout.strip(), "wake")
+            self.assertEqual(r.evals, [device_eval("m", "true"), device_eval("kb", "true")])
+            self.assertEqual(f, '{"cursor": "500, 300"}\n')
+            s.hypr["cursorpos"] = "10, 10\n"
+            self.assertEqual(poll_both(s, "blanked", prev="10, 10")[0].stdout.strip(), "hold")
+
+    def test_stale_cursor_file_does_not_wake(self):
+        with Sandbox() as s:
+            s.monitors({"name": "eDP-1", "dpmsStatus": False})
+            s.hypr["cursorpos"] = "500, 300\n"
+            self.assertEqual(poll_both(s, "blanked", prev="10, 10", age=1)[0].stdout.strip(), "wake")
+            r, f = poll_both(s, "blanked", prev="10, 10", age=10)
+            self.assertEqual(r.stdout.strip(), "hold")
+            self.assertEqual(f, '{"cursor": "500, 300"}\n')
+            self.assertEqual(poll_both(s, "blanked")[0].stdout.strip(), "hold")
+
+    def test_lid_closed_disables_pointers_and_keyboards(self):
+        with Sandbox() as s:
+            s.lid("closed")
+            s.devices(mice=["m1", "m2"], keyboards=["kb"])
+            r, _ = poll_both(s, "blanked")
+            self.assertEqual(r.stdout.strip(), "closed")
+            self.assertEqual(r.evals, [device_eval(n, "false") for n in ("m1", "m2", "kb")])
+            # Not blanked: the pointers stay enabled even with the lid shut.
+            r, _ = poll_both(s)
+            self.assertEqual((r.stdout.strip(), r.evals), ("closed", [device_eval(n, "true") for n in ("m1", "m2", "kb")]))
+            s.lid("open")
+            r, _ = poll_both(s, "off", prev="1, 1")
+            self.assertEqual(r.evals, [device_eval(n, "true") for n in ("m1", "m2", "kb")])
+
+    def test_blanked_but_monitors_awake_wakes(self):
+        with Sandbox() as s:
+            s.hypr["cursorpos"] = "5, 5\n"
+            s.monitors(EDP, {"name": "DP-1", "disabled": True, "dpmsStatus": False})
+            self.assertEqual(poll_both(s, "blanked", prev="5, 5")[0].stdout.strip(), "wake")
+            self.assertEqual(poll_both(s, prev="5, 5")[0].stdout.strip(), "hold")
+            s.monitors(EDP, {"name": "DP-2", "dpmsStatus": False})
+            self.assertEqual(poll_both(s, "blanked", prev="5, 5")[0].stdout.strip(), "hold")
+            s.monitors()
+            self.assertEqual(poll_both(s, "blanked", prev="5, 5")[0].stdout.strip(), "hold")
+
+    def test_socket_gone_still_answers_from_lid(self):
+        with Sandbox(hypr_up=False) as s:
+            s.lid("closed")
+            r = s.rust("idle-wake-poll", "blanked")
+            self.assertEqual((r.code, r.stdout.strip()), (0, "closed"))
+
+    def test_unsafe_device_name_never_reaches_eval(self):
+        with Sandbox() as s:
+            s.devices(mice=['ok-mouse', 'bad"name'], keyboards=['ok-kb'])
+            assert_same(s.python("idle-wake-poll"), s.rust("idle-wake-poll"))
+            self.assertFalse(any("bad" in e for e in s.rust("idle-wake-poll").evals))
+            self.assertEqual(s.rust("idle-wake-poll").evals, [device_eval("ok-mouse", "true"), device_eval("ok-kb", "true")])
+
+    def test_power_button_keyboard_skipped(self):
+        with Sandbox() as s:
+            s.devices(mice=["power-button", "video-bus"],
+                      keyboards=["power-button", "video-bus", "x-gpio-keys", "my-power-button", "AT:kb.0_1-x"])
+            r, _ = poll_both(s, "blanked")
+            self.assertEqual(r.evals, [device_eval(n, "true") for n in ("power-button", "video-bus", "my-power-button", "AT:kb.0_1-x")])
+
+    def test_non_string_device_names_follow_python_str(self):
+        with Sandbox() as s:
+            s.devices(mice=[5, True, False, None, "", 1.5, ["a"], {"name": "x"}, "nl\n", "sp ace"], keyboards=[0, 7])
+            r, _ = poll_both(s)
+            self.assertEqual(r.evals, [device_eval(n, "true") for n in ("5", "True", "1.5", "x", "nl\n", "7")])
+
+    def test_no_forks(self):
+        with Sandbox() as s:
+            self.assertEqual(s.rust("idle-wake-poll", "blanked").calls, [])
+
+
+def park(s, *specs):
+    s.write(STATE_FILE, json.dumps({"disabled": list(specs)}) + "\n")
+
+
+def sync_both(s, *specs):
+    out = []
+    for run in (s.python, s.rust):
+        park(s, *specs)
+        r = run("displays", "sync")
+        out.append((r, s._target(STATE_FILE).read_text()))
+    (py, py_file), (rs, rs_file) = out
+    assert_same(py, rs)
+    unittest.TestCase().assertEqual(py_file, rs_file)
+    return rs, rs_file
+
+
+class SyncParity(unittest.TestCase):
+    def test_idle_when_nothing_parked(self):
+        with Sandbox() as s:
+            s.monitors(EDP)
+            r, _ = sync_both(s)
+            self.assertEqual((r.stdout.strip(), r.evals), ("idle", []))
+            s._target(STATE_FILE).unlink()
+            assert_same(s.python("displays", "sync"), s.rust("displays", "sync"))
+            self.assertEqual(s.rust("displays", "sync").stdout.strip(), "idle")
+
+    def test_waiting_while_a_monitor_sleeps(self):
+        with Sandbox() as s:
+            spec = {"name": "DP-1", "width": 1920, "height": 1080}
+            for mons in ([EDP, {"name": "DP-2", "dpmsStatus": False}], []):
+                s.monitors(*mons)
+                r, f = sync_both(s, spec)
+                self.assertEqual((r.stdout.strip(), r.evals, f), ("waiting", [], json.dumps({"disabled": [spec]}) + "\n"))
+
+    def test_restored_sends_same_lua_and_clears_state(self):
+        with Sandbox() as s:
+            s.monitors(EDP, {"name": "DP-9", "disabled": True})
+            specs = [
+                {"name": "DP-1", "output": "desc:BOE NE160 (1)+x", "width": 2560, "height": 1600,
+                 "refreshRate": 59.951, "x": 0, "y": 0, "scale": 1.25},
+                {"name": "DP-2", "width": 1920, "height": 1080, "refreshRate": 60.0, "x": -1920, "y": 0, "scale": 1},
+                {"name": "DP-3", "width": 3840, "height": 2160, "refreshRate": 144, "x": 2560, "y": 100, "scale": 2.0},
+                {"name": "DP-4", "width": 800, "height": 600},
+                {"name": "DP-5", "width": 0, "height": 600, "refreshRate": 75},
+                {"name": "DP-6", "width": 100, "height": 100, "refreshRate": 1e16, "scale": 0.00001},
+                {"name": "DP-7", "width": 100, "height": 100, "refreshRate": 0.1, "scale": 1.5e300},
+                {"name": "bad name"}, {"name": "DP-8", "output": "desc:a;b"}, {"name": ""}, {"name": 0}, {"output": "x"},
+                "HDMI-A-1", 12, None,
+            ]
+            r, f = sync_both(s, *specs)
+            self.assertEqual((r.stdout.strip(), f), ("restored", '{"disabled": []}\n'))
+            self.assertIn('hl.monitor({ output = "desc:BOE NE160 (1)+x", mode = "2560x1600@59.951", '
+                          'position = "0x0", scale = 1.25, disabled = false })', r.evals)
+            self.assertIn('hl.monitor({ output = "DP-2", mode = "1920x1080@60.0", position = "-1920x0", scale = 1, '
+                          'disabled = false })', r.evals)
+            self.assertIn('hl.monitor({ output = "DP-3", mode = "3840x2160@144", position = "2560x100", scale = 2.0, '
+                          'disabled = false })', r.evals)
+            self.assertIn('hl.monitor({ output = "DP-4", mode = "800x600@60", position = "0x0", scale = 1, '
+                          'disabled = false })', r.evals)
+            self.assertIn('hl.monitor({ output = "DP-5", disabled = false })', r.evals)
+            joined = "".join(r.evals)
+            self.assertIn('@1e+16"', joined)
+            self.assertIn("scale = 1e-05", joined)
+            self.assertIn("scale = 1.5e+300", joined)
+
+    def test_waits_for_python_holding_the_lock(self):
+        with Sandbox() as s:
+            s.monitors(EDP)
+            park(s, {"name": "DP-1"})
+            with s.hold_flock("run/omarchy-power-hub/display-off.lock"):
+                p = s.rust_start("displays", "sync")
+                time.sleep(0.2)
+                self.assertIsNone(p.poll())
+                self.assertEqual(s.read_state(), {"disabled": [{"name": "DP-1"}]})
+            self.assertEqual(p.wait(timeout=2), 0)
+            self.assertEqual(p.stdout.read().strip(), "restored")
+            self.assertEqual(s.read_state(), {"disabled": []})
+            self.assertEqual(s._evals, ['hl.monitor({ output = "DP-1", disabled = false })'])
 
 
 if __name__ == "__main__":

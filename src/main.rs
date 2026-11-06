@@ -1,11 +1,9 @@
-// Later stages consume the shared modules; keep them compiled and warning-free meanwhile.
-#![allow(dead_code)]
-
 mod charge;
 mod config;
 mod data;
 mod exec;
 mod hypr;
+mod idle;
 mod paths;
 mod power;
 mod system;
@@ -33,13 +31,15 @@ fn main() {
         Some("helper-needed") => out(if charge::helper_needed() { "needed" } else { "ok" }),
         Some("led-sudo-needed") => out(system::led_sudo_needed()),
         Some("battery-history") => out(system::battery_history()),
+        Some("idle-wake-poll") => out(idle::poll(matches!(args.get(1).map(String::as_str), Some("blanked" | "off")))),
+        Some("displays" | "dpms") if args.get(1).map(String::as_str) == Some("sync") => out(idle::sync()),
         Some("boost-check") => {
             let (code, msg) = charge::boost_check();
             out(msg);
             std::process::exit(code);
         }
         _ => {
-            eprintln!("usage: power-hub status|data|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|boost-check");
+            eprintln!("usage: power-hub status|data|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|boost-check|idle-wake-poll|displays sync");
             std::process::exit(2);
         }
     }

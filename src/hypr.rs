@@ -13,6 +13,7 @@ fn socket_path() -> Option<PathBuf> {
         _ => fs::read_dir(&base)
             .ok()?
             .flatten()
+            .filter(|e| e.path().is_dir())
             .filter_map(|e| Some((e.metadata().ok()?.modified().ok()?, e.path())))
             .max()?
             .1,

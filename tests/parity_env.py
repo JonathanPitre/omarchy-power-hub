@@ -1,4 +1,6 @@
 """Sandbox for comparing bin/ops.py (reference) against the Rust binary on the same fake system."""
+import contextlib
+import fcntl
 import json
 import os
 import pathlib
@@ -74,7 +76,8 @@ sys.stdout.write(out.decode())
 
 
 class Sandbox:
-    def __init__(self):
+    def __init__(self, hypr_up=True):
+        self.hypr_up = hypr_up
         self.base = pathlib.Path(tempfile.mkdtemp(prefix="ph-", dir="/tmp"))
         self.root, self.home, self.run, self.stubs, self.bin = (self.base / d for d in ("root", "home", "run", "stubs", "bin"))
         for d in (self.root, self.home, self.run, self.stubs, self.bin):
@@ -93,9 +96,10 @@ class Sandbox:
         return self
 
     def __exit__(self, *exc):
-        self._server.shutdown(socket.SHUT_RDWR)
-        self._server.close()
-        self._thread.join(timeout=2)
+        if self.hypr_up:
+            self._server.shutdown(socket.SHUT_RDWR)
+            self._server.close()
+            self._thread.join(timeout=2)
         shutil.rmtree(self.base, ignore_errors=True)
 
     def _install_scripts(self):
@@ -123,13 +127,14 @@ class Sandbox:
 
     def _serve(self):
         sock_dir = self.run / "hypr" / "test"
-        sock_dir.mkdir(parents=True)
         self.sock_path = str(sock_dir / ".socket.sock")
-        self._server = socket.socket(socket.AF_UNIX)
-        self._server.bind(self.sock_path)
-        self._server.listen(8)
-        self._thread = threading.Thread(target=self._loop, daemon=True)
-        self._thread.start()
+        if self.hypr_up:
+            sock_dir.mkdir(parents=True)
+            self._server = socket.socket(socket.AF_UNIX)
+            self._server.bind(self.sock_path)
+            self._server.listen(8)
+            self._thread = threading.Thread(target=self._loop, daemon=True)
+            self._thread.start()
         hyprctl = self.stubs / "hyprctl"
         hyprctl.write_text(HYPRCTL.format(python=sys.executable, calls=str(self.calls_log), sock=self.sock_path))
         hyprctl.chmod(0o755)
@@ -267,8 +272,26 @@ class Sandbox:
         self.stub("omarchy-powerprofiles-list", "", 0, listing)
         self.stub("powerprofilesctl", "", 0, listing)
 
-    def _exec(self, argv):
-        env = {
+    def lid(self, state):
+        self.write("/proc/acpi/button/lid/LID0/state", f"state:      {state}\n")
+
+    def devices(self, mice=(), keyboards=()):
+        row = lambda d: d if isinstance(d, dict) else {"name": d}  # noqa: E731
+        self.hypr["j/devices"] = json.dumps({"mice": [row(d) for d in mice], "keyboards": [row(d) for d in keyboards]})
+
+    @contextlib.contextmanager
+    def hold_flock(self, path):
+        p = self._target(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with open(p, "w") as fh:
+            fcntl.flock(fh, fcntl.LOCK_EX)
+            yield
+
+    def read_state(self):
+        return json.loads(self._target("run/omarchy-power-hub/display-off.json").read_text())
+
+    def _env(self):
+        return {
             "PATH": f"{self.stubs}:/usr/bin:/bin",
             "HOME": str(self.home),
             "XDG_RUNTIME_DIR": str(self.run),
@@ -277,6 +300,14 @@ class Sandbox:
             "POWER_HUB_BIN": str(self.bin),
             "PYTHONDONTWRITEBYTECODE": "1",
         }
+
+    def rust_start(self, *argv):
+        """Start the Rust binary without waiting for it."""
+        return subprocess.Popen([str(RUST_BIN), *argv], env=self._env(), cwd=self.base, text=True,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    def _exec(self, argv):
+        env = self._env()
         self.calls_log.write_text("")
         self._evals.clear()
         self._requests.clear()

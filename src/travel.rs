@@ -41,7 +41,7 @@ fn py_int(v: &Value) -> Option<i64> {
 }
 
 /// `re.match(r"^[...]+$", s)`: `$` also matches before one trailing newline.
-fn matches_set(s: &str, ok: impl Fn(char) -> bool) -> bool {
+pub fn matches_set(s: &str, ok: impl Fn(char) -> bool) -> bool {
     let s = s.strip_suffix('\n').unwrap_or(s);
     !s.is_empty() && s.chars().all(ok)
 }
@@ -51,16 +51,16 @@ pub fn safe_name(s: &str) -> bool {
 }
 
 /// `display_power.safe_name` on any JSON value: Python tests `str(value)` when it is truthy.
-fn safe_name_v(v: &Value) -> bool {
+pub fn safe_name_v(v: &Value) -> bool {
     match v {
         Value::String(s) => safe_name(s),
-        Value::Number(n) => safe_name(&n.to_string()),
+        Value::Number(n) => n.as_f64() != Some(0.0) && safe_name(&n.to_string()),
         Value::Bool(b) => *b,
         _ => false,
     }
 }
 
-fn safe_output(v: &Value) -> bool {
+pub fn safe_output(v: &Value) -> bool {
     match v.as_str().and_then(|s| s.strip_prefix("desc:")) {
         Some(desc) => matches_set(desc, |c| c.is_ascii_alphanumeric() || matches!(c, ' ' | '.' | '_' | '(' | ')' | '+' | '-')),
         None => safe_name_v(v),
