@@ -38,6 +38,7 @@ class CopyGlossaryTests(unittest.TestCase):
         self.assertIn("CHARGE LIMIT", src)
         self.assertIn("BATTERY HEALTH", src)
         self.assertNotIn("Desk use", src)
+        self.assertIn("80% is recommended for everyday use", src)
         self.assertIn("Set the BIOS charge limit to match this value", src)
         self.assertIn('"Needs permission"', src)
         self.assertIn('root.call(["health"', src)
