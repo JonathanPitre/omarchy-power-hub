@@ -56,6 +56,11 @@ def awake(monitors):
     return bool(enabled) and all(m.get("dpmsStatus") for m in enabled)
 
 
+def partly_lit(monitors):
+    return blanked(monitors) and any(
+        not m.get("disabled") and m.get("dpmsStatus") for m in monitors)
+
+
 def dpms_lua(action, monitor):
     return f'hl.dsp.dpms({{ action = "{action}", monitor = "{monitor}" }})'
 

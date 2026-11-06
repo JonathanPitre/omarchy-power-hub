@@ -40,7 +40,7 @@ def poll(*, lid_text, cursor, prev_cursor, monitors, blanked):
         dpms_on=bool(blanked) and display_power.awake(monitors),
     ):
         return "wake"
-    return "hold"
+    return "blank" if blanked and display_power.partly_lit(monitors) else "hold"
 
 
 def pointers_enabled(*, lid_open, blanked):

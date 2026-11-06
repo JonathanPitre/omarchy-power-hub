@@ -117,6 +117,12 @@ fn awake(monitors: &[Value]) -> bool {
     enabled.peek().is_some() && enabled.all(|m| truthy(&m["dpmsStatus"]))
 }
 
+/// `display_power.partly_lit`: enabled monitors are a mix of lit and dark.
+fn partly_lit(monitors: &[Value]) -> bool {
+    let lit = |want: bool| monitors.iter().any(|m| !truthy(&m["disabled"]) && truthy(&m["dpmsStatus"]) == want);
+    lit(true) && lit(false)
+}
+
 fn device_names(devices: &Value, key: &str, keep: impl Fn(&str) -> bool) -> Vec<String> {
     devices[key]
         .as_array()
@@ -133,7 +139,7 @@ fn set_enabled(names: &[String], enabled: bool) {
     }
 }
 
-/// One `idle-wake-poll`: `closed`, `wake` or `hold`, with input devices enabled or not to match.
+/// One `idle-wake-poll`: `closed`, `wake`, `blank` or `hold`, with input devices enabled or not to match.
 pub fn poll(blanked: bool) -> String {
     let cursor = hypr::cursor();
     let monitors = hypr::monitors();
@@ -146,6 +152,8 @@ pub fn poll(blanked: bool) -> String {
         "closed"
     } else if moved || (blanked && awake(&monitors)) {
         "wake"
+    } else if blanked && partly_lit(&monitors) {
+        "blank"
     } else {
         "hold"
     };

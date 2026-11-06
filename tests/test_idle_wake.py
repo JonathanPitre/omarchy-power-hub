@@ -24,6 +24,20 @@ class IdleWakeTests(unittest.TestCase):
         self.assertFalse(iw.restore_from_pointer(
             lid_open=True, cursor_changed=False, dpms_on=False))
 
+    def poll_with(self, monitors):
+        return iw.poll(lid_text="state: open", cursor="1, 1", prev_cursor="1, 1",
+                       monitors=monitors, blanked=True)
+
+    def test_partly_lit_displays_ask_to_blank_again(self):
+        self.assertEqual(self.poll_with([
+            {"name": "eDP-1", "dpmsStatus": False}, {"name": "DP-1", "dpmsStatus": True},
+        ]), "blank")
+
+    def test_dark_displays_hold(self):
+        self.assertEqual(self.poll_with([
+            {"name": "eDP-1", "dpmsStatus": False}, {"name": "DP-1", "dpmsStatus": False},
+        ]), "hold")
+
     def test_acpi_lid_state(self):
         self.assertTrue(iw.lid_is_open("state:      open\n"))
         self.assertFalse(iw.lid_is_open("state:      closed\n"))

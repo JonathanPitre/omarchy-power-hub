@@ -180,7 +180,7 @@ Item {
           else root.dismissScreensaver()
           return
         }
-        if (root.displaysOff && root.displaysIdle && !dpmsProc.running) root.dpms("off")
+        if (out === "blank" && root.displaysOff && root.displaysIdle && !dpmsProc.running) root.dpms("off")
       }
     }
   }

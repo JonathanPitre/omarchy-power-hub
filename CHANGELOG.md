@@ -23,6 +23,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Fixed
 
+- Keyboard and power button lights now return after the displays turn off.
+  While blanked, the plugin no longer re-runs Displays off every second.
 - Lowering the charge limit below the current charge no longer applies the
   battery plan while plugged in. The panel reads `PLUGGED IN · DRAINING TO 80%`.
 - The plugin now recovers from a USB-C driver timeout at boot

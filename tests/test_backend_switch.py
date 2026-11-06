@@ -21,6 +21,11 @@ class BackendSwitch(unittest.TestCase):
         self.assertIn('"battery-history"]', panel)
         self.assertNotIn('"python3", root.planOpsBin, "battery-history"', panel)
 
+    def test_dark_displays_are_not_blanked_again(self):
+        service = (ROOT / "Service.qml").read_text()
+        self.assertIn('out === "blank" && root.displaysOff && root.displaysIdle', service)
+        self.assertNotIn('\n        if (root.displaysOff && root.displaysIdle', service)
+
     def test_poll_uses_the_binary(self):
         svc = (ROOT / "PowerService.qml").read_text()
         self.assertIn('[root.binDir + "/power-hub", "data"]', svc)

@@ -263,6 +263,9 @@ def sync(mode, run=None, which=None, path=None, priv_bin=None, model_fn=None, le
                 _call(argv, run, _priv_argv(argv, priv_bin))
         _drop(path)
         return ""
+    # A second off would read the darkened lights and lose the levels to restore.
+    if _load_state(path):
+        return ""
     state = {}
     if qmk or ec_keys:
         code, out = _call(keys, run, key_priv)

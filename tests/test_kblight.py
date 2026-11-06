@@ -141,6 +141,25 @@ class KblightTests(unittest.TestCase):
             self.assertEqual(led.joinpath("trigger").read_text().strip(), "chromeos-auto")
         self.assertFalse(any("framework_tool" in c for c in calls))
 
+    def test_repeated_off_keeps_the_first_saved_levels(self):
+        level = {"keys": 40}
+
+        def run(args, timeout=4, input=None):
+            if args == ["qmk_hid", "via", "--backlight"]:
+                return 0, f"Brightness: {level['keys']}%\n"
+            if args[:3] == ["qmk_hid", "via", "--backlight"]:
+                level["keys"] = int(args[3])
+            return 0, ""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "kblight.json")
+            leds = os.path.join(tmp, "leds")
+            led = fake_led(leds)
+            for mode in ("off", "off", "on"):
+                kblight.sync(mode, run=run, which=only_qmk, path=path, priv_bin="", model_fn=lambda: "16", leds=leds)
+            self.assertEqual(level["keys"], 40)
+            self.assertEqual(led.joinpath("brightness").read_text().strip(), "80")
+
     def test_power_button_uses_tee_when_sysfs_is_root_only(self):
         calls = []
 

@@ -765,6 +765,13 @@ class IdleParity(unittest.TestCase):
             s.hypr["cursorpos"] = "10, 10\n"
             self.assertEqual(poll_both(s, "blanked", prev="10, 10")[0].stdout.strip(), "hold")
 
+    def test_partly_lit_displays_ask_to_blank_again(self):
+        with Sandbox() as s:
+            s.monitors({"name": "eDP-1", "dpmsStatus": False}, EDP | {"name": "DP-1"})
+            s.hypr["cursorpos"] = "10, 10\n"
+            self.assertEqual(poll_both(s, "blanked", prev="10, 10")[0].stdout.strip(), "blank")
+            self.assertEqual(poll_both(s, prev="10, 10")[0].stdout.strip(), "hold")
+
     def test_stale_cursor_file_does_not_wake(self):
         with Sandbox() as s:
             s.monitors({"name": "eDP-1", "dpmsStatus": False})
@@ -796,7 +803,7 @@ class IdleParity(unittest.TestCase):
             self.assertEqual(poll_both(s, "blanked", prev="5, 5")[0].stdout.strip(), "wake")
             self.assertEqual(poll_both(s, prev="5, 5")[0].stdout.strip(), "hold")
             s.monitors(EDP, {"name": "DP-2", "dpmsStatus": False})
-            self.assertEqual(poll_both(s, "blanked", prev="5, 5")[0].stdout.strip(), "hold")
+            self.assertEqual(poll_both(s, "blanked", prev="5, 5")[0].stdout.strip(), "blank")
             s.monitors()
             self.assertEqual(poll_both(s, "blanked", prev="5, 5")[0].stdout.strip(), "hold")
 
