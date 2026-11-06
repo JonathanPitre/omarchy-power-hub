@@ -1,16 +1,19 @@
 use std::io::Read;
 use std::process::{Command, Stdio};
+use std::sync::mpsc::{self, Receiver};
 use std::thread;
 use std::time::{Duration, Instant};
 
-fn drain<R: Read + Send + 'static>(r: Option<R>) -> thread::JoinHandle<Vec<u8>> {
+fn drain<R: Read + Send + 'static>(r: Option<R>) -> Receiver<Vec<u8>> {
+    let (tx, rx) = mpsc::channel();
     thread::spawn(move || {
         let mut buf = Vec::new();
         if let Some(mut r) = r {
             let _ = r.read_to_end(&mut buf);
         }
-        buf
-    })
+        let _ = tx.send(buf);
+    });
+    rx
 }
 
 /// Runs `args`, returning (exit code, stdout then stderr). Spawn failure or timeout gives (1, error text).
@@ -43,8 +46,12 @@ pub fn run(args: &[&str], timeout: Duration) -> (i32, String) {
             Err(e) => return (1, e.to_string()),
         }
     };
-    let mut text = String::from_utf8_lossy(&out.join().unwrap_or_default()).into_owned();
-    text.push_str(&String::from_utf8_lossy(&err.join().unwrap_or_default()));
+    // A background grandchild can hold the pipes open past the child's exit; the deadline covers EOF too.
+    let timed_out = || (1, format!("{prog} timed out after {}s", timeout.as_secs()));
+    let left = || deadline.saturating_duration_since(Instant::now());
+    let Ok(out) = out.recv_timeout(left()) else { return timed_out() };
+    let Ok(err) = err.recv_timeout(left()) else { return timed_out() };
+    let text = format!("{}{}", String::from_utf8_lossy(&out), String::from_utf8_lossy(&err));
     (status.code().unwrap_or(1), text)
 }
 
@@ -64,5 +71,13 @@ mod tests {
         let (code, out) = run(&["sleep", "5"], Duration::from_millis(50));
         assert_eq!(code, 1);
         assert!(out.contains("timed out"));
+    }
+
+    #[test]
+    fn timeout_covers_pipes_held_by_a_background_child() {
+        let t = Instant::now();
+        let (code, _) = run(&["sh", "-c", "sleep 3 & echo started"], Duration::from_millis(200));
+        assert_eq!(code, 1);
+        assert!(t.elapsed() < Duration::from_secs(1));
     }
 }

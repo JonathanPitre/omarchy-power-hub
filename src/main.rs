@@ -6,10 +6,17 @@ mod hypr;
 mod paths;
 mod system;
 
+use std::io::{self, Write};
+
+/// Stdout that never panics: a closed or full pipe must not abort the process.
+fn out(line: impl std::fmt::Display) {
+    let _ = writeln!(io::stdout(), "{line}");
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
-        Some("gpu") => println!("{}", system::gpu_status()),
+        Some("gpu") => out(system::gpu_status()),
         _ => {
             eprintln!("usage: power-hub gpu");
             std::process::exit(2);

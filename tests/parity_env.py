@@ -16,7 +16,9 @@ from dataclasses import dataclass, field
 REPO = pathlib.Path(__file__).resolve().parent.parent
 RUST_BIN = REPO / "target" / "debug" / "power-hub"
 SYSTEM_PATHS = r"(?<![\w/.])/(?:sys|proc|run|var|etc|usr/(?!bin\b|local/bin\b))"
-STUBBED = ("hyprctl", "busctl", "iw", "systemctl", "sudo", "pkexec", "upower", "omarchy", "powerprofilesctl")
+STUBBED = ("hyprctl", "busctl", "iw", "systemctl", "sudo", "pkexec", "upower", "omarchy", "powerprofilesctl",
+           "omarchy-powerprofiles-list", "omarchy-powerprofiles-set", "omarchy-system-lock",
+           "omarchy-shell", "omarchy-launch-screensaver", "pkill")
 
 _case = unittest.TestCase()
 
@@ -89,6 +91,7 @@ class Sandbox:
         return self
 
     def __exit__(self, *exc):
+        self._server.shutdown(socket.SHUT_RDWR)
         self._server.close()
         self._thread.join(timeout=2)
         shutil.rmtree(self.base, ignore_errors=True)
