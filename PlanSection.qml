@@ -310,7 +310,7 @@ Column {
         anchors.leftMargin: Style.space(6)
         anchors.verticalCenter: parent.verticalCenter
         iconText: ""
-        tooltipText: "80% keeps the battery healthy when you're plugged in most of the day. Battery Extender in the BIOS overrides this limit, so turn it off."
+        tooltipText: "Set the BIOS charge limit to match this value. Turn off Battery Extender, which can override it."
         foreground: root.dim
         hoverColor: root.fg
         fontFamily: root.fontFamily

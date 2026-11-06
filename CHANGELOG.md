@@ -7,6 +7,11 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Changed
+
+- Clarify that the BIOS charge limit should match the plugin value and that
+  Battery Extender can override it.
+
 ## [0.0.53] - 2026-11-06
 
 ### Fixed
