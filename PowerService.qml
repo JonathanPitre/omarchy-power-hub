@@ -23,6 +23,8 @@ Item {
   })
 
   property bool busy: actionProc.running
+  property int missed: 0
+  readonly property bool backendFailed: missed >= 2
 
   readonly property var battery: snapshot.battery
   readonly property var rapl: snapshot.rapl
@@ -37,13 +39,15 @@ Item {
     var parsed
     try { parsed = JSON.parse(String(text || "").trim()) } catch (e) { return }
     if (!parsed || !parsed.battery) return
+    root.missed = 0
     root.snapshot = parsed
     root.updated()
   }
 
   function refresh() {
     if (pollProc.running) return
-    pollProc.command = [root.binDir + "/battery-plus-data"]
+    root.missed++
+    pollProc.command = [root.binDir + "/power-hub", "data"]
     pollProc.running = true
   }
 

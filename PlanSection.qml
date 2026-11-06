@@ -44,6 +44,7 @@ Column {
   property bool reloadAgain: false
 
   readonly property string ops: String(Qt.resolvedUrl("bin/ops.py")).replace(/^file:\/\//, "")
+  readonly property string hub: String(Qt.resolvedUrl("bin/power-hub")).replace(/^file:\/\//, "")
   readonly property var sides: [
     { side: "ac", title: "PLUGGED IN", icon: "󰚥" },
     { side: "battery", title: "BATTERY", icon: "󰁹" }
@@ -123,7 +124,7 @@ Column {
   Process {
     id: proc
     property int startedAt: 0
-    command: ["python3", root.ops, "status"]
+    command: [root.hub, "status"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
@@ -140,7 +141,7 @@ Column {
   }
   Process {
     id: gpuProc
-    command: ["python3", root.ops, "gpu"]
+    command: [root.hub, "gpu"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {

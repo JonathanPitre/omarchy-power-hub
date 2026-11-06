@@ -10,6 +10,7 @@ Item {
   id: root
 
   readonly property string ops: String(Qt.resolvedUrl("bin/ops.py")).replace(/^file:\/\//, "")
+  readonly property string hub: String(Qt.resolvedUrl("bin/power-hub")).replace(/^file:\/\//, "")
   readonly property string priv: String(Qt.resolvedUrl("bin/ops-priv")).replace(/^file:\/\//, "")
   property var state: ({})
   property bool displaysOff: false
@@ -34,7 +35,7 @@ Item {
       root.refreshAgain = true
       return
     }
-    statusProc.command = ["python3", root.ops, "config"]
+    statusProc.command = [root.hub, "config"]
     statusProc.running = true
   }
 
@@ -140,7 +141,7 @@ Item {
 
   Process {
     id: syncProc
-    command: ["python3", root.ops, "displays", "sync"]
+    command: [root.hub, "displays", "sync"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
@@ -157,7 +158,7 @@ Item {
     repeat: true
     onTriggered: {
       if (!wakePoll.running) {
-        wakePoll.command = ["python3", root.ops, "idle-wake-poll",
+        wakePoll.command = [root.hub, "idle-wake-poll",
                             root.displaysOff ? "blanked" : "on"]
         wakePoll.running = true
       }
@@ -198,7 +199,7 @@ Item {
     command: ["bash", "-lc", "pkill -x ttfx; pkill -f '[o]rg.omarchy.screensaver'"]
   }
   Process { id: sleepProc }
-  Process { id: boostProc; command: ["python3", root.ops, "boost-check"] }
+  Process { id: boostProc; command: [root.hub, "boost-check"] }
   // Past the kernel's ~10 s PPM init, so missing USB-C data means it failed.
   Process { id: ucsiProc; command: ["python3", root.ops, "recover-ucsi"] }
   Timer { interval: 60000; running: true; onTriggered: ucsiProc.running = true }
@@ -326,7 +327,7 @@ Item {
   }
   Process {
     id: ledNeedProc
-    command: ["python3", root.ops, "led-sudo-needed"]
+    command: [root.hub, "led-sudo-needed"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: if (text.trim() === "needed") ledPkexec.running = true
@@ -335,7 +336,7 @@ Item {
   Process { id: ledPkexec; command: ["pkexec", root.priv, "led-sudoers"] }
   Process {
     id: helperNeedProc
-    command: ["python3", root.ops, "helper-needed"]
+    command: [root.hub, "helper-needed"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {

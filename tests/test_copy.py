@@ -79,7 +79,7 @@ class PowerPanelCleanupTests(unittest.TestCase):
         self.assertIn("applyProfileDebounce.restart()", service[i:i + 500])
 
     def test_pinned_tweaks_read_the_saved_prefs_not_tlp(self):
-        data = (ROOT / "bin/battery-plus-data").read_text()
+        data = "".join((ROOT / f"src/{n}.rs").read_text() for n in ("paths", "data"))
         self.assertIn("power-hub-tweaks.json", data)
         self.assertNotIn("/etc/tlp.d/02-battery-plus.conf", data)
 

@@ -120,12 +120,12 @@ Panel {
   }
 
 
-  readonly property string planOpsBin: String(Qt.resolvedUrl("bin/ops.py")).replace(/^file:\/\//, "")
+  readonly property string hubBin: String(Qt.resolvedUrl("bin/power-hub")).replace(/^file:\/\//, "")
   Process { id: planOps }
 
   function loadHistory() {
     if (histProc.running) return
-    histProc.command = ["python3", root.planOpsBin, "battery-history"]
+    histProc.command = [root.hubBin, "battery-history"]
     histProc.running = true
   }
 
@@ -263,6 +263,16 @@ Panel {
           id: contentColumn
           width: flick.width
           spacing: Style.space(14)
+
+          Text {
+            visible: service.backendFailed
+            width: parent.width
+            text: "Power Hub needs an x86-64 system to run its backend."
+            color: root.urgent
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.bodySmall
+            wrapMode: Text.WordWrap
+          }
 
           // ---------- Hero ----------
           // Same geometry as qs.Ui.PanelHero, whose meta line is one dimmed plain

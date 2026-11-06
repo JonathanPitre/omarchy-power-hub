@@ -106,7 +106,7 @@ class Sandbox:
         src = REPO / "bin"
         for name in ("ops.py", "display_power.py", "idle_wake.py", "kblight.py"):
             (self.bin / name).write_text(self._rewrite(name, (src / name).read_text()))
-        (self.bin / "battery-plus-data").write_text(self._rewrite("battery-plus-data", (src / "battery-plus-data").read_text()))
+        (self.bin / "battery-plus-data").write_text(self._rewrite("battery-plus-data", (REPO / "tests/fixtures/battery-plus-data").read_text()))
         (self.bin / "battery-plus-data").chmod(0o755)
         for name in ("ops-priv", "hid_wakeup.py"):
             shutil.copy2(src / name, self.bin / name)

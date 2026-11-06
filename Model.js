@@ -243,7 +243,7 @@ function sleepSummary(s) {
 
 // ---------- Wi-Fi suspend-fix detector (extras/wifi-suspend-fix) ---------
 // Shown only when the exact BCM4377b PM-timeout bug has actually been
-// observed on this machine (see bin/battery-plus-data), not just when the
+// observed on this machine (see src/data.rs), not just when the
 // chip is present.
 function showWifiFixBanner(w) {
   return false;

@@ -60,4 +60,4 @@ case "$verb" in
     exit 0 ;;
 esac
 
-exec "$DIR/battery-plus-data"
+exec "$DIR/power-hub" data
