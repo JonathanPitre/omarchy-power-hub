@@ -5,25 +5,28 @@ All notable changes to this project are documented in this file.
 The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.54] - 2026-11-06
+
+### Added
+
+- `THIRD-PARTY-LICENSES`, with the notices for the components in the binary.
 
 ### Changed
 
-- Panel data loads faster and background polling costs far less CPU. The plugin
-  now ships an x86-64 binary (`bin/power-hub`) for these paths.
-- Recommend an 80% everyday charge limit, and clarify that the BIOS charge
-  limit should match the plugin value and Battery Extender can override it.
+- Panel data and background polling now run in a Rust binary, `bin/power-hub`,
+  which requires x86-64. See [Performance](README.md#-performance).
+  - Panel status: 273 ms to 53 ms.
+  - Idle check: 96 ms to 0.9 ms of CPU.
+  - Polling with the panel open: 2.8% to 0.11% of one CPU core.
+- Recommend an 80% everyday charge limit, matched in BIOS, and note that
+  Battery Extender can override it.
 
 ### Fixed
 
-- Lowering the charge limit below the current charge read `DISCHARGING` and
-  applied the battery plan, including its sleep timers, while plugged in. The
-  EC drains to the limit on purpose, so the Plugged in plan stays active and
-  the panel reads `PLUGGED IN · DRAINING TO 80%` and the bar tooltip
-  `Draining to 80%`.
-- A USB-C driver timeout at boot (`PPM init failed`) left no USB-C data, so a
-  bus-powered monitor could not be told from an adapter. The plugin now rebinds
-  the driver once per boot. Update the helper when the panel asks.
+- Lowering the charge limit below the current charge no longer applies the
+  battery plan while plugged in. The panel reads `PLUGGED IN · DRAINING TO 80%`.
+- The plugin now recovers from a USB-C driver timeout at boot
+  (`PPM init failed`). Update the helper when the panel asks.
 
 ## [0.0.53] - 2026-11-06
 

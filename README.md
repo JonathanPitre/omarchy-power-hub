@@ -48,7 +48,9 @@ hardware, firmware, or optional system services are shown only when available.
 omarchy plugin add https://github.com/JonathanPitre/omarchy-power-hub.git --enable
 ```
 
-The plugin ships an x86-64 Linux binary; other CPUs are not supported.
+The plugin ships an x86-64 Linux binary and needs no Rust tools. On other CPUs,
+the panel says it can't run. Its notices are in
+[THIRD-PARTY-LICENSES](THIRD-PARTY-LICENSES).
 
 Optional controls may need additional system tools. For Framework charge
 limits, install:
@@ -135,6 +137,37 @@ Quickshell 0.3.1 can lose idle notifications when a running timer changes.
 That may prevent automatic locking after displays turn off or wake. See
 [the idle timer diagnosis](docs/quickshell-idle-timer-failure.md) for the
 installed backport, rollback steps, and verification.
+
+## ⚡ Performance
+
+Panel data and background polling run in a small Rust binary, `bin/power-hub`.
+The bar, panel and idle service stay in QML. Settings changes and other write
+commands still use Python.
+
+Python and Bash (0.0.53) compared with Rust:
+
+| Path | Runs | Time (ms) | CPU (ms) | Processes | Peak memory (MB) |
+|---|---|---|---|---|---|
+| Idle check | Every second, displays off or parked | 102 → 38 | 96 → 0.9 | 19 → 1 | 18.7 → 0.7 |
+| Battery data | Every 5 s, 60 s with panel closed | 89 → 13 | 100 → 4.8 | 100 → 3 | 18.4 → 6.2 |
+| Panel status | Panel open, after edits | 273 → 53 | 273 → 35 | 44 → 20 | 31.9 → 7.3 |
+| GPU status | Every 5 s, panel open | 39 → 0.9 | 39 → 0.8 | 1 → 1 | 18.7 → 0.7 |
+| Small commands | Config, boost check, display sync | 34 → 0.5 | 34 → 0.4 | 1 → 1 | 18.8 → 0.7 |
+
+- The idle check drops from 9.6% to 0.09% of one CPU core while it runs. Its
+  remaining 38 ms is mostly waiting on Hyprland.
+- Polling with the panel open drops from 2.8% to 0.11% of one core.
+- The NVIDIA GPU stayed asleep through six 60 s polling windows, three on each
+  backend.
+
+These figures come from one Framework Laptop 16, plugged in, on the Performance
+profile, with the display on. Time and CPU are medians of 15 runs, and memory of
+5. Peak memory is the largest single process, including tools a command starts.
+Hyprland's own work is not counted.
+
+Battery draw with the display on showed no clear change: a median of 18.0 W
+before and 17.2 W after, across five 60 s windows each. That gap is within the
+noise, and the idle check doesn't run in this test.
 
 ## 📚 Troubleshooting notes
 
