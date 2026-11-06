@@ -8,6 +8,7 @@ mod hypr;
 mod paths;
 mod power;
 mod system;
+mod travel;
 
 use std::io::{self, Write};
 
@@ -19,6 +20,7 @@ fn out(line: impl std::fmt::Display) {
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
+        Some("status") => out(system::status()),
         Some("gpu") => out(system::gpu_status()),
         Some("config") => {
             let cfg = config::load();
@@ -35,7 +37,7 @@ fn main() {
             std::process::exit(code);
         }
         _ => {
-            eprintln!("usage: power-hub config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|boost-check");
+            eprintln!("usage: power-hub status|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|boost-check");
             std::process::exit(2);
         }
     }

@@ -109,10 +109,8 @@ pub fn save(cfg: &Value) -> io::Result<()> {
 }
 
 pub fn tweak_state() -> Value {
-    match read_json(&paths::tweaks_file()) {
-        v @ Value::Object(_) => v,
-        _ => json!({}),
-    }
+    // Whatever JSON the file holds, as ops.py returns it; {} only when it cannot be read or parsed.
+    fs::read_to_string(paths::tweaks_file()).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_else(|| json!({}))
 }
 
 #[cfg(test)]

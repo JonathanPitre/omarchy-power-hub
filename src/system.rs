@@ -1,4 +1,6 @@
-use crate::{exec, paths, power};
+use crate::config::{self, truthy};
+use crate::travel::{self, BrightnessCache};
+use crate::{charge, exec, hypr, paths, power};
 use serde_json::{Value, json};
 use std::fs;
 use std::path::Path;
@@ -71,6 +73,65 @@ pub fn led_sudo_needed() -> &'static str {
     }
     let (code, out) = exec::run(&["sudo", "-n", "-l"], Duration::from_secs(4));
     if code == 0 && out.contains("chromeos") && out.contains("/usr/bin/tee") { "ok" } else { "needed" }
+}
+
+/// First `[word]` in the kernel's lockdown file is the active mode.
+fn lockdown_on() -> bool {
+    let raw = text(&paths::root("/sys/kernel/security/lockdown"));
+    let mode = raw.match_indices('[').find_map(|(i, _)| {
+        let rest = &raw[i + 1..];
+        rest.find(']').filter(|&j| j > 0).map(|j| &rest[..j])
+    });
+    mode.is_some_and(|m| m != "none")
+}
+
+fn bitwarden_running() -> bool {
+    fs::read_dir(paths::root("/proc")).is_ok_and(|d| {
+        d.flatten().any(|e| {
+            e.file_name().to_string_lossy().starts_with(|c: char| c.is_ascii_digit())
+                && fs::read(e.path().join("cmdline")).is_ok_and(|raw| String::from_utf8_lossy(&raw).replace('\0', " ").contains("/bitwarden/"))
+        })
+    })
+}
+
+fn unavailable(reason: &str) -> Value {
+    json!({"available": false, "reason": reason})
+}
+
+pub fn hibernate_available() -> Value {
+    if text(&paths::root("/sys/power/disk")).trim() == "[disabled]" {
+        return if lockdown_on() {
+            unavailable("kernel lockdown is blocking hibernation")
+        } else if text(&paths::root("/proc/cmdline")).split_whitespace().any(|w| w == "nohibernate") {
+            unavailable("the kernel was booted with nohibernate")
+        } else if bitwarden_running() {
+            unavailable("Bitwarden holds secret memory that blocks hibernation. Set SECURE_KEY_CONTAINER_BACKEND=mlock and restart Bitwarden.")
+        } else {
+            unavailable("an application holds secret memory, which blocks hibernation")
+        };
+    }
+    let args = ["busctl", "call", "org.freedesktop.login1", "/org/freedesktop/login1", "org.freedesktop.login1.Manager", "CanHibernate"];
+    let out = exec::run(&args, Duration::from_secs(4)).1.to_lowercase();
+    let ok = out.contains("yes") && !out.contains("challenge") && !out.contains("\"no\"");
+    json!({"available": ok, "reason": if ok { "" } else { "hibernate is not available: check swap and a resume= kernel parameter" }})
+}
+
+/// Everything the panel shows, from one monitors query and at most one brightness read per display.
+pub fn status() -> Value {
+    let cfg = config::load();
+    let monitors = hypr::monitors();
+    let mut brightness = BrightnessCache::default();
+    json!({
+        "side": power::active_side(&cfg),
+        "config": cfg,
+        "travel": travel::travel_status(&monitors, &mut brightness),
+        "quickDim": travel::quick_dim_status(&monitors, &mut brightness),
+        "charge": charge::maybe_reapply(&cfg, charge::charge_status()),
+        "boost": truthy(&cfg["boost"]),
+        "hibernate": hibernate_available(),
+        "tweaks": config::tweak_state(),
+        "framework": power::framework(),
+    })
 }
 
 #[cfg(test)]

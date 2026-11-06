@@ -38,6 +38,7 @@ class Result:
     calls: list = field(default_factory=list)
     calls_text: str = ""
     evals: list = field(default_factory=list)
+    requests: list = field(default_factory=list)
 
 
 def assert_same(a, b):
@@ -81,6 +82,7 @@ class Sandbox:
         self.calls_log = self.base / "calls.log"
         self.hypr = {}
         self._evals = []
+        self._requests = []
         self._rules = {}
         self._install_scripts()
         for tool in STUBBED:
@@ -141,6 +143,7 @@ class Sandbox:
             with conn:
                 try:
                     req = conn.recv(65536).decode()
+                    self._requests.append(req)
                     if req.startswith("eval "):
                         self._evals.append(req[5:])
                         reply = "ok"
@@ -225,6 +228,13 @@ class Sandbox:
             with open(self.helper_dir / "ops-priv", "a") as f:
                 f.write("# tampered\n")
 
+    def charge_limit(self, percent):
+        """The EC's current limit as the helper reports it, for the read and for any write."""
+        self.stub("sudo", "charge-limit", 0, f"Minimum 0%, Maximum {percent}%\n")
+
+    def monitors(self, *rows):
+        self.hypr["j/monitors"] = json.dumps(list(rows))
+
     CONFIG_PATH = "home/.config/omarchy/omarchy-power-hub.json"
 
     def config(self, **keys):
@@ -254,9 +264,10 @@ class Sandbox:
         }
         self.calls_log.write_text("")
         self._evals.clear()
+        self._requests.clear()
         p = subprocess.run(argv, env=env, cwd=self.base, text=True, capture_output=True, timeout=30)
         calls = [c for c in self.calls_log.read_text().split("\n") if c]
-        return Result(p.returncode, p.stdout, calls, "\n".join(calls), list(self._evals))
+        return Result(p.returncode, p.stdout, calls, "\n".join(calls), list(self._evals), list(self._requests))
 
     def python(self, *argv):
         return self._exec([sys.executable, str(self.bin / "ops.py"), *argv])
