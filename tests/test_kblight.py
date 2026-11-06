@@ -17,6 +17,10 @@ def both_tools(name):
     return "/usr/bin/" + name if name in {"qmk_hid", "framework_tool"} else None
 
 
+def laptop_16_step(want):
+    return 100 if want >= 100 else 67 if want >= 67 else 33 if want >= 34 else 0
+
+
 def fake_led(root, brightness="80", trigger="[chromeos-auto] none"):
     led = pathlib.Path(root) / "chromeos:white:power"
     led.mkdir(parents=True)
@@ -64,7 +68,7 @@ class KblightTests(unittest.TestCase):
             kblight._save(path, {"level": 40})
             kblight.sync("on", run=run, which=only_qmk, path=path, priv_bin="", model_fn=lambda: "16", leds=leds)
             self.assertFalse(os.path.exists(path))
-        self.assertEqual(calls, [["qmk_hid", "via", "--backlight", "40"]])
+        self.assertEqual(calls, [["qmk_hid", "via", "--backlight", "41"]])
 
     def test_failed_read_does_not_invent_a_restore_value(self):
         calls = []
@@ -141,14 +145,32 @@ class KblightTests(unittest.TestCase):
             self.assertEqual(led.joinpath("trigger").read_text().strip(), "chromeos-auto")
         self.assertFalse(any("framework_tool" in c for c in calls))
 
+    def test_every_laptop_16_step_survives_off_and_on(self):
+        for step in (33, 67, 100):
+            level = {"keys": step}
+
+            def run(args, timeout=4, input=None):
+                if args == ["qmk_hid", "via", "--backlight"]:
+                    return 0, f"Brightness: {level['keys']}%\n"
+                if args[:3] == ["qmk_hid", "via", "--backlight"]:
+                    level["keys"] = laptop_16_step(int(args[3]))
+                return 0, ""
+
+            with tempfile.TemporaryDirectory() as tmp:
+                path = os.path.join(tmp, "kblight.json")
+                for mode in ("off", "on"):
+                    kblight.sync(mode, run=run, which=only_qmk, path=path, priv_bin="", model_fn=lambda: "16",
+                                 leds=os.path.join(tmp, "none"))
+            self.assertEqual(level["keys"], step)
+
     def test_repeated_off_keeps_the_first_saved_levels(self):
-        level = {"keys": 40}
+        level = {"keys": 67}
 
         def run(args, timeout=4, input=None):
             if args == ["qmk_hid", "via", "--backlight"]:
                 return 0, f"Brightness: {level['keys']}%\n"
             if args[:3] == ["qmk_hid", "via", "--backlight"]:
-                level["keys"] = int(args[3])
+                level["keys"] = laptop_16_step(int(args[3]))
             return 0, ""
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -157,7 +179,7 @@ class KblightTests(unittest.TestCase):
             led = fake_led(leds)
             for mode in ("off", "off", "on"):
                 kblight.sync(mode, run=run, which=only_qmk, path=path, priv_bin="", model_fn=lambda: "16", leds=leds)
-            self.assertEqual(level["keys"], 40)
+            self.assertEqual(level["keys"], 67)
             self.assertEqual(led.joinpath("brightness").read_text().strip(), "80")
 
     def test_power_button_uses_tee_when_sysfs_is_root_only(self):

@@ -5,11 +5,12 @@ All notable changes to this project are documented in this file.
 The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.0.54] - 2026-11-06
+## [0.0.54] - 2026-11-07
 
 ### Added
 
 - `THIRD-PARTY-LICENSES`, with the notices for the components in the binary.
+- A README screenshot of the panel on battery.
 
 ### Changed
 
@@ -23,8 +24,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Fixed
 
-- Keyboard and power button lights now return after the displays turn off.
-  While blanked, the plugin no longer re-runs Displays off every second.
+- Keyboard and power button lights now return after the displays turn off, at
+  every keyboard level. While blanked, the plugin no longer re-runs Displays off every second.
 - Lowering the charge limit below the current charge no longer applies the
   battery plan while plugged in. The panel reads `PLUGGED IN · DRAINING TO 80%`.
 - The plugin now recovers from a USB-C driver timeout at boot

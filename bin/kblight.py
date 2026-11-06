@@ -252,7 +252,9 @@ def sync(mode, run=None, which=None, path=None, priv_bin=None, model_fn=None, le
         if not saved:
             return ""
         if (qmk or ec_keys) and "level" in saved:
-            argv = keys + [str(saved["level"])]
+            # The Laptop 16 keyboard rounds down, so writing its reported 33 back gives 0.
+            level = min(saved["level"] + 1, 100) if qmk else saved["level"]
+            argv = keys + [str(level)]
             _call(argv, run, _priv_argv(argv, priv_bin) if ec_keys else None)
         fp = saved.get("fp") or {}
         if led and fp.get("sys"):

@@ -2,7 +2,9 @@
 
 Omarchy Power Hub is a theme-aware power panel and bar widget for Omarchy.
 
-![Omarchy Power Hub panel showing battery status, power plans, and charge limit](preview.png)
+| Plugged in | On battery |
+|---|---|
+| ![Power Hub panel plugged in, showing battery status, power plans, and charge limit](preview.png) | ![Power Hub panel on battery, showing time remaining, power draw, and power plans](docs/preview-battery.png) |
 
 I built this because every other power plugin I tried caused issues on my
 Framework Laptop 16. It's the only plugin I'm aware of that works properly on
