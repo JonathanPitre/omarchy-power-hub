@@ -174,14 +174,13 @@ fn restore(state: &Value) {
 }
 
 /// `displays sync` under the display-state lock: put parked heads back once every other one is lit.
-pub fn sync() -> String {
+/// None when the lock cannot be taken, as Python's `state_lock` raises: nothing is printed or touched.
+pub fn sync() -> Option<String> {
     let dir = paths::plugin_run_dir();
-    let _ = fs::create_dir_all(&dir);
-    // Held until return; Python's `state_lock` blocks on the same file.
-    let _lock = OpenOptions::new().write(true).create(true).truncate(true).open(dir.join("display-off.lock")).ok().inspect(|f| {
-        let _ = f.lock();
-    });
-    sync_locked(&dir.join("display-off.json"))
+    fs::create_dir_all(&dir).ok()?;
+    let lock = OpenOptions::new().write(true).create(true).truncate(true).open(dir.join("display-off.lock")).ok()?;
+    lock.lock().ok()?;
+    Some(sync_locked(&dir.join("display-off.json")))
 }
 
 fn sync_locked(state_path: &Path) -> String {

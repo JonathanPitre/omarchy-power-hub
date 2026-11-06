@@ -860,6 +860,18 @@ class SyncParity(unittest.TestCase):
             self.assertIn("scale = 1e-05", joined)
             self.assertIn("scale = 1.5e+300", joined)
 
+    def test_unopenable_lock_fails_closed(self):
+        with Sandbox() as s:
+            s.monitors(EDP)
+            for run in (s.python, s.rust):
+                park(s, {"name": "DP-1"})
+                lock = s._target("run/omarchy-power-hub/display-off.lock")
+                lock.unlink(missing_ok=True)
+                lock.mkdir()
+                r = run("displays", "sync")
+                lock.rmdir()
+                self.assertEqual((r.code, r.stdout, r.evals, s.read_state()), (1, "", [], {"disabled": [{"name": "DP-1"}]}))
+
     def test_waits_for_python_holding_the_lock(self):
         with Sandbox() as s:
             s.monitors(EDP)
