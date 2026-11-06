@@ -1,9 +1,11 @@
 // Later stages consume the shared modules; keep them compiled and warning-free meanwhile.
 #![allow(dead_code)]
 
+mod config;
 mod exec;
 mod hypr;
 mod paths;
+mod power;
 mod system;
 
 use std::io::{self, Write};
@@ -17,8 +19,14 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         Some("gpu") => out(system::gpu_status()),
+        Some("config") => {
+            let cfg = config::load();
+            out(serde_json::json!({"side": power::active_side(&cfg), "config": cfg}));
+        }
+        Some("drain-to") => out(power::drain_to(&config::load())),
+        Some("ac") => out(u8::from(!power::on_battery())),
         _ => {
-            eprintln!("usage: power-hub gpu");
+            eprintln!("usage: power-hub config|ac|drain-to|gpu");
             std::process::exit(2);
         }
     }

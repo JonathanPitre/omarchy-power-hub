@@ -187,6 +187,29 @@ class Sandbox:
         if boot_vga is not None:
             (dev / "boot_vga").write_text(boot_vga + "\n")
 
+    def discharging(self, percent=70, status="Discharging", name="BAT0"):
+        bat = self.root / "sys/class/power_supply" / name
+        bat.mkdir(parents=True, exist_ok=True)
+        (bat / "status").write_text(status + "\n")
+        (bat / "capacity").write_text(f"{percent}\n")
+
+    def ucsi(self, name, online, volts, amps):
+        port = self.root / "sys/class/power_supply" / f"ucsi-source-psy-{name}"
+        port.mkdir(parents=True, exist_ok=True)
+        (port / "online").write_text(f"{int(online)}\n")
+        (port / "voltage_now").write_text(f"{int(volts * 1e6)}\n")
+        (port / "current_now").write_text(f"{int(amps * 1e6)}\n")
+
+    def framework(self):
+        self.write("/sys/class/dmi/id/sys_vendor", "Framework\n")
+
+    def profiles(self, names):
+        entries = " ".join(f'1 "Profile" s "{n}" "Driver" s "platform_profile"' for n in names)
+        self.stub("busctl", "Profiles", 0, f"aa{{sv}} {len(names)} {entries}\n")
+        listing = "".join(f"{n}\n" for n in names)
+        self.stub("omarchy-powerprofiles-list", "", 0, listing)
+        self.stub("powerprofilesctl", "", 0, listing)
+
     def _exec(self, argv):
         env = {
             "PATH": f"{self.stubs}:/usr/bin:/bin",
