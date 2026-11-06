@@ -1,0 +1,17 @@
+[package]
+name = "power-hub"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+fixture-root = []
+
+[dependencies]
+serde_json = "1"
+
+[profile.release]
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
