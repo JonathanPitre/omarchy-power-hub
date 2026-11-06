@@ -53,6 +53,19 @@ class ConfigParity(unittest.TestCase):
                 assert_same(s.python("config"), s.rust("config"))
 
 
+    def test_missing_power_profiles_daemon_defaults_ac_to_balanced(self):
+        with Sandbox() as s:
+            s.stub("omarchy-powerprofiles-list", "", 0, "")
+            python, rust = s.python("config"), s.rust("config")
+            assert_same(python, rust)
+            self.assertEqual(json.loads(rust.stdout)["config"]["ac"]["profile"], "balanced")
+
+    def test_saved_config_is_loaded(self):
+        with Sandbox() as s:
+            s.write("home/.config/omarchy/omarchy-power-hub.json", '{"chargeLimit": 90}')
+            self.assertEqual(json.loads(s.rust("config").stdout)["config"]["chargeLimit"], 90)
+
+
 class PowerSourceParity(unittest.TestCase):
     def same(self, s, expected_ac, side, expected_drain=0):
         for verb in ("ac", "drain-to", "config"):
@@ -87,8 +100,8 @@ class PowerSourceParity(unittest.TestCase):
             s.framework()
             s.discharging(percent=90)
             s.ucsi("USBC000:001", True, 20, 3.25)
-            s.write("home/.config/omarchy/omarchy-power-hub.json", '{"chargeLimit": 80}')
-            self.same(s, 1, "ac", 80)
+            s.write("home/.config/omarchy/omarchy-power-hub.json", '{"chargeLimit": 85}')
+            self.same(s, 1, "ac", 85)
 
     def test_discharging_below_limit_is_battery_side(self):
         with Sandbox() as s:

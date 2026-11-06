@@ -154,6 +154,9 @@ class Sandbox:
         path = str(path)
         if path.startswith("~/"):
             return self.home / path[2:]
+        for prefix, base in (("home/", self.home), ("run/", self.run)):
+            if path.startswith(prefix):
+                return base / path[len(prefix):]
         return self.root / path.lstrip("/")
 
     def write(self, path, text):
@@ -166,7 +169,9 @@ class Sandbox:
         cases = "".join(
             f"  *{shlex.quote(m)}*) printf %s {shlex.quote(out)}; exit {code};;\n" for m, code, out in self._rules.get(tool, [])
         )
-        script = f'#!/bin/bash\necho "{tool} $*" >> {shlex.quote(str(self.calls_log))}\ncase "$*" in\n{cases}esac\nexit 1\n'
+        # The real list tool ends in a pipeline (tac), so it exits 0 with no output when powerprofilesctl fails.
+        fallback = 0 if tool == "omarchy-powerprofiles-list" else 1
+        script = f'#!/bin/bash\necho "{tool} $*" >> {shlex.quote(str(self.calls_log))}\ncase "$*" in\n{cases}esac\nexit {fallback}\n'
         p = self.stubs / tool
         p.write_text(script)
         p.chmod(0o755)

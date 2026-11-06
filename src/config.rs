@@ -72,7 +72,7 @@ pub fn load() -> Value {
             Some(p) => p,
             None => {
                 let list = available.get_or_insert_with(power_profiles);
-                let performance = list.as_ref().is_none_or(|l| l.iter().any(|p| p == "performance"));
+                let performance = list.as_ref().is_some_and(|l| l.iter().any(|p| p == "performance"));
                 if side == "ac" && performance { "performance" } else { "balanced" }
             }
         };
