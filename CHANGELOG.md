@@ -12,6 +12,17 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Recommend an 80% everyday charge limit, and clarify that the BIOS charge
   limit should match the plugin value and Battery Extender can override it.
 
+### Fixed
+
+- Lowering the charge limit below the current charge read `DISCHARGING` and
+  applied the battery plan, including its sleep timers, while plugged in. The
+  EC drains to the limit on purpose, so the Plugged in plan stays active and
+  the panel reads `PLUGGED IN · DRAINING TO 80%` and the bar tooltip
+  `Draining to 80%`.
+- A USB-C driver timeout at boot (`PPM init failed`) left no USB-C data, so a
+  bus-powered monitor could not be told from an adapter. The plugin now rebinds
+  the driver once per boot. Update the helper when the panel asks.
+
 ## [0.0.53] - 2026-11-06
 
 ### Fixed

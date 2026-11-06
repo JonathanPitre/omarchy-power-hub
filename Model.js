@@ -42,10 +42,17 @@ function fmtDuration(mins) {
   return h > 0 ? (h + "h " + (r < 10 ? "0" : "") + r + "m") : (r + "m");
 }
 
+// The charge limit the EC is discharging to on AC, or 0. UPower updates sooner than the poll.
+function drainTarget(b) {
+  return b && b.status === "Discharging" ? Number(b.drainTo) || 0 : 0;
+}
+
 // Hero meta line as { state, time }: the state is dimmed, the time is highlighted.
 // e.g. DISCHARGING · 3h 48m REMAINING / CHARGING · FULL IN 1h 05m / FULLY CHARGED.
 function modeParts(b) {
   if (!b || !b.present) return { state: "NO BATTERY", time: "" };
+  var drainTo = drainTarget(b);
+  if (drainTo) return { state: "PLUGGED IN · DRAINING TO " + drainTo + "%", time: "" };
   // Right after a plug or unplug the EC's smoothed current still reads low, so any
   // estimate would be hours too long.
   if (b.estimating && (b.status === "Discharging" || b.status === "Charging"))

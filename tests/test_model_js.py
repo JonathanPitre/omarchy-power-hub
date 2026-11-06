@@ -107,6 +107,24 @@ class ModelJsTests(unittest.TestCase):
             {"state": "DISCHARGING", "time": "4h 32m REMAINING"},
             {"state": "FULLY CHARGED", "time": ""}])
 
+    def test_mode_parts_names_the_drain_to_the_charge_limit(self):
+        body = r'''
+          var drain = { present: true, status: "Discharging", minutes: 192, acOnline: 1, percent: 99, estimating: true, drainTo: 80 };
+          console.log(JSON.stringify([
+            modeParts(drain),
+            modeParts(Object.assign({}, drain, { drainTo: 0 })),
+            // The poll lags UPower, so a stale drainTo must not outlive the drain.
+            modeParts({ present: true, status: "Not charging", acOnline: 1, percent: 80, drainTo: 80 }),
+            drainTarget(drain),
+            drainTarget({ status: "Not charging", drainTo: 80 })
+          ]));
+        '''
+        self.assertEqual(self._run(body), [
+            {"state": "PLUGGED IN · DRAINING TO 80%", "time": ""},
+            {"state": "DISCHARGING", "time": "CALCULATING…"},
+            {"state": "PLUGGED IN · NOT CHARGING", "time": ""},
+            80, 0])
+
     def test_mode_parts_calculating_while_reading_settles(self):
         # The EC smooths current_now (~8 s): 30 s after unplug a 28 W load first reads
         # 9.9 W, so the first estimate was 431 min instead of ~150.

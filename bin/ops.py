@@ -145,8 +145,22 @@ def pack_discharging(root=None):
             continue
     return False
 
+def pack_percent(root=None):
+    root = POWER_SUPPLY if root is None else root
+    levels = [int(p.read_text()) for p in root.glob("BAT*/capacity")]
+    return max(levels, default=0)
+
+# Above the limit the Framework EC discharges the pack with the adapter connected.
+def draining_to_limit(cfg):
+    return framework() and not cfg.get("boost") and pack_percent() > int(cfg.get("chargeLimit") or 80)
+
+def drain_to(cfg=None):
+    cfg = cfg or load()
+    draining = pack_discharging() and draining_to_limit(cfg) and not on_battery()
+    return int(cfg.get("chargeLimit") or 80) if draining else 0
+
 def active_side(cfg=None):
-    if pack_discharging():
+    if pack_discharging() and not draining_to_limit(cfg or load()):
         return "battery"
     return "battery" if on_battery() else "ac"
 
@@ -408,6 +422,19 @@ def maybe_reapply_framework_limit(cfg, ch, run_fn=None, helper_fn=None):
     next_ch["available"] = True
     next_ch["reason"] = ""
     return next_ch
+
+# A timed-out PPM init at boot leaves no USB-C data until the driver is rebound.
+def recover_ucsi(run_fn=None):
+    run_fn = run_fn or run
+    mark = RUN / "ucsi-rebound"
+    if ucsi_source_watts() is not None or mark.exists() or not framework():
+        return
+    helper = helper_bin()
+    if not helper:
+        return
+    RUN.mkdir(parents=True, exist_ok=True)
+    mark.touch()
+    run_fn(["sudo", "-n", str(helper), "ucsi-rebind"])
 
 def _text(path):
     try:
@@ -1550,6 +1577,12 @@ def main(argv):
         return 0
     if cmd == "config":
         print(json.dumps({"side": active_side(), "config": load()}))
+        return 0
+    if cmd == "drain-to":
+        print(drain_to())
+        return 0
+    if cmd == "recover-ucsi":
+        recover_ucsi()
         return 0
     if cmd == "battery-history":
         print(json.dumps(battery_history()))

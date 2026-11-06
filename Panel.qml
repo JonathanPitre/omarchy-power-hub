@@ -22,8 +22,8 @@ Panel {
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
 
   // Live battery state comes from UPower (event-driven) so the bar icon is
-  // always current — the polled JSON service only runs while the panel is
-  // open, which used to leave the icon reading 0% until first opened.
+  // always current. The polled JSON service runs every 5 s with the panel open
+  // and every 60 s otherwise, too slow for the icon.
   readonly property var dev: UPower.displayDevice
   readonly property bool batPresent: !!(dev && dev.isPresent)
   readonly property int batPct: batPresent ? Math.round(dev.percentage * 100) : 0
@@ -49,6 +49,7 @@ Panel {
       : 0,
     fraction: root.batPresent ? Math.max(0, Math.min(1, dev.percentage)) : 0,
     acOnline: Number(service.battery.acOnline) === 1 ? 1 : 0,
+    drainTo: Number(service.battery.drainTo) || 0,
     health: Number(service.battery.health) || 0,
     whFull: Number(service.battery.whFull) || 0,
     whDesign: Number(service.battery.whDesign) || 0,
@@ -163,7 +164,8 @@ Panel {
   readonly property string barTooltip: root.b.present
     ? ("Battery " + root.b.percent + "%"
        + (root.b.status === "Discharging" ? "  ·  " + Model.fmtWatts(root.b.watts) : "")
-       + (root.b.status === "Discharging"
+       + (Model.drainTarget(root.b) ? "  ·  Draining to " + root.b.drainTo + "%"
+          : root.b.status === "Discharging"
           ? "  ·  " + (root.estimating ? "calculating…" : Model.fmtDuration(root.b.minutes) + " remaining") : ""))
     : "Plugged in"
   readonly property Item barButton: root.showBarPercent ? percentButton : button

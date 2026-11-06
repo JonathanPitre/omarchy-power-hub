@@ -52,6 +52,9 @@ if [ "${p_uw:-0}" -gt 0 ]; then
   esac
 fi
 
+drain_to=0
+[ "$status" = Discharging ] && drain_to=$(python3 "$(dirname "$(readlink -f "$0")")/ops.py" drain-to 2>/dev/null || echo 0)
+
 # ---------- RAPL (root-readable only after the udev rule) --------------
 rapl_avail=false; rp_pkg=0; rp_core=0; rp_gpu=0
 if head -c1 /sys/class/powercap/intel-rapl:0/energy_uj >/dev/null 2>&1; then
@@ -185,7 +188,7 @@ jq -cn \
   --argjson present "$bat_present" --argjson percent "${percent:-0}" --arg status "$status" \
   --argjson watts "$watts" --argjson health "${health:-0}" --argjson whFull "$whf" --argjson whDesign "$whd" \
   --argjson cycles "${cycles:-0}" --argjson minutes "${mins:-0}" \
-  --argjson ac "$ac" --argjson frac "$frac" \
+  --argjson ac "$ac" --argjson frac "$frac" --argjson drainTo "${drain_to:-0}" \
   --argjson raplAvail "$rapl_avail" --argjson rpkg "$rp_pkg" --argjson rcore "$rp_core" --argjson rgpu "$rp_gpu" \
   --argjson tlpInstalled "$tlp_installed" --argjson tlpActive "$tlp_active" --arg tlpMode "$tlp_mode" --argjson tlpManual "$tlp_manual" \
   --argjson wifi "$wifi_ps" --argjson usb "$usb_as" --argjson pcie "$pcie_pm" --argjson audio "$audio_ps" \
@@ -196,7 +199,7 @@ jq -cn \
   '{
     battery: { present:$present, percent:$percent, status:$status, watts:$watts, health:$health,
                whFull:$whFull, whDesign:$whDesign, cycles:$cycles, minutes:$minutes,
-               acOnline:$ac, fraction:$frac },
+               acOnline:$ac, fraction:$frac, drainTo:$drainTo },
     rapl:   { available:$raplAvail, package:$rpkg, core:$rcore, gpu:$rgpu },
     tlp:    { installed:$tlpInstalled, active:$tlpActive, mode:$tlpMode, manual:$tlpManual },
     tweaks: ({ wifi:$wifi, usb:$usb, pcie:$pcie, audio:$audio, abm:$abm, abmAvailable:$abmAvailable,

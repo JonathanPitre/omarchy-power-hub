@@ -199,6 +199,9 @@ Item {
   }
   Process { id: sleepProc }
   Process { id: boostProc; command: ["python3", root.ops, "boost-check"] }
+  // Past the kernel's ~10 s PPM init, so missing USB-C data means it failed.
+  Process { id: ucsiProc; command: ["python3", root.ops, "recover-ucsi"] }
+  Timer { interval: 60000; running: true; onTriggered: ucsiProc.running = true }
   Process {
     id: inhibitProc
     running: true

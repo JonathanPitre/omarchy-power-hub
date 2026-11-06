@@ -94,6 +94,14 @@ case "${1:-}" in
     [ "$n" -ge 40 ] && [ "$n" -le 100 ] || { echo "limit 40-100" >&2; exit 2; }
     exec /usr/bin/framework_tool --charge-limit "$n"
     ;;
+  ucsi-rebind)
+    d=/sys/bus/platform/drivers/ucsi_acpi
+    for dev in "$d"/USBC*; do
+      [ -e "$dev" ] || continue
+      echo "${dev##*/}" > "$d/unbind"
+      echo "${dev##*/}" > "$d/bind"
+    done
+    ;;
   kblight)
     if [ "${2:-}" = "" ]; then
       exec /usr/bin/framework_tool --kblight
