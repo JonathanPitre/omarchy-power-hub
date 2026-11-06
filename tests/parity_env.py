@@ -177,7 +177,9 @@ class Sandbox:
         p.chmod(0o755)
 
     def stub(self, tool, match, code=0, stdout=""):
-        self._rules.setdefault(tool, []).append((match, code, stdout))
+        # The case statement takes the first match, so a repeated match replaces its earlier rule.
+        rules = [r for r in self._rules.get(tool, []) if r[0] != match]
+        self._rules[tool] = [*rules, (match, code, stdout)]
         self._write_stub(tool)
 
     def pci(self, addr, cls="0x030000", boot_vga=None, runtime="active", driver=None):
@@ -205,8 +207,33 @@ class Sandbox:
         (port / "voltage_now").write_text(f"{int(volts * 1e6)}\n")
         (port / "current_now").write_text(f"{int(amps * 1e6)}\n")
 
-    def framework(self):
+    def framework(self, tool=True):
         self.write("/sys/class/dmi/id/sys_vendor", "Framework\n")
+        if tool:
+            self._write_stub("framework_tool")
+
+    @property
+    def helper_dir(self):
+        return self.root / "usr/local/libexec/omarchy-power-hub"
+
+    def install_helper(self, tamper=False):
+        """Root-owned helper copies at the fake-root path; `tamper` makes ops-priv differ from the plugin's."""
+        self.helper_dir.mkdir(parents=True, exist_ok=True)
+        for name in ("ops-priv", "hid_wakeup.py"):
+            shutil.copy2(self.bin / name, self.helper_dir / name)
+        if tamper:
+            with open(self.helper_dir / "ops-priv", "a") as f:
+                f.write("# tampered\n")
+
+    CONFIG_PATH = "home/.config/omarchy/omarchy-power-hub.json"
+
+    def config(self, **keys):
+        """Saved config with a valid profile on both sides, so loading never asks power-profiles-daemon."""
+        saved = {"ac": {"profile": "balanced"}, "battery": {"profile": "balanced"}, **keys}
+        self.write(self.CONFIG_PATH, json.dumps(saved))
+
+    def read_config(self):
+        return json.loads(self._target(self.CONFIG_PATH).read_text())
 
     def profiles(self, names):
         entries = " ".join(f'1 "Profile" s "{n}" "Driver" s "platform_profile"' for n in names)

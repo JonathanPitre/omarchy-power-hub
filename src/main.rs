@@ -1,6 +1,7 @@
 // Later stages consume the shared modules; keep them compiled and warning-free meanwhile.
 #![allow(dead_code)]
 
+mod charge;
 mod config;
 mod exec;
 mod hypr;
@@ -25,8 +26,16 @@ fn main() {
         }
         Some("drain-to") => out(power::drain_to(&config::load())),
         Some("ac") => out(u8::from(!power::on_battery())),
+        Some("helper-needed") => out(if charge::helper_needed() { "needed" } else { "ok" }),
+        Some("led-sudo-needed") => out(system::led_sudo_needed()),
+        Some("battery-history") => out(system::battery_history()),
+        Some("boost-check") => {
+            let (code, msg) = charge::boost_check();
+            out(msg);
+            std::process::exit(code);
+        }
         _ => {
-            eprintln!("usage: power-hub config|ac|drain-to|gpu");
+            eprintln!("usage: power-hub config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|boost-check");
             std::process::exit(2);
         }
     }
