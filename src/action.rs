@@ -1,4 +1,4 @@
-use crate::{config, on, data, paths, power, settings, tweaks};
+use crate::{config, data, on, paths, power, settings, tweaks};
 use serde_json::Value;
 use std::path::Path;
 use std::process::{Command, Stdio};

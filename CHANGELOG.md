@@ -5,7 +5,12 @@ All notable changes to this project are documented in this file.
 The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.55] - 2026-11-07
+
+### Changed
+
+- Saving settings, profiles, Travel, Quick dim and Power Tweaks no longer start
+  Python.
 
 ### Added
 

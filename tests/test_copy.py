@@ -64,7 +64,7 @@ class PowerPanelCleanupTests(unittest.TestCase):
         self.assertIn('label: "Max refresh rate"', plan)
         service = (ROOT / "Service.qml").read_text()
         self.assertIn("root.lastBatteryState === UPowerDeviceState.Discharging", service)
-        self.assertIn('command: ["python3", root.ops, "travel", "off"]', service)
+        self.assertIn('command: [root.hub, "travel", "off"]', service)
 
     def test_no_process_polling_at_idle(self):
         # A python3 and a login bash every 2 s kept the CPU awake with the panel closed.

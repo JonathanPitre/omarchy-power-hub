@@ -21,6 +21,20 @@ class BackendSwitch(unittest.TestCase):
         self.assertIn('"battery-history"]', panel)
         self.assertNotIn('"python3", root.planOpsBin, "battery-history"', panel)
 
+    def test_only_stage_3_verbs_still_use_python(self):
+        plan = (ROOT / "PlanSection.qml").read_text()
+        self.assertNotIn("python3", plan)
+        self.assertNotIn("ops.py", plan)
+        stage3 = ('"displays"', '"recover-ucsi"', '"saver-past-inhibitor"', '"idle-lock"')
+        for line in (ROOT / "Service.qml").read_text().splitlines():
+            if '"python3"' in line:
+                self.assertTrue(any(v in line for v in stage3), line)
+
+    def test_energy_results_read_the_verb_from_the_new_position(self):
+        plan = (ROOT / "PlanSection.qml").read_text()
+        self.assertIn('act.command[1] === "travel" || act.command[1] === "quick-dim"', plan)
+        self.assertNotIn("act.command[2]", plan)
+
     def test_dark_displays_are_not_blanked_again(self):
         service = (ROOT / "Service.qml").read_text()
         self.assertIn('out === "blank" && root.displaysOff && root.displaysIdle', service)

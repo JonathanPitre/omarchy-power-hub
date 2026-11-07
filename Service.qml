@@ -287,7 +287,7 @@ Item {
     }
   }
 
-  Process { id: applyProc; command: ["python3", root.ops, "apply"] }
+  Process { id: applyProc; command: [root.hub, "apply"] }
   Process { id: applyProfileProc; onExited: root.refresh() }
   Timer {
     id: applyProfileDebounce
@@ -295,7 +295,7 @@ Item {
     repeat: false
     onTriggered: {
       if (applyProfileProc.running) return
-      applyProfileProc.command = ["python3", root.ops, "apply-profile"]
+      applyProfileProc.command = [root.hub, "apply-profile"]
       applyProfileProc.running = true
     }
   }
@@ -309,7 +309,7 @@ Item {
   // after unplug, so OnBattery may never change. A Travel session started while
   // already plugged in sees no such transition and stays on.
   property int lastBatteryState: -1
-  Process { id: travelOffProc; command: ["python3", root.ops, "travel", "off"]; onExited: root.refresh() }
+  Process { id: travelOffProc; command: [root.hub, "travel", "off"]; onExited: root.refresh() }
   Connections {
     target: UPower.displayDevice
     function onStateChanged() {
@@ -344,6 +344,7 @@ Item {
         else applyProc.running = true
       }
     }
+    onExited: function(code) { if (code !== 0 && !applyProc.running) applyProc.running = true }
   }
   Process {
     id: helperPkexec
