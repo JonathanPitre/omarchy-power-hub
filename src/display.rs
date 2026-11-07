@@ -57,12 +57,12 @@ pub fn with_state_lock<T>(f: impl FnOnce() -> T) -> Option<T> {
 /// `displays sync` under the display-state lock: put parked heads back once every other one is lit.
 /// None when the lock cannot be taken: nothing is printed or touched.
 pub fn sync() -> Option<String> {
-    with_state_lock(|| sync_locked(&paths::plugin_run_dir().join("display-off.json")))
+    with_state_lock(sync_locked)
 }
 
-fn sync_locked(state_path: &Path) -> String {
+fn sync_locked() -> String {
     // Unlike Python, a `disabled` that is not a list counts as empty: `idle`, not a crash or a restore of nothing.
-    let state = load_state(state_path);
+    let state = load_state(&state_path());
     if !truthy(&state["disabled"]) {
         return "idle".into();
     }
@@ -70,7 +70,7 @@ fn sync_locked(state_path: &Path) -> String {
         return "waiting".into();
     }
     restore(&state);
-    let _ = fs::write(state_path, "{\"disabled\": []}\n");
+    save_state(vec![]);
     "restored".into()
 }
 

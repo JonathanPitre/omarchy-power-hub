@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from dataclasses import dataclass, field, replace
 
@@ -119,6 +120,7 @@ class Sandbox:
         self.hypr = {}
         self.hypr_on_eval = None
         self.eval_reply = "ok"
+        self.reply_delay = 0  # seconds every reply is held, for every request type
         self._evals = []
         self._requests = []
         self._rules = {}
@@ -184,6 +186,7 @@ class Sandbox:
                 try:
                     req = conn.recv(65536).decode()
                     self._requests.append(req)
+                    time.sleep(self.reply_delay)
                     if req.startswith("eval "):
                         self._evals.append(req[5:])
                         if self.hypr_on_eval:

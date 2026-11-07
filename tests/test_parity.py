@@ -877,7 +877,7 @@ def sync_both(s, *specs):
         out.append((r, s._target(STATE_FILE).read_text()))
     (py, py_file), (rs, rs_file) = out
     assert_same(py, rs)
-    unittest.TestCase().assertEqual(py_file, rs_file)
+    unittest.TestCase().assertEqual(json.loads(py_file), json.loads(rs_file))
     return rs, rs_file
 
 
@@ -915,7 +915,7 @@ class SyncParity(unittest.TestCase):
                 "HDMI-A-1", 12, None,
             ]
             r, f = sync_both(s, *specs)
-            self.assertEqual((r.stdout.strip(), f), ("restored", '{"disabled": []}\n'))
+            self.assertEqual((r.stdout.strip(), json.loads(f)), ("restored", {"disabled": []}))
             self.assertIn('hl.monitor({ output = "desc:BOE NE160 (1)+x", mode = "2560x1600@59.951", '
                           'position = "0x0", scale = 1.25, disabled = false })', r.evals)
             self.assertIn('hl.monitor({ output = "DP-2", mode = "1920x1080@60.0", position = "-1920x0", scale = 1, '
@@ -2346,8 +2346,17 @@ class DisplayParity(unittest.TestCase):
         def check(py, rs):
             self.assertEqual(rs._evals[0], SAVER_CLEARED)
             self.assertEqual([c for c in rs.calls_log.read_text().split("\n") if c.startswith("pkill")], ["pkill -x ttfx", "pkill -f [o]rg.omarchy.screensaver"])
+        seen = []
+
+        def setup(s):
+            displays_setup(head("eDP-1"))(s)
+            # What the pkill stub had logged when the cursor eval arrived.
+            s.hypr_on_eval = lambda lua: seen.append((lua, [c for c in s.calls_log.read_text().split("\n") if c.startswith("pkill")]))
         for verb in ("on", "off"):
-            both(displays_setup(head("eDP-1")), ["displays", verb], inspect=check)
+            seen.clear()
+            both(setup, ["displays", verb], inspect=check)
+            self.assertEqual(seen[0][0], SAVER_CLEARED)
+            self.assertEqual({tuple(p) for _, p in seen[:2]}, {("pkill -x ttfx", "pkill -f [o]rg.omarchy.screensaver")})
 
     def test_park_a_head_that_came_back_lit_while_the_others_sleep(self):
         mons = [head("eDP-1", False), head("DP-1", description=FLIP), head("DP-2", description="b")]
@@ -2430,14 +2439,22 @@ class DisplayHardening(unittest.TestCase):
             r = s.rust("displays", "sync")
             self.assertEqual((r.code, r.stdout.strip(), r.evals), (0, "idle", []))
 
-    def test_a_reply_held_for_three_seconds_still_delivers_every_eval(self):
+    def test_replies_held_past_two_seconds_still_light_and_blank_every_head(self):
+        """A read that gave up at 2 s would see no monitors and send no enable: the display would stay dark."""
         with Sandbox() as s:
-            displays_setup(head("eDP-1", False), head("DP-1", False), state={"disabled": [{"name": "DP-5", "width": 1, "height": 1}]})(s)
-            s.hypr_on_eval = lambda lua: time.sleep(3)
+            displays_setup(head("eDP-1", False))(s)
+            s.reply_delay = 2.2
             r = s.rust("displays", "on")
             self.assertEqual((r.code, r.stdout.strip()), (0, "ok"))
-            self.assertEqual(r.evals, [SAVER_CLEARED, 'hl.monitor({ output = "DP-5", mode = "1x1@60", position = "0x0", scale = 1, disabled = false })'])
-            self.assertEqual(s.read_state(), {"disabled": []})
+            self.assertEqual(r.evals, [SAVER_CLEARED])
+            self.assertEqual([q for q in s._requests if q.startswith("dispatch")], ['dispatch hl.dsp.dpms({ action = "enable", monitor = "eDP-1" })'])
+            displays_setup(head("eDP-1"), head("DP-1"))(s)
+            r = s.rust("displays", "off")
+            self.assertEqual((r.code, r.stdout.strip()), (0, "ok"))
+            self.assertEqual([q for q in s._requests if q.startswith("dispatch")],
+                             [f'dispatch hl.dsp.dpms({{ action = "disable", monitor = "{n}" }})' for n in ("eDP-1", "DP-1")])
+            self.assertEqual(r.evals, [SAVER_CLEARED, 'hl.monitor({ output = "DP-1", disabled = true })'])
+            self.assertEqual([x["name"] for x in s.read_state()["disabled"]], ["DP-1"])
 
     def test_bad_modes_print_usage_and_touch_nothing(self):
         with Sandbox() as s:
