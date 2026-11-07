@@ -344,7 +344,7 @@ Item {
         else applyProc.running = true
       }
     }
-    onExited: function(code) { if (code !== 0 && !applyProc.running) applyProc.running = true }
+    onRunningChanged: if (!running && !applyProc.running && !helperPkexec.running) applyProc.running = true
   }
   Process {
     id: helperPkexec

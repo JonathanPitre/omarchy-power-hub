@@ -35,6 +35,11 @@ class BackendSwitch(unittest.TestCase):
         self.assertIn('act.command[1] === "travel" || act.command[1] === "quick-dim"', plan)
         self.assertNotIn("act.command[2]", plan)
 
+    def test_apply_runs_when_the_helper_check_cannot_start(self):
+        service = (ROOT / "Service.qml").read_text()
+        self.assertIn("onRunningChanged: if (!running && !applyProc.running && !helperPkexec.running) applyProc.running = true", service)
+        self.assertNotIn("onExited: function(code)", service)
+
     def test_dark_displays_are_not_blanked_again(self):
         service = (ROOT / "Service.qml").read_text()
         self.assertIn('out === "blank" && root.displaysOff && root.displaysIdle', service)
