@@ -18,6 +18,18 @@ pub fn helper_bin() -> Option<PathBuf> {
     same.then(|| dst.join("ops-priv"))
 }
 
+/// A timed-out PPM init at boot leaves no USB-C data until the driver is rebound; once per boot, and only through the installed helper.
+pub fn recover_ucsi() {
+    let mark = paths::plugin_run_dir().join("ucsi-rebound");
+    if power::ucsi_source_watts().is_some() || mark.exists() || !power::framework() {
+        return;
+    }
+    let Some(helper) = helper_bin() else { return };
+    if fs::create_dir_all(paths::plugin_run_dir()).and_then(|()| fs::write(&mark, "")).is_ok() {
+        exec::run(&["sudo", "-n", &helper.to_string_lossy(), "ucsi-rebind"], secs(4));
+    }
+}
+
 pub fn helper_needed() -> bool {
     let Some(helper) = helper_bin() else { return true };
     let (code, out) = exec::run(&["sudo", "-n", "-l"], secs(4));

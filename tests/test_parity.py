@@ -1021,7 +1021,9 @@ class SettingsParity(unittest.TestCase):
         with checked(settings_setup(bindings="bind = x"), step, step) as (s, last):
             text = s._target(BINDINGS_FILE).read_text()
             self.assertEqual((text.count("-- BEGIN"), text.count("-- END")), (1, 1))
-            self.assertIn(f"python3 {s.bin}/ops.py lid-closed", text)
+            self.assertIn(f"{s.bin}/power-hub lid-closed", text)
+            self.assertIn(f"{s.bin}/power-hub lid-opened", text)
+            self.assertNotIn("python3", text)
             self.assertEqual(last.requests, [])
         with Sandbox() as s:
             settings_setup(bindings="bind = x")(s)
@@ -2708,6 +2710,269 @@ printf '[%s]' "$(/usr/bin/cat)" >> {log}''')
                     lights_setup(lambda s: qmk_keys(s, 0), led=("chromeos-auto", 80, 100))(s)
                     s.write(KBLIGHT_FILE, text)
                 both(setup, self.ON, inspect=same_lights)
+
+
+LID_BEGIN = "-- BEGIN Omarchy Power Hub lid action override"
+LID_END = "-- END Omarchy Power Hub lid action override"
+MICE = ["m1", "pixa3854:00-093a:0274-mouse", 'bad"; os.execute("x")']
+KEYBOARDS = ["kb", "power-button", "gpio-keys", "video-bus"]
+SEEN_INPUTS = ("m1", "pixa3854:00-093a:0274-mouse", "kb")
+
+
+def lid_setup(action="display-off", *, monitors=(head("eDP-1"),), **kw):
+    def setup(s):
+        displays_setup(*monitors, **kw)(s)
+        s.config(**{side: {"profile": "balanced", "lid": action} for side in ("ac", "battery")})
+        s.devices(mice=MICE, keyboards=KEYBOARDS)
+    return setup
+
+
+def input_evals(s, enabled):
+    return [e for e in s._evals if e.startswith("hl.device")] == [device_eval(n, enabled) for n in SEEN_INPUTS]
+
+
+def dpms(action, *names):
+    return [f'dispatch hl.dsp.dpms({{ action = "{action}", monitor = "{n}" }})' for n in names]
+
+
+class LidParity(unittest.TestCase):
+    def inputs_come_first(self, s, enabled):
+        """The hid wakeup call, then every input, then whatever the lid does."""
+        self.assertTrue(input_evals(s, enabled))
+        reqs = s._requests
+        last = max(i for i, q in enumerate(reqs) if q.startswith("eval hl.device"))
+        later = [i for i, q in enumerate(reqs) if not q.startswith("eval hl.device") and q != "j/devices"]
+        self.assertTrue(all(i > last for i in later), reqs)
+        self.assertTrue(s.calls_log.read_text().startswith(f"pkexec {s.bin}/ops-priv hid-wakeup {'on' if enabled == 'true' else 'off'}\n"))
+
+    def test_close_runs_the_action_after_the_inputs_are_off(self):
+        wanted = {"nothing": [], "display-off": [], "suspend": ["systemctl suspend"],
+                  "hibernate": ["systemctl hibernate", "systemctl suspend"]}
+        for action, systemctl in wanted.items():
+            with self.subTest(action=action):
+                def check(py, rs, systemctl=systemctl):
+                    same_requests(py, rs)
+                    self.inputs_come_first(rs, "false")
+                    self.assertEqual([c for c in rs.calls_log.read_text().split("\n") if c.startswith("systemctl")], systemctl)
+                py, rs = both(lid_setup(action), ["lid-closed"], inspect=check)
+                self.assertEqual(rs._evals[:3], [device_eval(n, "false") for n in SEEN_INPUTS])
+
+    def test_close_exits_0_and_prints_nothing(self):
+        for action in ("nothing", "display-off", "suspend", "hibernate"):
+            with self.subTest(action=action), Sandbox() as s:
+                lid_setup(action)(s)
+                r = s.rust("lid-closed")
+                self.assertEqual((r.code, r.stdout), (0, ""))
+
+    def test_a_working_hibernate_does_not_fall_back_to_suspend(self):
+        def setup(s):
+            lid_setup("hibernate")(s)
+            s.stub("systemctl", "hibernate", 0)
+        both(setup, ["lid-closed"], lambda s: self.assertEqual(
+            [c for c in s.calls_log.read_text().split("\n") if c.startswith("systemctl")], ["systemctl hibernate"]))
+
+    def test_close_with_display_off_sends_dpms_only_and_disables_no_head(self):
+        """Disabling the FlipGo heads on a lid close leaves the NVIDIA GPU with no outputs and Hyprland SIGSEGVs."""
+        parked = [{"name": "DP-9", "width": 100, "height": 100}]
+        mons = [head("eDP-1"), head("DP-1", description=FLIP)]
+
+        def check(py, rs):
+            same_requests(py, rs)
+            self.assertEqual([q for q in rs._requests if q.startswith("dispatch")], dpms("disable", "eDP-1", "DP-1"))
+            self.assertEqual([e for e in rs._evals if "disabled" in e], [])
+            self.assertEqual(rs.read_state(), {"disabled": parked})
+        both(lid_setup("display-off", monitors=mons, state={"disabled": parked}, droppers=[FLIP]), ["lid-closed"], inspect=check)
+
+    def test_close_with_display_off_darkens_the_lights_and_open_brings_them_back(self):
+        def setup(s):
+            lights_setup(lambda s: qmk_keys(s, 67))(s)
+            lid_setup("display-off")(s)
+        for label, wake in {"lit": lambda s: None, "dark": lambda s: s.monitors(head("eDP-1", False))}.items():
+            with self.subTest(label):
+                both(setup, ["lid-closed"],
+                     lambda s: self.assertEqual((keys_level(s), kblight_saved(s)), (0, {"level": 67})),
+                     wake, ["lid-opened"],
+                     lambda s: self.assertEqual((keys_level(s), kblight_saved(s)), (67, None)),
+                     inspect=same_lights)
+
+    def test_open_restores_parked_heads_and_wakes_dark_ones_after_the_inputs(self):
+        parked = [{"name": "DP-1", "width": 2560, "height": 1600, "refreshRate": 60, "x": 0, "y": 0, "scale": 1.6}]
+        cases = {"parked": ([head("eDP-1")], {"disabled": parked}), "blanked": ([head("eDP-1", False)], None),
+                 "parked and blanked": ([head("eDP-1", False)], {"disabled": parked})}
+        for label, (mons, state) in cases.items():
+            with self.subTest(label):
+                def check(py, rs):
+                    same_requests(py, rs)
+                    self.inputs_come_first(rs, "true")
+                    self.assertIn(dpms("enable", "eDP-1")[0], rs._requests)
+                    self.assertEqual(rs.read_state(), {"disabled": []})
+                both(lid_setup(monitors=mons, state=state), ["lid-opened"], inspect=check)
+
+    def test_open_with_lit_heads_and_nothing_parked_only_enables_the_inputs(self):
+        def check(py, rs):
+            same_requests(py, rs)
+            self.inputs_come_first(rs, "true")
+            self.assertEqual([q for q in rs._requests if q.startswith(("dispatch", "eval hl.monitor"))], [])
+            self.assertEqual(rs.calls_log.read_text(), f"pkexec {rs.bin}/ops-priv hid-wakeup on\n")
+        both(lid_setup(state={"disabled": []}), ["lid-opened"], inspect=check)
+        both(lid_setup(), ["lid-opened"], inspect=check)
+
+    def test_open_exits_0_and_prints_nothing(self):
+        with Sandbox() as s:
+            lid_setup(monitors=[head("eDP-1", False)])(s)
+            r = s.rust("lid-opened")
+            self.assertEqual((r.code, r.stdout), (0, ""))
+
+    def test_a_lock_that_cannot_be_taken_still_turns_the_inputs_off_and_on(self):
+        """Python dies on the lock with a traceback; the binary exits 0 and leaves the displays alone."""
+        with Sandbox() as s:
+            lid_setup("display-off", monitors=[head("eDP-1", False)])(s)
+            s._target("run/omarchy-power-hub/display-off.lock").mkdir(parents=True)
+            for verb, enabled in (("lid-closed", "false"), ("lid-opened", "true")):
+                r = s.rust(verb)
+                self.assertEqual((r.code, r.stdout, [e for e in r.evals if not e.startswith("hl.device")]), (0, "", []), verb)
+                self.assertTrue(input_evals(s, enabled), verb)
+                self.assertEqual([q for q in s._requests if q.startswith("dispatch")], [], verb)
+
+    def test_bound_verbs_survive_a_closed_stdout(self):
+        for verb in ("lid-closed", "lid-opened", "idle-lock", "saver-past-inhibitor", "recover-ucsi"):
+            with self.subTest(verb), Sandbox() as s:
+                lid_setup("nothing")(s)
+                p = subprocess.run([str(RUST_BIN), verb], env=s._env(), cwd=s.base, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+                self.assertEqual((p.returncode, p.stderr), (0, ""))
+
+
+class IdleCommandParity(unittest.TestCase):
+    STAY_AWAKE = "home/.local/state/omarchy/indicators/stay-awake"
+
+    def calls(self, s, tool):
+        return [c for c in s.calls_log.read_text().split("\n") if c.startswith(tool)]
+
+    def test_idle_lock_locks_unless_stay_awake_is_on(self):
+        both(lambda s: None, ["idle-lock"], lambda s: self.assertEqual(self.calls(s, "omarchy-system-lock"), ["omarchy-system-lock "]))
+        both(lambda s: s.write(self.STAY_AWAKE, ""), ["idle-lock"], lambda s: self.assertEqual(s.calls_log.read_text(), ""))
+
+    def test_saver_past_inhibitor(self):
+        inhibiting = json.dumps([{"inhibitingIdle": False}, {"inhibitingIdle": True}])
+        cases = {
+            "inhibiting client": (inhibiting, "false\n", False, ["omarchy-shell lock isLocked", "omarchy-launch-screensaver "]),
+            "no client inhibits": (json.dumps([{"inhibitingIdle": False}, {}]), "false\n", False, []),
+            "no clients": ("[]", "false\n", False, []),
+            "empty reply": ("", "false\n", False, []),
+            "bad reply": ("nope", "false\n", False, []),
+            "stay awake": (inhibiting, "false\n", True, []),
+            "already locked": (inhibiting, "true\n", False, ["omarchy-shell lock isLocked"]),
+            "locked, padded": (inhibiting, " true \n", False, ["omarchy-shell lock isLocked"]),
+        }
+        for label, (clients, locked, awake, wanted) in cases.items():
+            with self.subTest(label):
+                def setup(s, clients=clients, locked=locked, awake=awake):
+                    s.hypr["j/clients"] = clients
+                    s.stub("omarchy-shell", "isLocked", 0, locked)
+                    if awake:
+                        s.write(self.STAY_AWAKE, "")
+                both(setup, ["saver-past-inhibitor"], lambda s, wanted=wanted: self.assertEqual(
+                    [c for c in s.calls_log.read_text().split("\n") if c.startswith("omarchy")], wanted))
+
+
+class RecoveryParity(unittest.TestCase):
+    MARK = "run/omarchy-power-hub/ucsi-rebound"
+
+    def setup(self, *, framework=True, helper=True, ucsi=None, marked=False):
+        def setup(s):
+            if framework:
+                s.framework()
+            if helper:
+                s.install_helper()
+            if ucsi is not None:
+                s.ucsi("USBC000:001", *ucsi)
+            if marked:
+                s.write(self.MARK, "")
+        return setup
+
+    def test_a_missing_driver_is_rebound_once_through_the_helper(self):
+        rebind = lambda s: f"sudo -n {s.helper_dir}/ops-priv ucsi-rebind"  # noqa: E731
+        both(self.setup(),
+             ["recover-ucsi"], lambda s: self.assertEqual((s.calls_log.read_text().strip(), s._target(self.MARK).exists()), (rebind(s), True)),
+             ["recover-ucsi"], lambda s: self.assertEqual(s.calls_log.read_text(), ""))
+
+    def test_the_run_dir_is_made_before_the_mark(self):
+        with Sandbox() as s:
+            self.setup()(s)
+            self.assertFalse(s._target("run/omarchy-power-hub").exists())
+            r = s.rust("recover-ucsi")
+            self.assertEqual((r.code, r.stdout, s._target(self.MARK).read_text()), (0, "", ""))
+
+    def test_nothing_to_recover(self):
+        cases = {"online": dict(ucsi=(True, 20, 3)), "offline port": dict(ucsi=(False, 0, 0)), "marked": dict(marked=True),
+                 "not a Framework": dict(framework=False), "no helper": dict(helper=False)}
+        for label, kw in cases.items():
+            with self.subTest(label):
+                def check(py, rs):
+                    self.assertEqual(rs.calls_log.read_text(), "")
+                    self.assertEqual(rs._target(self.MARK).exists(), kw.get("marked", False))
+                both(self.setup(**kw), ["recover-ucsi"], inspect=check)
+
+    def test_a_helper_that_appears_later_is_used_and_marks_then(self):
+        def late(s):
+            s.install_helper()
+        both(self.setup(helper=False), ["recover-ucsi"], lambda s: self.assertFalse(s._target(self.MARK).exists()),
+             late, ["recover-ucsi"], lambda s: self.assertTrue(s._target(self.MARK).exists()))
+
+
+UPDATE_UNIT = "[Unit]\nDescription=Omarchy Power Hub device tweaks\n\n[Service]\nType=oneshot\nExecStart=/usr/bin/python3 {bin}/ops.py apply-tweaks\n\n[Install]\nWantedBy=default.target\n"
+
+
+class UpdateFromPython(unittest.TestCase):
+    """The first `apply` after an update leaves nothing that still names ops.py."""
+
+    def old_install(self, unit=True):
+        def setup(s):
+            apply_env()(s)
+            old = (f"{LID_BEGIN}\nhl.unbind(\"switch:on:Lid Switch\")\nhl.unbind(\"switch:off:Lid Switch\")\n"
+                   f"o.bind(\"switch:on:Lid Switch\", nil, \"python3 {s.bin}/ops.py lid-closed\", {{ locked = true }})\n"
+                   f"o.bind(\"switch:off:Lid Switch\", nil, \"python3 {s.bin}/ops.py lid-opened\", {{ locked = true }})\n{LID_END}\n")
+            s.write(BINDINGS_FILE, "bind = x\n" + old)
+            if unit:
+                s.write(UNIT_FILE, UPDATE_UNIT.format(bin=s.bin))
+        return setup
+
+    def test_one_block_one_reload_and_a_unit_that_names_the_binary(self):
+        with Sandbox() as s:
+            self.old_install()(s)
+            r = s.rust("apply")
+            text = s._target(BINDINGS_FILE).read_text()
+            unit = s._target(UNIT_FILE).read_text()
+            self.assertEqual((r.code, r.stdout), (0, "ok\n"))
+            self.assertEqual(text.count(LID_BEGIN), 1)
+            self.assertNotIn("python3", text)
+            self.assertIn(f"{s.bin}/power-hub lid-closed", text)
+            self.assertIn(f"{s.bin}/power-hub lid-opened", text)
+            self.assertEqual(r.requests.count("reload"), 1)
+            self.assertIn("power-hub apply-tweaks", unit)
+            self.assertNotIn("python3", unit)
+            self.assertIn("systemctl --user daemon-reload", r.calls)
+            self.assertFalse([c for c in r.calls if "enable" in c])
+            again = s.rust("apply")
+            self.assertEqual((again.requests.count("reload"), s._target(UNIT_FILE).read_text()), (0, unit))
+            self.assertNotIn("systemctl --user daemon-reload", again.calls)
+
+    def test_no_unit_means_none_is_made(self):
+        with Sandbox() as s:
+            self.old_install(unit=False)(s)
+            r = s.rust("apply")
+            self.assertFalse(s._target(UNIT_FILE).exists())
+            self.assertFalse([c for c in r.calls if c.startswith("systemctl")])
+
+    def test_a_failed_apply_still_refreshes_the_unit(self):
+        with Sandbox() as s:
+            self.old_install()(s)
+            s._target(BINDINGS_FILE).unlink()
+            s._target(BINDINGS_FILE).mkdir()
+            r = s.rust("apply")
+            self.assertEqual(r.code, 1)
+            self.assertIn("power-hub apply-tweaks", s._target(UNIT_FILE).read_text())
+            self.assertIn("systemctl --user daemon-reload", r.calls)
 
 
 if __name__ == "__main__":

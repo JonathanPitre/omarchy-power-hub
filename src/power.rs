@@ -20,7 +20,7 @@ fn read_i64(p: PathBuf) -> Option<i64> {
 }
 
 /// Best online USB-C source contract in watts, or None without UCSI.
-fn ucsi_source_watts() -> Option<f64> {
+pub fn ucsi_source_watts() -> Option<f64> {
     let ports = supplies("ucsi-source-psy-");
     if ports.is_empty() {
         return None;

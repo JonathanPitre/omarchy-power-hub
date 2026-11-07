@@ -54,17 +54,32 @@ pub fn set_tweak(key: &str, on: bool) -> io::Result<String> {
     if key == "effects" { set_effects(on) } else { Ok(privileged(&[key, if on { "on" } else { "off" }])) }
 }
 
-fn write_unit() -> io::Result<()> {
-    let dir = paths::home().join(".config/systemd/user");
-    fs::create_dir_all(&dir)?;
-    let bin = paths::bin_dir().join("power-hub");
-    let unit = format!(
+fn unit_dir() -> std::path::PathBuf {
+    paths::home().join(".config/systemd/user")
+}
+
+fn unit_text() -> String {
+    format!(
         "[Unit]\nDescription=Omarchy Power Hub device tweaks\n\n[Service]\nType=oneshot\nExecStart={} apply-tweaks\n\n[Install]\nWantedBy=default.target\n",
-        bin.display()
-    );
-    fs::write(dir.join(UNIT), unit)?;
+        paths::bin_dir().join("power-hub").display()
+    )
+}
+
+fn write_unit() -> io::Result<()> {
+    fs::create_dir_all(unit_dir())?;
+    fs::write(unit_dir().join(UNIT), unit_text())?;
     exec::run(&["systemctl", "--user", "enable", "--now", UNIT], Duration::from_secs(8));
     Ok(())
+}
+
+/// Point an existing unit at this binary, as an update from the Python backend leaves it naming ops.py.
+/// Never creates a unit or enables one: a missing unit means no tweak was ever pinned.
+pub fn refresh_unit() {
+    let path = unit_dir().join(UNIT);
+    let text = unit_text();
+    if fs::read(&path).is_ok_and(|old| old != text.as_bytes()) && fs::write(&path, text).is_ok() {
+        exec::run(&["systemctl", "--user", "daemon-reload"], Duration::from_secs(8));
+    }
 }
 
 fn apply_unlocked(key: &str, on: bool, persist: bool) -> String {

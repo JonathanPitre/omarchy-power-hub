@@ -74,7 +74,7 @@ fn sync_locked() -> String {
     "restored".into()
 }
 
-fn state_path() -> PathBuf {
+pub fn state_path() -> PathBuf {
     paths::plugin_run_dir().join("display-off.json")
 }
 

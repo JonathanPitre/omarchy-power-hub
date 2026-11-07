@@ -1,8 +1,8 @@
-use crate::config::truthy;
-use crate::display::{awake, partly_lit};
+use crate::config::{self, truthy};
+use crate::display::{awake, blanked, load_state, partly_lit, set_displays, state_path, sync_lights, with_state_lock};
 use crate::monitor::py_str;
 use crate::names::matches_set;
-use crate::{hypr, paths};
+use crate::{charge, exec, hypr, paths, power};
 use serde_json::Value;
 use std::fs;
 use std::time::{Duration, SystemTime};
@@ -96,10 +96,86 @@ pub fn set_inputs(devices: &Value, enabled: bool) {
     );
 }
 
+/// The active side's lid action; a config without one acts as `nothing`.
+fn lid_action(cfg: &Value) -> &str {
+    cfg[power::active_side(cfg)]["lid"].as_str().unwrap_or("nothing")
+}
+
+/// Lid switch closed. Inputs go off first so a bump cannot wake what is about to sleep.
+/// Prints nothing and exits 0; when the display-state lock cannot be taken, `display-off` touches nothing.
+pub fn lid_closed() {
+    charge::privileged(&["hid-wakeup", "off"]);
+    set_inputs(&hypr::devices(), false);
+    let cfg = config::load();
+    let systemctl = |verb: &str| exec::run(&["systemctl", verb], Duration::from_secs(8)).0;
+    match lid_action(&cfg) {
+        "display-off" => {
+            if with_state_lock(|| set_displays(true, false)).is_some() {
+                sync_lights(true);
+            }
+        }
+        "suspend" => {
+            systemctl("suspend");
+        }
+        "hibernate" if systemctl("hibernate") != 0 => {
+            systemctl("suspend");
+        }
+        _ => {}
+    }
+}
+
+/// Lid switch opened. Inputs come back before the displays, so a failed display step never leaves them dead.
+/// Prints nothing and exits 0; when the display-state lock cannot be taken, the displays stay as they are.
+pub fn lid_opened() {
+    charge::privileged(&["hid-wakeup", "on"]);
+    set_inputs(&hypr::devices(), true);
+    // Key presses re-enable DPMS but not heads that Displays off disabled.
+    let locked = with_state_lock(|| {
+        let parked = load_state(&state_path())["disabled"].as_array().is_some_and(|d| !d.is_empty());
+        if parked || blanked(&hypr::monitors_within(hypr::WRITE_WAIT)) {
+            set_displays(false, true);
+        }
+    });
+    // Lit displays can still have blanked lights; this does nothing when none were saved.
+    if locked.is_some() {
+        sync_lights(false);
+    }
+}
+
+fn stay_awake() -> bool {
+    paths::home().join(".local/state/omarchy/indicators/stay-awake").exists()
+}
+
+/// Closing the saver for Displays off reads to Omarchy as the user returning,
+/// which cancels its lock countdown, so the plugin keeps that deadline itself.
+pub fn idle_lock() {
+    if !stay_awake() {
+        exec::run(&["omarchy-system-lock"], Duration::from_secs(8));
+    }
+}
+
+/// Omarchy's idle timer honors Wayland idle inhibitors (a playing video in a
+/// browser holds one), so it never starts the screensaver. Only step in then;
+/// otherwise Omarchy launches it and a second launch would race the first.
+pub fn saver_past_inhibitor() {
+    let clients = hypr::request("j/clients").and_then(|r| serde_json::from_str::<Value>(&r).ok());
+    let inhibited = clients.as_ref().and_then(Value::as_array).is_some_and(|c| c.iter().any(|c| truthy(&c["inhibitingIdle"])));
+    if !inhibited || stay_awake() || exec::run(&["omarchy-shell", "lock", "isLocked"], Duration::from_secs(4)).1.trim() == "true" {
+        return;
+    }
+    exec::run(&["omarchy-launch-screensaver"], Duration::from_secs(20));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn a_config_without_a_lid_action_does_nothing() {
+        assert_eq!(lid_action(&json!({})), "nothing");
+        assert_eq!(lid_action(&json!({"ac": {"lid": 5}, "battery": {"lid": 5}})), "nothing");
+    }
 
     #[test]
     fn lid_text_decides_open() {

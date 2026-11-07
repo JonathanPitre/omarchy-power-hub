@@ -51,6 +51,11 @@ fn main() {
         Some("led-sudo-needed") => out(system::led_sudo_needed()),
         Some("battery-history") => out(system::battery_history()),
         Some("idle-wake-poll") => out(idle::poll(matches!(args.get(1).map(String::as_str), Some("blanked" | "off")))),
+        Some("lid-closed") => idle::lid_closed(),
+        Some("lid-opened") => idle::lid_opened(),
+        Some("idle-lock") => idle::idle_lock(),
+        Some("saver-past-inhibitor") => idle::saver_past_inhibitor(),
+        Some("recover-ucsi") => charge::recover_ucsi(),
         Some("displays" | "dpms") => {
             let result = match args.get(1..).unwrap_or_default().iter().map(String::as_str).collect::<Vec<_>>()[..] {
                 ["sync", ..] => display::sync(),
@@ -103,7 +108,7 @@ fn main() {
             std::process::exit(code);
         }
         _ => {
-            eprintln!("usage: power-hub status|data|action|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|set|profile|charge|boost|health|quick-dim|travel|tweak|apply|apply-profile|apply-tweaks|unpin|daylight|cpu|helper-install|boost-check|idle-wake-poll|displays");
+            eprintln!("usage: power-hub status|data|action|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|set|profile|charge|boost|health|quick-dim|travel|tweak|apply|apply-profile|apply-tweaks|unpin|daylight|cpu|helper-install|boost-check|idle-wake-poll|displays|lid-closed|lid-opened|idle-lock|saver-past-inhibitor|recover-ucsi");
             std::process::exit(2);
         }
     }

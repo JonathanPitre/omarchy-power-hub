@@ -112,13 +112,13 @@ pub fn write_lid_block() -> io::Result<()> {
         Err(e) => return Err(e),
     };
     let mut text = without_blocks(&original);
-    let exe = paths::bin_dir().join("ops.py");
+    let exe = paths::bin_dir().join("power-hub");
     let exe = exe.display();
     if !text.ends_with('\n') {
         text.push('\n');
     }
     text += &format!(
-        "{BEGIN}\nhl.unbind(\"switch:on:Lid Switch\")\nhl.unbind(\"switch:off:Lid Switch\")\no.bind(\"switch:on:Lid Switch\", nil, \"python3 {exe} lid-closed\", {{ locked = true }})\no.bind(\"switch:off:Lid Switch\", nil, \"python3 {exe} lid-opened\", {{ locked = true }})\n{END}\n"
+        "{BEGIN}\nhl.unbind(\"switch:on:Lid Switch\")\nhl.unbind(\"switch:off:Lid Switch\")\no.bind(\"switch:on:Lid Switch\", nil, \"{exe} lid-closed\", {{ locked = true }})\no.bind(\"switch:off:Lid Switch\", nil, \"{exe} lid-opened\", {{ locked = true }})\n{END}\n"
     );
     if text != original {
         fs::write(path, text)?;
@@ -232,7 +232,10 @@ pub fn apply_active() -> io::Result<String> {
 
 /// `apply`: the active side, then the pinned tweaks (after the lock is released), then the HID wakeup when the lid is open.
 pub fn apply() -> String {
-    let active = match apply_active() {
+    let active = apply_active();
+    // A failed profile apply must not leave a unit that still names ops.py.
+    tweaks::refresh_unit();
+    let active = match active {
         Ok(e) => e,
         Err(e) => return e.to_string(),
     };

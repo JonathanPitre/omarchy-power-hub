@@ -1273,15 +1273,15 @@ def write_lid_block(action):
     pattern = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END) + r"\n?", re.S)
     text = pattern.sub("", text)
     if action != "system-default":
-        exe = pathlib.Path(__file__).resolve()
+        exe = pathlib.Path(__file__).resolve().parent / "power-hub"
         block = (
             f"{BEGIN}\n"
             'hl.unbind("switch:on:Lid Switch")\n'
             'hl.unbind("switch:off:Lid Switch")\n'
             'o.bind("switch:on:Lid Switch", nil, '
-            f'"python3 {exe} lid-closed", {{ locked = true }})\n'
+            f'"{exe} lid-closed", {{ locked = true }})\n'
             'o.bind("switch:off:Lid Switch", nil, '
-            f'"python3 {exe} lid-opened", {{ locked = true }})\n'
+            f'"{exe} lid-opened", {{ locked = true }})\n'
             f"{END}\n"
         )
         if not text.endswith("\n"):
