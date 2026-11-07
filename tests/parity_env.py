@@ -312,15 +312,18 @@ esac''')
         out = {}
         for top in (self.home, self.run):
             for p in sorted(top.rglob("*")):
-                if p.is_symlink() or not p.is_file() or p.suffix in (".lock", ".tmp"):
+                if not (p.is_symlink() or p.is_file()) or p.suffix in (".lock", ".tmp"):
                     continue
                 rel = str(p.relative_to(self.base))
+                if p.is_symlink():
+                    out[rel] = ("symlink", os.readlink(p).replace(str(self.base), "<base>"))
+                    continue
                 text = p.read_text(errors="replace").replace(str(self.base), "<base>")
                 if normalise:
                     text = normalise(rel, text)
                 if p.suffix == ".json":
-                    try:
-                        text = json.loads(text)
+                    try:  # whitespace and escaping may differ; key order and value types may not
+                        text = json.dumps(json.loads(text))
                     except ValueError:
                         pass
                 out[rel] = (stat.S_IMODE(p.stat().st_mode), text)

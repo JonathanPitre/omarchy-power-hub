@@ -961,6 +961,25 @@ class HarnessTests(unittest.TestCase):
                 s.write("home/y.json", json.dumps({"p": str(s.base / "z")}))
             assert_same_files(a, b)
 
+    def test_harness_json_key_order_and_types_matter(self):
+        for left, right in (('{"z":1,"a":2}', '{"a":2,"z":1}'), ('{"a":true}', '{"a":1}'), ('{"a":1}', '{"a":1.0}')):
+            with Sandbox() as a, Sandbox() as b:
+                a.write("home/s.json", left)
+                b.write("home/s.json", right)
+                with self.assertRaises(AssertionError):
+                    assert_same_files(a, b)
+        with Sandbox() as a, Sandbox() as b:
+            a.write("home/s.json", '{"a": 1}')
+            b.write("home/s.json", '{"a":1}\n')
+            assert_same_files(a, b)
+
+    def test_harness_sees_a_symlink_target(self):
+        with Sandbox() as a, Sandbox() as b:
+            (a.home / "l").symlink_to("x")
+            (b.home / "l").symlink_to("y")
+            with self.assertRaises(AssertionError):
+                assert_same_files(a, b)
+
     def test_harness_normalise_hook_fixes_file_content(self):
         with Sandbox() as a, Sandbox() as b:
             a.write("home/u.service", "ExecStart=python\n")

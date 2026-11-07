@@ -55,6 +55,16 @@ pub fn run(args: &[&str], timeout: Duration) -> (i32, String) {
     (status.code().unwrap_or(1), text)
 }
 
+pub fn executable(p: &std::path::Path) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::metadata(p).is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
+}
+
+/// `shutil.which`: an executable regular file on `PATH`.
+pub fn on_path(tool: &str) -> bool {
+    std::env::var_os("PATH").is_some_and(|path| std::env::split_paths(&path).any(|d| executable(&d.join(tool))))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -80,14 +90,4 @@ mod tests {
         assert_eq!(code, 1);
         assert!(t.elapsed() < Duration::from_secs(1));
     }
-}
-
-pub fn executable(p: &std::path::Path) -> bool {
-    use std::os::unix::fs::PermissionsExt;
-    std::fs::metadata(p).is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
-}
-
-/// `shutil.which`: an executable regular file on `PATH`.
-pub fn on_path(tool: &str) -> bool {
-    std::env::var_os("PATH").is_some_and(|path| std::env::split_paths(&path).any(|d| executable(&d.join(tool))))
 }
