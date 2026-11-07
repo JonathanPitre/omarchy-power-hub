@@ -1,80 +1,15 @@
 use crate::config::truthy;
-use crate::{exec, paths};
+use crate::names::{laptop_monitor, safe_name, safe_name_v, safe_output};
+use crate::state::{int_in, is_int, py_float, py_int, quick_dim_state, travel_state};
+use crate::{config, exec, paths};
 use serde_json::{Value, json};
 use std::collections::{BTreeSet, HashMap};
-use std::path::Path;
+
 use std::time::Duration;
-use std::{fs, io};
+use std::fs;
 
 /// Saving tweaks Travel turns on for its duration when they are off.
 const TRAVEL_TWEAKS: [&str; 2] = ["abm", "effects"];
-const MALFORMED_TRAVEL: &str = "Travel restore point is malformed; restore ownership manually";
-const MALFORMED_DIM: &str = "Quick dim restore point is malformed; restore ownership manually";
-
-/// Python `type(v) is int`: a JSON integer, never a bool or float.
-fn is_int(v: &Value) -> bool {
-    v.is_i64() || v.is_u64()
-}
-
-fn int_in(v: &Value, lo: i64, hi: i64) -> bool {
-    v.as_i64().is_some_and(|n| (lo..=hi).contains(&n))
-}
-
-/// Python `float(v)`.
-fn py_float(v: &Value) -> Option<f64> {
-    match v {
-        Value::Number(n) => n.as_f64(),
-        Value::Bool(b) => Some(f64::from(u8::from(*b))),
-        Value::String(s) => s.trim().parse().ok(),
-        _ => None,
-    }
-}
-
-/// Python `int(v)`.
-fn py_int(v: &Value) -> Option<i64> {
-    match v {
-        Value::Number(n) => n.as_i64().or_else(|| n.as_f64().filter(|f| f.is_finite()).map(|f| f as i64)),
-        Value::Bool(b) => Some(i64::from(*b)),
-        Value::String(s) => s.trim().parse().ok(),
-        _ => None,
-    }
-}
-
-/// `re.match(r"^[...]+$", s)`: `$` also matches before one trailing newline.
-pub fn matches_set(s: &str, ok: impl Fn(char) -> bool) -> bool {
-    let s = s.strip_suffix('\n').unwrap_or(s);
-    !s.is_empty() && s.chars().all(ok)
-}
-
-pub fn safe_name(s: &str) -> bool {
-    matches_set(s, |c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
-}
-
-/// `display_power.safe_name` on any JSON value: Python tests `str(value)` when it is truthy.
-pub fn safe_name_v(v: &Value) -> bool {
-    match v {
-        Value::String(s) => safe_name(s),
-        Value::Number(n) => n.as_f64() != Some(0.0) && safe_name(&n.to_string()),
-        Value::Bool(b) => *b,
-        _ => false,
-    }
-}
-
-pub fn safe_output(v: &Value) -> bool {
-    match v.as_str().and_then(|s| s.strip_prefix("desc:")) {
-        Some(desc) => matches_set(desc, |c| c.is_ascii_alphanumeric() || matches!(c, ' ' | '.' | '_' | '(' | ')' | '+' | '-')),
-        None => safe_name_v(v),
-    }
-}
-
-/// The first internal panel (`eDP-`, `LVDS-` or `DSI-`) with a safe name.
-pub fn laptop_monitor(monitors: &[Value]) -> Option<String> {
-    monitors
-        .iter()
-        .filter_map(|m| m["name"].as_str())
-        .find(|n| ["eDP-", "LVDS-", "DSI-"].iter().any(|p| n.starts_with(p)) && safe_name(n))
-        .map(String::from)
-}
 
 /// Python's `%g` formatting (`format(x, "g")`): six significant digits, trailing zeros dropped.
 pub fn fmt_g(x: f64) -> String {
@@ -117,23 +52,6 @@ impl BrightnessCache {
     }
 }
 
-fn invalid(error: &str) -> Value {
-    json!({"on": true, "invalid": true, "error": error})
-}
-
-/// Saved energy state: the default when absent, an invalid marker when unreadable or not an object.
-fn read_energy(path: &Path, default: Value) -> Value {
-    match fs::read_to_string(path) {
-        Err(e) if e.kind() == io::ErrorKind::NotFound => default,
-        Err(_) => invalid("Saved settings are unreadable; restore ownership manually"),
-        Ok(text) => match serde_json::from_str::<Value>(&text) {
-            Ok(v @ Value::Object(_)) => v,
-            Ok(_) => invalid("Saved settings are malformed"),
-            Err(_) => invalid("Saved settings are unreadable; restore ownership manually"),
-        },
-    }
-}
-
 fn valid_monitor_snapshot(saved: &Value) -> bool {
     if !saved.is_object() || !safe_output(&saved["output"]) || !safe_name_v(&saved["name"]) {
         return false;
@@ -150,7 +68,7 @@ fn valid_monitor_snapshot(saved: &Value) -> bool {
         .all(|(k, high)| saved[k].is_number() && saved[k].as_f64().is_some_and(|v| 0.0 < v && v <= *high))
 }
 
-fn valid_travel_snapshot(s: &Value) -> bool {
+pub fn valid_travel_snapshot(s: &Value) -> bool {
     let (Some(complete), Some(reduce_cpu)) = (s["complete"].as_bool(), s["reduceCpu"].as_bool()) else { return false };
     let (Some(pending), true, true, true) = (s["pending"].as_array(), s["cpu"].is_object(), s["controls"].is_object(), s["error"].is_string()) else {
         return false;
@@ -236,33 +154,6 @@ fn valid_travel_snapshot(s: &Value) -> bool {
     true
 }
 
-pub fn travel_state() -> Value {
-    let state = read_energy(&paths::plugin_run_dir().join("travel.json"), json!({"on": false}));
-    if truthy(&state["invalid"]) {
-        return state;
-    }
-    let Value::Bool(on) = state["on"] else { return invalid(MALFORMED_TRAVEL) };
-    if on {
-        let legacy = state["monitors"].is_array() && (state["brightness"].is_null() || is_int(&state["brightness"]));
-        if !legacy && !valid_travel_snapshot(&state) {
-            return invalid(MALFORMED_TRAVEL);
-        }
-    }
-    state
-}
-
-pub fn quick_dim_state() -> Value {
-    let state = read_energy(&paths::plugin_run_dir().join("quick-dim.json"), json!({"on": false}));
-    if truthy(&state["invalid"]) {
-        return state;
-    }
-    let Value::Bool(on) = state["on"] else { return invalid(MALFORMED_DIM) };
-    if on && (!safe_name_v(&state["monitor"]) || !int_in(&state["brightness"], 0, 100)) {
-        return invalid(MALFORMED_DIM);
-    }
-    state
-}
-
 /// `(\d+)x(\d+)@([\d.]+)(?:Hz)?`, fullmatch on the stripped mode string.
 fn parse_mode(mode: &str) -> Option<(i64, i64, f64)> {
     let (w, rest) = mode.trim().split_once('x')?;
@@ -312,7 +203,7 @@ fn cpu_available() -> (bool, bool, bool) {
                 && fs::read_to_string(freq.join("energy_performance_available_preferences")).is_ok_and(|t| t.split_whitespace().any(|p| matches!(p, "power" | "balance_power")))
         })
     });
-    let profile = crate::config::power_profiles().is_some_and(|l| l.iter().any(|p| p == "power-saver"));
+    let profile = config::power_profiles().is_some_and(|l| l.iter().any(|p| p == "power-saver"));
     (profile, turbo, epp)
 }
 

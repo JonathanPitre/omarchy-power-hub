@@ -7,13 +7,14 @@ import pathlib
 import re
 import shlex
 import shutil
+import stat
 import socket
 import subprocess
 import sys
 import tempfile
 import threading
 import unittest
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 RUST_BIN = REPO / "target" / "debug" / "power-hub"
@@ -43,14 +44,40 @@ class Result:
     requests: list = field(default_factory=list)
 
 
-def assert_same(a, b):
+def assert_same(a, b, stdout=True):
     try:
         left, right = json.loads(a.stdout), json.loads(b.stdout)
     except ValueError:
         left, right = a.stdout, b.stdout
-    _case.assertEqual(left, right, "stdout differs")
+    if stdout:
+        _case.assertEqual(left, right, "stdout differs")
     _case.assertEqual(a.code, b.code, "exit code differs")
     _case.assertEqual(a.evals, b.evals, "hyprland evals differ")
+
+
+def assert_same_files(a, b, normalise=None):
+    """The snapshot comparison both() runs after every step; `normalise(path, text)` fixes a file's content first."""
+    _case.maxDiff = None
+    _case.assertEqual(a.snapshot(normalise), b.snapshot(normalise), "files differ")
+
+
+DROPPED = ("hyprctl", "busctl get-property net.hadess", "omarchy-powerprofiles-list")
+
+
+def both(setup, *steps, drop=DROPPED, normalise=None, stdout=True):
+    """Run each step through python in one sandbox and rust in another; after every step the exit codes, evals,
+    files and recorded calls must match. A step is an argv, or a (python_argv, rust_argv) pair."""
+    with Sandbox() as py, Sandbox() as rs:
+        for s in (py, rs):
+            setup(s)
+        for step in steps:
+            py_argv, rs_argv = step if isinstance(step[0], (list, tuple)) else (step, step)
+            a, b = (s.settled(r) for s, r in ((py, py.python(*py_argv)), (rs, rs.rust(*rs_argv))))
+            assert_same(a, b, stdout)
+            assert_same_files(py, rs, normalise)
+            _case.assertEqual(*(
+                [c for c in r.calls if not c.startswith(drop)] for r in (a, b)), "calls differ")
+    return py, rs
 
 
 HYPRCTL = """#!{python}
@@ -84,6 +111,7 @@ class Sandbox:
             d.mkdir()
         self.calls_log = self.base / "calls.log"
         self.hypr = {}
+        self.hypr_on_eval = None
         self._evals = []
         self._requests = []
         self._rules = {}
@@ -151,6 +179,8 @@ class Sandbox:
                     self._requests.append(req)
                     if req.startswith("eval "):
                         self._evals.append(req[5:])
+                        if self.hypr_on_eval:
+                            self.hypr_on_eval(req[5:])
                         reply = "ok"
                     else:
                         reply = self.hypr.get(req, "")
@@ -251,6 +281,56 @@ class Sandbox:
     def charge_limit(self, percent):
         """The EC's current limit as the helper reports it, for the read and for any write."""
         self.stub("sudo", "charge-limit", 0, f"Minimum 0%, Maximum {percent}%\n")
+
+    def stateful_profile(self, active):
+        """powerprofilesctl whose `get` returns the last `set`."""
+        state = self.base / "profile.state"
+        state.write_text(active + "\n")
+        self._stateful("powerprofilesctl", f'''case "$1" in
+  get) cat {state};;
+  set) echo "$2" > {state};;
+  *) exit 1;;
+esac''')
+
+    def stateful_brightness(self, value):
+        """`omarchy brightness display --monitor X` returns the last `--no-osd` set."""
+        state = self.base / "brightness.state"
+        state.write_text(f"{value}\n")
+        self._stateful("omarchy", f'''case "$*" in
+  *--no-osd*) echo "${{@: -1}}" | tr -d % > {state};;
+  *"brightness display --monitor"*) cat {state};;
+  *) exit 1;;
+esac''')
+
+    def _stateful(self, tool, body):
+        p = self.stubs / tool
+        p.write_text(f'#!/bin/bash\necho "{tool} $*" >> {shlex.quote(str(self.calls_log))}\n{body}\n')
+        p.chmod(0o755)
+
+    def snapshot(self, normalise=None):
+        """Every file under home/ and run/ (not locks or temp files) as (mode, content), with the base path masked."""
+        out = {}
+        for top in (self.home, self.run):
+            for p in sorted(top.rglob("*")):
+                if p.is_symlink() or not p.is_file() or p.suffix in (".lock", ".tmp"):
+                    continue
+                rel = str(p.relative_to(self.base))
+                text = p.read_text(errors="replace").replace(str(self.base), "<base>")
+                if normalise:
+                    text = normalise(rel, text)
+                if p.suffix == ".json":
+                    try:
+                        text = json.loads(text)
+                    except ValueError:
+                        pass
+                out[rel] = (stat.S_IMODE(p.stat().st_mode), text)
+        return out
+
+    def settled(self, r):
+        """A result with this sandbox's base path masked, so two sandboxes compare equal."""
+        mask = lambda t: t.replace(str(self.base), "<base>")  # noqa: E731
+        return replace(r, stdout=mask(r.stdout), calls=[mask(c) for c in r.calls], calls_text=mask(r.calls_text),
+                       evals=[mask(e) for e in r.evals], requests=[mask(q) for q in r.requests])
 
     def monitors(self, *rows):
         self.hypr["j/monitors"] = json.dumps(list(rows))

@@ -1,22 +1,14 @@
 use crate::config::{self, charge_limit, truthy};
 use crate::{exec, paths, power};
 use serde_json::{Value, json};
-use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::time::Duration;
-use std::{env, fs};
+use std::fs;
 
 const HELPER_FILES: [&str; 2] = ["ops-priv", "hid_wakeup.py"];
 
 fn secs(n: u64) -> Duration {
     Duration::from_secs(n)
-}
-
-/// `shutil.which`: an executable regular file on `PATH`.
-fn on_path(tool: &str) -> bool {
-    env::var_os("PATH").is_some_and(|p| {
-        env::split_paths(&p).any(|d| fs::metadata(d.join(tool)).is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0))
-    })
 }
 
 /// The passwordless sudo rule covers only the root-owned copy; a copy that differs from the plugin's counts as absent.
@@ -143,7 +135,7 @@ pub fn charge_status() -> Value {
         return upower_health_status();
     }
     let mut v = none();
-    if !on_path("framework_tool") {
+    if !exec::on_path("framework_tool") {
         v["reason"] = json!("framework_tool is not installed");
         return v;
     }
@@ -164,7 +156,7 @@ pub fn set_charge(limit: i64) -> String {
     if !power::framework() {
         return "not a Framework machine".into();
     }
-    if !on_path("framework_tool") {
+    if !exec::on_path("framework_tool") {
         return "framework_tool is not installed".into();
     }
     privileged(&["charge-limit", &limit.clamp(40, 100).to_string()])

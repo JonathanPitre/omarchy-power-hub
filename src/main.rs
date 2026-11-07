@@ -4,8 +4,10 @@ mod data;
 mod exec;
 mod hypr;
 mod idle;
+mod names;
 mod paths;
 mod power;
+mod state;
 mod system;
 mod travel;
 

@@ -8,7 +8,7 @@ license = "MIT"
 fixture-root = []
 
 [dependencies]
-serde_json = "1"
+serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
 
 [profile.release]
 opt-level = "s"

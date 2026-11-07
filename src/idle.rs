@@ -1,5 +1,5 @@
 use crate::config::truthy;
-use crate::travel::{matches_set, safe_name_v, safe_output};
+use crate::names::{matches_set, safe_name_v, safe_output};
 use crate::{hypr, paths};
 use serde_json::{Map, Value};
 use std::fs::{self, OpenOptions};

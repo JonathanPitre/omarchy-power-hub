@@ -52,3 +52,29 @@ pub fn cursor() -> String {
 pub fn eval(lua: &str) {
     request(&format!("eval {lua}"));
 }
+
+fn eval_reply(reply: Option<String>) -> Result<(), String> {
+    match reply {
+        None => Err("Hyprland is not reachable".into()),
+        Some(r) if r.starts_with("error") => Err(r),
+        Some(_) => Ok(()),
+    }
+}
+
+/// Run Lua in Hyprland; Err when the socket is unreachable or the reply starts with `error`.
+#[allow(dead_code)] // wired by the write verbs
+pub fn eval_checked(lua: &str) -> Result<(), String> {
+    eval_reply(request(&format!("eval {lua}")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn eval_error_reply_is_an_err() {
+        assert_eq!(eval_reply(Some("error: x".into())), Err("error: x".into()));
+        assert!(eval_reply(Some("ok".into())).is_ok());
+        assert!(eval_reply(None).is_err());
+    }
+}

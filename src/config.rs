@@ -108,6 +108,24 @@ pub fn save(cfg: &Value) -> io::Result<()> {
     fs::write(p, serde_json::to_string_pretty(cfg).map_err(io::Error::other)? + "\n")
 }
 
+/// The saved tweaks, always an object.
+#[allow(dead_code)] // wired by the write verbs
+pub fn saved_prefs() -> Value {
+    match tweak_state() {
+        v @ Value::Object(_) => v,
+        _ => json!({}),
+    }
+}
+
+#[allow(dead_code)] // wired by the write verbs
+pub fn save_tweaks(prefs: &Value) -> io::Result<()> {
+    let p = paths::tweaks_file();
+    if let Some(dir) = p.parent() {
+        fs::create_dir_all(dir)?;
+    }
+    fs::write(p, serde_json::to_string_pretty(prefs).map_err(io::Error::other)? + "\n")
+}
+
 pub fn tweak_state() -> Value {
     // Whatever JSON the file holds, as ops.py returns it; {} only when it cannot be read or parsed.
     fs::read_to_string(paths::tweaks_file()).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_else(|| json!({}))

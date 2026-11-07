@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 import json
 import os
+import subprocess
 import sys
 import threading
 import time
 import unittest
 
 sys.path.insert(0, os.path.dirname(__file__))
-from parity_env import Sandbox, assert_same, build_rust  # noqa: E402
+from parity_env import Sandbox, assert_same, assert_same_files, both, build_rust  # noqa: E402
 
 
 def setUpModule():
@@ -943,3 +944,60 @@ class SyncParity(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HarnessTests(unittest.TestCase):
+    def test_harness_sees_a_changed_file(self):
+        with Sandbox() as a, Sandbox() as b:
+            a.write("home/.config/omarchy/power-hub-tweaks.json", "{}")
+            with self.assertRaises(AssertionError):
+                assert_same_files(a, b)
+
+    def test_harness_ignores_locks_temp_files_and_the_base_path(self):
+        with Sandbox() as a, Sandbox() as b:
+            for s in (a, b):
+                s.write("run/omarchy-power-hub/energy-controls.lock", "")
+                s.write("run/x.tmp", str(s.base))
+                s.write("home/y.json", json.dumps({"p": str(s.base / "z")}))
+            assert_same_files(a, b)
+
+    def test_harness_normalise_hook_fixes_file_content(self):
+        with Sandbox() as a, Sandbox() as b:
+            a.write("home/u.service", "ExecStart=python\n")
+            b.write("home/u.service", "ExecStart=rust\n")
+            with self.assertRaises(AssertionError):
+                assert_same_files(a, b)
+            assert_same_files(a, b, normalise=lambda path, text: text.split("=")[0])
+
+    def test_harness_both_runs_a_verb_in_each_sandbox(self):
+        both(lambda s: s.config(), ["config"], (["ac"], ["ac"]), stdout=False)
+
+    def test_harness_both_fails_on_different_stdout(self):
+        with self.assertRaises(AssertionError):
+            both(lambda s: s.config(), (["ac"], ["config"]))
+
+    def test_harness_stateful_stubs_remember_the_last_set(self):
+        with Sandbox() as s:
+            s.stateful_profile("balanced")
+            s.stateful_brightness(70)
+            s.stub("sudo", "", 0, "")
+            for argv in (["powerprofilesctl", "set", "power-saver"], ["omarchy", "brightness", "display", "--no-osd", "--monitor", "eDP-1", "40%"]):
+                subprocess.run(argv, env=s._env(), check=True)
+            get = lambda *argv: subprocess.run(argv, env=s._env(), text=True, capture_output=True).stdout.strip()  # noqa: E731
+            self.assertEqual((get("powerprofilesctl", "get"), get("omarchy", "brightness", "display", "--monitor", "eDP-1")), ("power-saver", "40"))
+
+    def test_harness_hypr_on_eval_runs_before_the_reply(self):
+        with Sandbox() as s:
+            s.monitors({"name": "eDP-1"})
+            s.hypr_on_eval = lambda lua: s.monitors({"name": lua})
+            subprocess.run(["hyprctl", "eval", "X"], env=s._env(), check=True)
+            self.assertEqual(json.loads(s.hypr["j/monitors"]), [{"name": "X"}])
+
+    @unittest.skip("passes once Task 5 adds quick-dim")
+    def test_rust_waits_for_the_energy_lock_python_holds(self):
+        with Sandbox() as s:
+            with s.hold_flock("run/omarchy-power-hub/energy-controls.lock"):
+                p = s.rust_start("quick-dim", "off")
+                time.sleep(0.2)
+                self.assertIsNone(p.poll())
+            self.assertEqual(p.wait(timeout=5), 0)
