@@ -7,6 +7,7 @@ use serde_json::{Value, json};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::process::{Command, Stdio};
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -103,6 +104,9 @@ fn log_starting(s: &Sandbox, prefix: &str) -> Vec<String> {
     log_lines(s).into_iter().filter(|c| c.starts_with(prefix)).collect()
 }
 
+/// The cursor eval and the pkill calls logged when it arrived.
+type Seen = Arc<Mutex<Vec<(String, Vec<String>)>>>;
+
 mod display_parity {
     use super::*;
 
@@ -191,7 +195,7 @@ mod display_parity {
     fn test_screensaver_is_dismissed_before_anything_else() {
         let pkills = ["pkill -x ttfx", "pkill -f [o]rg.omarchy.screensaver"];
         for verb in ["on", "off"] {
-            let seen: Arc<Mutex<Vec<(String, Vec<String>)>>> = Arc::default();
+            let seen: Seen = Arc::default();
             let setup = |s: &Sandbox| {
                 displays(vec![lit("eDP-1")]).setup(s);
                 // What the pkill stub had logged when the cursor eval arrived.
@@ -429,11 +433,14 @@ const OFF: &[&str] = &["displays", "off"];
 const ON: &[&str] = &["displays", "on"];
 const AUTO_LED: Option<(&str, &str, &str)> = Some(("chromeos-auto", "80", "100"));
 
+/// Replays one step in the sandbox it is given.
+type Go = Box<dyn Fn(&Sandbox, &[&str])>;
+
 mod lights_parity {
     use super::*;
 
     /// Runs steps one at a time in the sandbox `setup` made, each compared with the next recorded Python step.
-    fn start(setup: &impl Setup, name: &'static str) -> (Sandbox, Box<dyn Fn(&Sandbox, &[&str])>) {
+    fn start(setup: &impl Setup, name: &'static str) -> (Sandbox, Go) {
         let s = Sandbox::new();
         setup.setup(&s);
         (s, Box::new(move |s, argv| {
@@ -487,7 +494,7 @@ mod lights_parity {
             s.stub("sudo", "ops-priv kblight", 0, "Keyboard backlight: 30%\n");
             s.stub("sudo", "ops-priv fp-brightness", 0, "Brightness: 10%\n");
         });
-        let fails = Arc::new(fails);
+        let fails = Rc::new(fails);
         for installed in [false, true] {
             let fails = fails.clone();
             let setup = move |s: &Sandbox| {
