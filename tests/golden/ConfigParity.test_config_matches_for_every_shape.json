@@ -1,0 +1,67 @@
+[
+ {
+  "code": 0,
+  "stdout": "{\"side\": \"battery\", \"config\": {\"chargeLimit\": 80, \"boost\": false, \"boostSavedLimit\": 80, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"performance\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}}\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    ""
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "{\"side\": \"battery\", \"config\": {\"chargeLimit\": 80, \"boost\": false, \"boostSavedLimit\": 80, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"performance\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}}\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "{\"side\": \"battery\", \"config\": {\"chargeLimit\": 80, \"boost\": false, \"boostSavedLimit\": 80, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}}\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"auto\", \"lid\": \"system-default\"}}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "{\"side\": \"battery\", \"config\": {\"chargeLimit\": \"abc\", \"boost\": false, \"boostSavedLimit\": 80, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"performance\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}}\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": \"abc\"}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "{\"side\": \"battery\", \"config\": {\"chargeLimit\": 90, \"boost\": true, \"boostSavedLimit\": 80, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"performance\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 60, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}}\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": 90, \"boost\": true, \"battery\": {\"lock\": 60}}"
+   ]
+  }
+ }
+]

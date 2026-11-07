@@ -1,0 +1,128 @@
+[
+ {
+  "code": 1,
+  "stdout": "Travel restore point is malformed; restore ownership manually\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    420,
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": null, \"brightness\": null, \"monitor\": null, \"cpu\": {\"turbo\": null, \"epp\": []}, \"error\": \"\", \"controls\": {\"profile\": {\"available\": false, \"detail\": \"Unavailable\"}, \"turbo\": {\"available\": false, \"detail\": \"Unavailable\"}, \"epp\": {\"available\": false, \"detail\": \"Unavailable\"}, \"brightness\": {\"available\": false, \"detail\": \"Unavailable\"}, \"refresh\": {\"available\": false, \"detail\": \"Unavailable\"}}, \"pending\": [\"epp:0\"]}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "performance\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "Travel restore point is malformed; restore ownership manually\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    420,
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": null, \"brightness\": null, \"monitor\": null, \"cpu\": {\"turbo\": null, \"epp\": []}, \"error\": \"\", \"controls\": {\"profile\": {\"available\": false, \"detail\": \"Unavailable\"}, \"turbo\": {\"available\": false, \"detail\": \"Unavailable\"}, \"epp\": {\"available\": false, \"detail\": \"Unavailable\"}, \"brightness\": {\"available\": false, \"detail\": \"Unavailable\"}, \"refresh\": {\"available\": false, \"detail\": \"Unavailable\"}}, \"pending\": [\"refresh\"]}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "performance\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "Travel restore point is malformed; restore ownership manually\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    420,
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": null, \"brightness\": null, \"monitor\": null, \"cpu\": {\"turbo\": null, \"epp\": []}, \"error\": \"\", \"controls\": {\"profile\": {\"available\": false, \"detail\": \"Unavailable\"}, \"turbo\": {\"available\": false, \"detail\": \"Unavailable\"}, \"epp\": {\"available\": false, \"detail\": \"Unavailable\"}, \"brightness\": {\"available\": false, \"detail\": \"Unavailable\"}, \"refresh\": {\"available\": false, \"detail\": \"Unavailable\"}}, \"pending\": [\"unknown\"]}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "performance\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "Travel restore point is malformed; restore ownership manually\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    420,
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": [], \"profile\": null, \"brightness\": null, \"monitor\": null, \"cpu\": {\"turbo\": null, \"epp\": []}, \"error\": \"\", \"controls\": {\"profile\": {\"available\": false, \"detail\": \"Unavailable\"}, \"turbo\": {\"available\": false, \"detail\": \"Unavailable\"}, \"epp\": {\"available\": false, \"detail\": \"Unavailable\"}, \"brightness\": {\"available\": false, \"detail\": \"Unavailable\"}, \"refresh\": {\"available\": false, \"detail\": \"Unavailable\"}}, \"pending\": []}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "performance\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "Travel restore point is malformed; restore ownership manually\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    420,
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": null, \"brightness\": null, \"monitor\": null, \"cpu\": {\"turbo\": null, \"epp\": [{\"cpu\": 0, \"before\": [], \"target\": null}]}, \"error\": \"\", \"controls\": {\"profile\": {\"available\": false, \"detail\": \"Unavailable\"}, \"turbo\": {\"available\": false, \"detail\": \"Unavailable\"}, \"epp\": {\"available\": false, \"detail\": \"Unavailable\"}, \"brightness\": {\"available\": false, \"detail\": \"Unavailable\"}, \"refresh\": {\"available\": false, \"detail\": \"Unavailable\"}}, \"pending\": []}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "performance\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "Travel restore point is malformed; restore ownership manually\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    420,
+    "{\"on\": true, \"complete\": true, \"reduceCpu\": false, \"source\": \"battery\", \"profile\": null, \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": null, \"cpu\": {\"turbo\": null, \"epp\": []}, \"error\": \"\", \"controls\": {\"profile\": {\"available\": false, \"detail\": \"Unavailable\"}, \"turbo\": {\"available\": false, \"detail\": \"Unavailable\"}, \"epp\": {\"available\": false, \"detail\": \"Unavailable\"}, \"brightness\": {\"available\": false, \"detail\": \"Unavailable\"}, \"refresh\": {\"available\": false, \"detail\": \"Unavailable\"}}, \"pending\": []}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "performance\n"
+  }
+ }
+]

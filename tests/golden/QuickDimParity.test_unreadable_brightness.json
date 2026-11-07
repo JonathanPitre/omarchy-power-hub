@@ -1,0 +1,66 @@
+[
+ {
+  "code": 1,
+  "stdout": "Laptop brightness cannot be read\n",
+  "calls": [
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {},
+  "side": {
+   "brightness.state": "80\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "Laptop brightness cannot be read\n",
+  "calls": [
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {},
+  "side": {
+   "brightness.state": "80\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "Laptop brightness cannot be read\n",
+  "calls": [
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {},
+  "side": {
+   "brightness.state": "80\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "Laptop brightness cannot be read\n",
+  "calls": [
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {},
+  "side": {
+   "brightness.state": "80\n"
+  }
+ }
+]

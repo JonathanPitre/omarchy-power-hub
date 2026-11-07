@@ -1,0 +1,32 @@
+[
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "pkexec <base>/bin/ops-priv helper-install"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {}
+ },
+ {
+  "code": 1,
+  "stdout": "denied\n",
+  "calls": [
+   "pkexec <base>/bin/ops-priv helper-install"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {}
+ },
+ {
+  "code": 1,
+  "stdout": "helper install failed\n",
+  "calls": [
+   "pkexec <base>/bin/ops-priv helper-install"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {}
+ }
+]

@@ -1,0 +1,46 @@
+[
+ {
+  "code": 0,
+  "stdout": "wake\n",
+  "calls": [],
+  "evals": [
+   "hl.device({ name = \"m\", enabled = true })",
+   "hl.device({ name = \"kb\", enabled = true })"
+  ],
+  "requests": [
+   "cursorpos",
+   "j/monitors",
+   "j/devices",
+   "eval hl.device({ name = \"m\", enabled = true })",
+   "eval hl.device({ name = \"kb\", enabled = true })"
+  ],
+  "files": {
+   "run/omarchy-power-hub/idle-wake.json": [
+    420,
+    "{\"cursor\": \"500, 300\"}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "hold\n",
+  "calls": [],
+  "evals": [
+   "hl.device({ name = \"m\", enabled = true })",
+   "hl.device({ name = \"kb\", enabled = true })"
+  ],
+  "requests": [
+   "cursorpos",
+   "j/monitors",
+   "j/devices",
+   "eval hl.device({ name = \"m\", enabled = true })",
+   "eval hl.device({ name = \"kb\", enabled = true })"
+  ],
+  "files": {
+   "run/omarchy-power-hub/idle-wake.json": [
+    420,
+    "{\"cursor\": \"10, 10\"}"
+   ]
+  }
+ }
+]

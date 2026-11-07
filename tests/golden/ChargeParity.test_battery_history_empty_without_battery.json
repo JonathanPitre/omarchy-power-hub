@@ -1,0 +1,12 @@
+[
+ {
+  "code": 0,
+  "stdout": "[]\n",
+  "calls": [
+   "upower -e"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {}
+ }
+]

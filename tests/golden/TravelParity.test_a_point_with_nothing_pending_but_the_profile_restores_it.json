@@ -1,0 +1,34 @@
+[
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "powerprofilesctl set balanced",
+   "powerprofilesctl get"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "performance\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "balanced\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": false, \"complete\": true, \"reduceCpu\": false, \"pending\": [], \"error\": \"\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "balanced\n"
+  }
+ }
+]

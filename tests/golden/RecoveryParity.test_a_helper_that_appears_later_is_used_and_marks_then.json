@@ -1,0 +1,25 @@
+[
+ {
+  "code": 0,
+  "stdout": "",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {}
+ },
+ {
+  "code": 0,
+  "stdout": "",
+  "calls": [
+   "sudo -n <base>/root/usr/local/libexec/omarchy-power-hub/ops-priv ucsi-rebind"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "run/omarchy-power-hub/ucsi-rebound": [
+    420,
+    ""
+   ]
+  }
+ }
+]

@@ -1,0 +1,104 @@
+[
+ {
+  "code": 1,
+  "stdout": "Travel operation could not save its recovery state: [Errno 13] Permission denied: '<base>/home/.config/omarchy/power-hub-tweaks.json'\n",
+  "calls": [
+   "omarchy brightness display --monitor eDP-1",
+   "powerprofilesctl get",
+   "powerprofilesctl get",
+   "powerprofilesctl set power-saver",
+   "powerprofilesctl get",
+   "omarchy brightness display --no-osd --monitor eDP-1 40%",
+   "omarchy brightness display --monitor eDP-1",
+   "pkexec <base>/bin/ops-priv abm on"
+  ],
+  "evals": [
+   "hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@59.94\", position = \"0x0\", scale = 1.25, disabled = false })",
+   "hl.config({ animations = { enabled = false } })",
+   "hl.config({ decoration = { shadow = { enabled = false } } })"
+  ],
+  "requests": [
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@59.94\", position = \"0x0\", scale = 1.25, disabled = false })",
+   "j/monitors",
+   "getoption animations:enabled",
+   "getoption decoration:shadow:enabled",
+   "getoption animations:enabled",
+   "getoption decoration:shadow:enabled",
+   "eval hl.config({ animations = { enabled = false } })",
+   "eval hl.config({ decoration = { shadow = { enabled = false } } })"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/power-hub-tweaks.json": [
+    256,
+    "{}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "power-saver\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "power-saver\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": true, \"complete\": true, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\", \"tweak:abm\", \"tweak:effects\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\", \"tweaks\": [\"abm\", \"effects\"]}"
+   ]
+  },
+  "side": {
+   "brightness.state": "40\n",
+   "profile.state": "power-saver\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "Travel operation could not save its recovery state: [Errno 13] Permission denied: '<base>/home/.config/omarchy/power-hub-tweaks.json'\n",
+  "calls": [
+   "powerprofilesctl set balanced",
+   "powerprofilesctl get",
+   "pkexec <base>/bin/ops-priv abm off"
+  ],
+  "evals": [
+   "hl.config({ animations = { enabled = true } })",
+   "hl.config({ decoration = { shadow = { enabled = true } } })"
+  ],
+  "requests": [
+   "eval hl.config({ animations = { enabled = true } })",
+   "eval hl.config({ decoration = { shadow = { enabled = true } } })"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/power-hub-tweaks.json": [
+    256,
+    "{}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "balanced\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "balanced\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\", \"tweak:effects\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\", \"tweaks\": [\"abm\", \"effects\"]}"
+   ]
+  },
+  "side": {
+   "brightness.state": "40\n",
+   "profile.state": "balanced\n"
+  }
+ }
+]

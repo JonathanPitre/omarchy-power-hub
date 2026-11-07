@@ -1,0 +1,645 @@
+[
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "omarchy brightness display --monitor eDP-1",
+   "powerprofilesctl get",
+   "powerprofilesctl get",
+   "powerprofilesctl set power-saver",
+   "powerprofilesctl get",
+   "omarchy brightness display --no-osd --monitor eDP-1 40%",
+   "omarchy brightness display --monitor eDP-1",
+   "pkexec <base>/bin/ops-priv abm on"
+  ],
+  "evals": [
+   "hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@59.94\", position = \"0x0\", scale = 1.25, disabled = false })",
+   "hl.config({ animations = { enabled = false } })",
+   "hl.config({ decoration = { shadow = { enabled = false } } })"
+  ],
+  "requests": [
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@59.94\", position = \"0x0\", scale = 1.25, disabled = false })",
+   "j/monitors",
+   "getoption animations:enabled",
+   "getoption decoration:shadow:enabled",
+   "getoption animations:enabled",
+   "getoption decoration:shadow:enabled",
+   "eval hl.config({ animations = { enabled = false } })",
+   "eval hl.config({ decoration = { shadow = { enabled = false } } })"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/power-hub-tweaks.json": [
+    420,
+    "{\"effectsBefore\": {\"animations:enabled\": true, \"decoration:shadow:enabled\": true}}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "power-saver\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "power-saver\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": true, \"complete\": true, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\", \"tweak:abm\", \"tweak:effects\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\", \"tweaks\": [\"abm\", \"effects\"]}"
+   ]
+  },
+  "side": {
+   "brightness.state": "40\n",
+   "profile.state": "power-saver\n",
+   "trace": [
+    "== 1 powerprofilesctl set power-saver",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"Energy-saving CPU preference\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}",
+    "== 2 omarchy brightness display --no-osd --monitor eDP-1 40%",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}",
+    "== 3 eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@59.94\", position = \"0x0\", scale = 1.25, disabled = false })",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}",
+    "== 4 pkexec <base>/bin/ops-priv abm on",
+    "{\"on\": true, \"complete\": true, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\", \"tweak:abm\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\", \"tweaks\": [\"abm\"]}",
+    "== 5 eval hl.config({ animations = { enabled = false } })",
+    "{\"on\": true, \"complete\": true, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\", \"tweak:abm\", \"tweak:effects\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\", \"tweaks\": [\"abm\", \"effects\"]}",
+    "== 6 eval hl.config({ decoration = { shadow = { enabled = false } } })",
+    "{\"on\": true, \"complete\": true, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\", \"tweak:abm\", \"tweak:effects\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\", \"tweaks\": [\"abm\", \"effects\"]}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "powerprofilesctl set balanced",
+   "powerprofilesctl get",
+   "pkexec <base>/bin/ops-priv abm off",
+   "omarchy brightness display --no-osd --monitor eDP-1 80%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [
+   "hl.config({ animations = { enabled = true } })",
+   "hl.config({ decoration = { shadow = { enabled = true } } })",
+   "hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })"
+  ],
+  "requests": [
+   "eval hl.config({ animations = { enabled = true } })",
+   "eval hl.config({ decoration = { shadow = { enabled = true } } })",
+   "eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/power-hub-tweaks.json": [
+    420,
+    "{}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "balanced\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "balanced\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": false, \"complete\": true, \"reduceCpu\": false, \"pending\": [], \"error\": \"\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "balanced\n",
+   "trace": [
+    "== 1 powerprofilesctl set balanced",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\", \"tweak:abm\", \"tweak:effects\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\", \"tweaks\": [\"abm\", \"effects\"]}",
+    "== 2 pkexec <base>/bin/ops-priv abm off",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\", \"tweak:abm\", \"tweak:effects\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\", \"tweaks\": [\"abm\", \"effects\"]}",
+    "== 3 eval hl.config({ animations = { enabled = true } })",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\", \"tweak:effects\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\", \"tweaks\": [\"abm\", \"effects\"]}",
+    "== 4 eval hl.config({ decoration = { shadow = { enabled = true } } })",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\", \"tweak:effects\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\", \"tweaks\": [\"abm\", \"effects\"]}",
+    "== 5 eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\", \"tweaks\": [\"abm\", \"effects\"]}",
+    "== 6 omarchy brightness display --no-osd --monitor eDP-1 80%",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\", \"tweaks\": [\"abm\", \"effects\"]}"
+   ]
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "authorization denied\n",
+  "calls": [
+   "omarchy brightness display --monitor eDP-1",
+   "powerprofilesctl get",
+   "powerprofilesctl get",
+   "powerprofilesctl set power-saver",
+   "powerprofilesctl set performance",
+   "powerprofilesctl get",
+   "omarchy brightness display --no-osd --monitor eDP-1 80%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [
+   "hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })"
+  ],
+  "requests": [
+   "j/monitors",
+   "j/monitors",
+   "eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "performance\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "balanced\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": false, \"complete\": true, \"reduceCpu\": false, \"pending\": [], \"error\": \"authorization denied\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "performance\n",
+   "trace": [
+    "== 1 powerprofilesctl set power-saver",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"Energy-saving CPU preference\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}",
+    "== 2 powerprofilesctl set performance",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"Energy-saving CPU preference\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"authorization denied\"}",
+    "== 3 eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"Energy-saving CPU preference\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"authorization denied\"}",
+    "== 4 omarchy brightness display --no-osd --monitor eDP-1 80%",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"Energy-saving CPU preference\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"authorization denied\"}"
+   ]
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "boom\n",
+  "calls": [
+   "omarchy brightness display --monitor eDP-1",
+   "powerprofilesctl get",
+   "powerprofilesctl get",
+   "powerprofilesctl set power-saver",
+   "powerprofilesctl get",
+   "omarchy brightness display --no-osd --monitor eDP-1 40%",
+   "omarchy brightness display --monitor eDP-1",
+   "omarchy brightness display --no-osd --monitor eDP-1 80%",
+   "omarchy brightness display --monitor eDP-1",
+   "powerprofilesctl set performance",
+   "powerprofilesctl get"
+  ],
+  "evals": [
+   "hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })"
+  ],
+  "requests": [
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "performance\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "balanced\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": false, \"complete\": true, \"reduceCpu\": false, \"pending\": [], \"error\": \"boom\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "performance\n",
+   "trace": [
+    "== 1 powerprofilesctl set power-saver",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"Energy-saving CPU preference\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}",
+    "== 2 omarchy brightness display --no-osd --monitor eDP-1 40%",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}",
+    "== 3 eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}",
+    "== 4 omarchy brightness display --no-osd --monitor eDP-1 80%",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"boom\"}",
+    "== 5 powerprofilesctl set performance",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"boom\"}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "performance\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "balanced\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": false, \"complete\": true, \"reduceCpu\": false, \"pending\": [], \"error\": \"boom\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "performance\n",
+   "trace": []
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "error: nope\n",
+  "calls": [
+   "omarchy brightness display --monitor eDP-1",
+   "powerprofilesctl get",
+   "powerprofilesctl get",
+   "powerprofilesctl set power-saver",
+   "powerprofilesctl get",
+   "omarchy brightness display --no-osd --monitor eDP-1 40%",
+   "omarchy brightness display --monitor eDP-1",
+   "omarchy brightness display --no-osd --monitor eDP-1 80%",
+   "omarchy brightness display --monitor eDP-1",
+   "powerprofilesctl set performance",
+   "powerprofilesctl get"
+  ],
+  "evals": [
+   "hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@59.94\", position = \"0x0\", scale = 1.25, disabled = false })",
+   "hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })"
+  ],
+  "requests": [
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@59.94\", position = \"0x0\", scale = 1.25, disabled = false })",
+   "eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "performance\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "balanced\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": false, \"complete\": true, \"reduceCpu\": false, \"pending\": [], \"error\": \"error: nope\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "performance\n",
+   "trace": [
+    "== 1 powerprofilesctl set power-saver",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"Energy-saving CPU preference\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}",
+    "== 2 omarchy brightness display --no-osd --monitor eDP-1 40%",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}",
+    "== 3 eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@59.94\", position = \"0x0\", scale = 1.25, disabled = false })",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}",
+    "== 4 eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}",
+    "== 5 omarchy brightness display --no-osd --monitor eDP-1 80%",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"error: nope\"}",
+    "== 6 powerprofilesctl set performance",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"error: nope\"}"
+   ]
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "error: nope; restoration incomplete: error: nope\n",
+  "calls": [
+   "omarchy brightness display --monitor eDP-1",
+   "powerprofilesctl get",
+   "powerprofilesctl get",
+   "powerprofilesctl set power-saver",
+   "powerprofilesctl get",
+   "omarchy brightness display --no-osd --monitor eDP-1 40%",
+   "omarchy brightness display --monitor eDP-1",
+   "omarchy brightness display --no-osd --monitor eDP-1 80%",
+   "omarchy brightness display --monitor eDP-1",
+   "powerprofilesctl set performance",
+   "powerprofilesctl get"
+  ],
+  "evals": [
+   "hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@59.94\", position = \"0x0\", scale = 1.25, disabled = false })",
+   "hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })"
+  ],
+  "requests": [
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@59.94\", position = \"0x0\", scale = 1.25, disabled = false })",
+   "eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })",
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "performance\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "balanced\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"error: nope; restoration incomplete: error: nope\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "performance\n",
+   "trace": [
+    "== 1 powerprofilesctl set power-saver",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"Energy-saving CPU preference\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}",
+    "== 2 omarchy brightness display --no-osd --monitor eDP-1 40%",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}",
+    "== 3 eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@59.94\", position = \"0x0\", scale = 1.25, disabled = false })",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}",
+    "== 4 eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}",
+    "== 5 omarchy brightness display --no-osd --monitor eDP-1 80%",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}",
+    "== 6 powerprofilesctl set performance",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"error: nope\"}"
+   ]
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "error: nope\n",
+  "calls": [
+   "powerprofilesctl set balanced",
+   "powerprofilesctl get"
+  ],
+  "evals": [
+   "hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })"
+  ],
+  "requests": [
+   "eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "performance\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "balanced\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"error: nope\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "balanced\n",
+   "trace": [
+    "== 1 powerprofilesctl set balanced",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}",
+    "== 2 eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "omarchy brightness display --monitor eDP-1",
+   "powerprofilesctl get",
+   "powerprofilesctl get",
+   "powerprofilesctl set power-saver",
+   "powerprofilesctl get",
+   "omarchy brightness display --no-osd --monitor eDP-1 40%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [
+   "hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@59.94\", position = \"0x0\", scale = 1.25, disabled = false })"
+  ],
+  "requests": [
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@59.94\", position = \"0x0\", scale = 1.25, disabled = false })",
+   "j/monitors",
+   "getoption animations:enabled",
+   "getoption decoration:shadow:enabled"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "power-saver\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "power-saver\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": true, \"complete\": true, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "40\n",
+   "profile.state": "power-saver\n",
+   "trace": [
+    "== 1 powerprofilesctl set power-saver",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"Energy-saving CPU preference\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}",
+    "== 2 omarchy brightness display --no-osd --monitor eDP-1 40%",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}",
+    "== 3 eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@59.94\", position = \"0x0\", scale = 1.25, disabled = false })",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}"
+   ]
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "error: nope\n",
+  "calls": [
+   "powerprofilesctl set balanced",
+   "powerprofilesctl get"
+  ],
+  "evals": [
+   "hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })"
+  ],
+  "requests": [
+   "eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "performance\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "balanced\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"error: nope\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "40\n",
+   "profile.state": "balanced\n",
+   "trace": [
+    "== 1 powerprofilesctl set balanced",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}",
+    "== 2 eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "powerprofilesctl set balanced",
+   "powerprofilesctl get",
+   "omarchy brightness display --no-osd --monitor eDP-1 80%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [
+   "hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })"
+  ],
+  "requests": [
+   "eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "performance\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "balanced\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": false, \"complete\": true, \"reduceCpu\": false, \"pending\": [], \"error\": \"\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "balanced\n",
+   "trace": [
+    "== 1 powerprofilesctl set balanced",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}",
+    "== 2 eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}",
+    "== 3 omarchy brightness display --no-osd --monitor eDP-1 80%",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}, \"error\": \"\"}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "omarchy brightness display --no-osd --monitor eDP-1 70%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": false, \"complete\": true, \"reduceCpu\": false, \"pending\": [], \"error\": \"\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "70\n",
+   "profile.state": "performance\n",
+   "trace": [
+    "== 1 omarchy brightness display --no-osd --monitor eDP-1 70%",
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": false, \"source\": \"battery\", \"error\": \"\", \"pending\": [\"brightness\"], \"profile\": null, \"cpu\": {\"turbo\": null, \"epp\": []}, \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 70}, \"monitor\": null, \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Frozen profile\"}, \"turbo\": {\"available\": true, \"detail\": \"Frozen turbo\"}, \"epp\": {\"available\": true, \"detail\": \"Frozen epp\"}, \"brightness\": {\"available\": true, \"detail\": \"Frozen brightness\"}, \"refresh\": {\"available\": false, \"detail\": \"x\"}}}"
+   ]
+  }
+ }
+]

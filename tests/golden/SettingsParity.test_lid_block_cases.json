@@ -1,0 +1,350 @@
+[
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery"
+  ],
+  "evals": [],
+  "requests": [
+   "reload"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/hypr/bindings.lua": [
+    420,
+    "\n-- BEGIN Omarchy Power Hub lid action override\nhl.unbind(\"switch:on:Lid Switch\")\nhl.unbind(\"switch:off:Lid Switch\")\no.bind(\"switch:on:Lid Switch\", nil, \"<base>/bin/power-hub lid-closed\", { locked = true })\no.bind(\"switch:off:Lid Switch\", nil, \"<base>/bin/power-hub lid-opened\", { locked = true })\n-- END Omarchy Power Hub lid action override\n"
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": 80, \"boost\": false, \"boostSavedLimit\": 80, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"display-off\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 150, \"lock\": 300}, \"other\": 1}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery"
+  ],
+  "evals": [],
+  "requests": [
+   "reload"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/hypr/bindings.lua": [
+    420,
+    "\n-- BEGIN Omarchy Power Hub lid action override\nhl.unbind(\"switch:on:Lid Switch\")\nhl.unbind(\"switch:off:Lid Switch\")\no.bind(\"switch:on:Lid Switch\", nil, \"<base>/bin/power-hub lid-closed\", { locked = true })\no.bind(\"switch:off:Lid Switch\", nil, \"<base>/bin/power-hub lid-opened\", { locked = true })\n-- END Omarchy Power Hub lid action override\n"
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": 80, \"boost\": false, \"boostSavedLimit\": 80, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"nothing\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 150, \"lock\": 300}, \"other\": 1}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery"
+  ],
+  "evals": [],
+  "requests": [
+   "reload"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/hypr/bindings.lua": [
+    420,
+    "\n-- BEGIN Omarchy Power Hub lid action override\nhl.unbind(\"switch:on:Lid Switch\")\nhl.unbind(\"switch:off:Lid Switch\")\no.bind(\"switch:on:Lid Switch\", nil, \"<base>/bin/power-hub lid-closed\", { locked = true })\no.bind(\"switch:off:Lid Switch\", nil, \"<base>/bin/power-hub lid-opened\", { locked = true })\n-- END Omarchy Power Hub lid action override\n"
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": 80, \"boost\": false, \"boostSavedLimit\": 80, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"display-off\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 150, \"lock\": 300}, \"other\": 1}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery"
+  ],
+  "evals": [],
+  "requests": [
+   "reload"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/hypr/bindings.lua": [
+    420,
+    "\n-- BEGIN Omarchy Power Hub lid action override\nhl.unbind(\"switch:on:Lid Switch\")\nhl.unbind(\"switch:off:Lid Switch\")\no.bind(\"switch:on:Lid Switch\", nil, \"<base>/bin/power-hub lid-closed\", { locked = true })\no.bind(\"switch:off:Lid Switch\", nil, \"<base>/bin/power-hub lid-opened\", { locked = true })\n-- END Omarchy Power Hub lid action override\n"
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": 80, \"boost\": false, \"boostSavedLimit\": 80, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"nothing\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 150, \"lock\": 300}, \"other\": 1}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery"
+  ],
+  "evals": [],
+  "requests": [
+   "reload"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/hypr/bindings.lua": [
+    420,
+    "a = 1\n-- BEGIN Omarchy Power Hub lid action override\nhl.unbind(\"switch:on:Lid Switch\")\nhl.unbind(\"switch:off:Lid Switch\")\no.bind(\"switch:on:Lid Switch\", nil, \"<base>/bin/power-hub lid-closed\", { locked = true })\no.bind(\"switch:off:Lid Switch\", nil, \"<base>/bin/power-hub lid-opened\", { locked = true })\n-- END Omarchy Power Hub lid action override\n"
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": 80, \"boost\": false, \"boostSavedLimit\": 80, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"display-off\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 150, \"lock\": 300}, \"other\": 1}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery"
+  ],
+  "evals": [],
+  "requests": [
+   "reload"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/hypr/bindings.lua": [
+    420,
+    "a = 1\n-- BEGIN Omarchy Power Hub lid action override\nhl.unbind(\"switch:on:Lid Switch\")\nhl.unbind(\"switch:off:Lid Switch\")\no.bind(\"switch:on:Lid Switch\", nil, \"<base>/bin/power-hub lid-closed\", { locked = true })\no.bind(\"switch:off:Lid Switch\", nil, \"<base>/bin/power-hub lid-opened\", { locked = true })\n-- END Omarchy Power Hub lid action override\n"
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": 80, \"boost\": false, \"boostSavedLimit\": 80, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"nothing\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 150, \"lock\": 300}, \"other\": 1}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery"
+  ],
+  "evals": [],
+  "requests": [
+   "reload"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/hypr/bindings.lua": [
+    420,
+    "a = 1\nb = 2\n-- BEGIN Omarchy Power Hub lid action override\nhl.unbind(\"switch:on:Lid Switch\")\nhl.unbind(\"switch:off:Lid Switch\")\no.bind(\"switch:on:Lid Switch\", nil, \"<base>/bin/power-hub lid-closed\", { locked = true })\no.bind(\"switch:off:Lid Switch\", nil, \"<base>/bin/power-hub lid-opened\", { locked = true })\n-- END Omarchy Power Hub lid action override\n"
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": 80, \"boost\": false, \"boostSavedLimit\": 80, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"display-off\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 150, \"lock\": 300}, \"other\": 1}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery"
+  ],
+  "evals": [],
+  "requests": [
+   "reload"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/hypr/bindings.lua": [
+    420,
+    "a = 1\nb = 2\n-- BEGIN Omarchy Power Hub lid action override\nhl.unbind(\"switch:on:Lid Switch\")\nhl.unbind(\"switch:off:Lid Switch\")\no.bind(\"switch:on:Lid Switch\", nil, \"<base>/bin/power-hub lid-closed\", { locked = true })\no.bind(\"switch:off:Lid Switch\", nil, \"<base>/bin/power-hub lid-opened\", { locked = true })\n-- END Omarchy Power Hub lid action override\n"
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": 80, \"boost\": false, \"boostSavedLimit\": 80, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"nothing\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 150, \"lock\": 300}, \"other\": 1}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery"
+  ],
+  "evals": [],
+  "requests": [
+   "reload"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/hypr/bindings.lua": [
+    420,
+    "a = 1\nb = 2\na = 1\nb = 2\n-- BEGIN Omarchy Power Hub lid action override\nhl.unbind(\"switch:on:Lid Switch\")\nhl.unbind(\"switch:off:Lid Switch\")\no.bind(\"switch:on:Lid Switch\", nil, \"<base>/bin/power-hub lid-closed\", { locked = true })\no.bind(\"switch:off:Lid Switch\", nil, \"<base>/bin/power-hub lid-opened\", { locked = true })\n-- END Omarchy Power Hub lid action override\n"
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": 80, \"boost\": false, \"boostSavedLimit\": 80, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"display-off\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 150, \"lock\": 300}, \"other\": 1}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery"
+  ],
+  "evals": [],
+  "requests": [
+   "reload"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/hypr/bindings.lua": [
+    420,
+    "a = 1\nb = 2\na = 1\nb = 2\n-- BEGIN Omarchy Power Hub lid action override\nhl.unbind(\"switch:on:Lid Switch\")\nhl.unbind(\"switch:off:Lid Switch\")\no.bind(\"switch:on:Lid Switch\", nil, \"<base>/bin/power-hub lid-closed\", { locked = true })\no.bind(\"switch:off:Lid Switch\", nil, \"<base>/bin/power-hub lid-opened\", { locked = true })\n-- END Omarchy Power Hub lid action override\n"
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": 80, \"boost\": false, \"boostSavedLimit\": 80, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"nothing\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 150, \"lock\": 300}, \"other\": 1}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery"
+  ],
+  "evals": [],
+  "requests": [
+   "reload"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/hypr/bindings.lua": [
+    420,
+    "a = 1\n-- BEGIN Omarchy Power Hub lid action override\nold\n-- BEGIN Omarchy Power Hub lid action override\nhl.unbind(\"switch:on:Lid Switch\")\nhl.unbind(\"switch:off:Lid Switch\")\no.bind(\"switch:on:Lid Switch\", nil, \"<base>/bin/power-hub lid-closed\", { locked = true })\no.bind(\"switch:off:Lid Switch\", nil, \"<base>/bin/power-hub lid-opened\", { locked = true })\n-- END Omarchy Power Hub lid action override\n"
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": 80, \"boost\": false, \"boostSavedLimit\": 80, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"display-off\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 150, \"lock\": 300}, \"other\": 1}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery"
+  ],
+  "evals": [],
+  "requests": [
+   "reload"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/hypr/bindings.lua": [
+    420,
+    "a = 1\n-- BEGIN Omarchy Power Hub lid action override\nold\n-- BEGIN Omarchy Power Hub lid action override\nhl.unbind(\"switch:on:Lid Switch\")\nhl.unbind(\"switch:off:Lid Switch\")\no.bind(\"switch:on:Lid Switch\", nil, \"<base>/bin/power-hub lid-closed\", { locked = true })\no.bind(\"switch:off:Lid Switch\", nil, \"<base>/bin/power-hub lid-opened\", { locked = true })\n-- END Omarchy Power Hub lid action override\n"
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": 80, \"boost\": false, \"boostSavedLimit\": 80, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"nothing\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 150, \"lock\": 300}, \"other\": 1}"
+   ]
+  }
+ }
+]

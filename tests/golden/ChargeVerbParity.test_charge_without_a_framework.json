@@ -1,0 +1,15 @@
+[
+ {
+  "code": 1,
+  "stdout": "not a Framework machine\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ]
+  }
+ }
+]

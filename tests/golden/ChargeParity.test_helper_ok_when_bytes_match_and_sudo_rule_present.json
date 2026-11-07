@@ -1,0 +1,22 @@
+[
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "sudo -n -l"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {}
+ },
+ {
+  "code": 0,
+  "stdout": "needed\n",
+  "calls": [
+   "sudo -n -l"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {}
+ }
+]

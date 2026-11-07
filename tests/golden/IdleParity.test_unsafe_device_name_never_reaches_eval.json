@@ -1,0 +1,24 @@
+[
+ {
+  "code": 0,
+  "stdout": "hold\n",
+  "calls": [],
+  "evals": [
+   "hl.device({ name = \"ok-mouse\", enabled = true })",
+   "hl.device({ name = \"ok-kb\", enabled = true })"
+  ],
+  "requests": [
+   "cursorpos",
+   "j/monitors",
+   "j/devices",
+   "eval hl.device({ name = \"ok-mouse\", enabled = true })",
+   "eval hl.device({ name = \"ok-kb\", enabled = true })"
+  ],
+  "files": {
+   "run/omarchy-power-hub/idle-wake.json": [
+    420,
+    "{\"cursor\": \"\"}"
+   ]
+  }
+ }
+]

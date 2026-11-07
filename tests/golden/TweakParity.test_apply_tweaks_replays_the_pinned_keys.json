@@ -1,0 +1,84 @@
+[
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "pkexec <base>/bin/ops-priv wifi on",
+   "pkexec <base>/bin/ops-priv pcie off",
+   "pkexec <base>/bin/ops-priv usb off",
+   "pkexec <base>/bin/ops-priv audio off",
+   "pkexec <base>/bin/ops-priv abm off",
+   "pkexec <base>/bin/ops-priv turbo on",
+   "pkexec <base>/bin/ops-priv epp power"
+  ],
+  "evals": [
+   "hl.config({ animations = { enabled = false } })",
+   "hl.config({ decoration = { shadow = { enabled = false } } })"
+  ],
+  "requests": [
+   "getoption animations:enabled",
+   "getoption decoration:shadow:enabled",
+   "eval hl.config({ animations = { enabled = false } })",
+   "eval hl.config({ decoration = { shadow = { enabled = false } } })"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/power-hub-tweaks.json": [
+    420,
+    "{\"wifiPinned\": true, \"pciePinned\": true, \"usbPinned\": true, \"audioPinned\": true, \"abmPinned\": true, \"effectsPinned\": true, \"turboPinned\": true, \"wifi\": true, \"usb\": false, \"effects\": true, \"turbo\": true, \"pcie\": false, \"epp\": \"power\", \"eppPinned\": true, \"audio\": false, \"abm\": false, \"effectsBefore\": {\"animations:enabled\": true, \"decoration:shadow:enabled\": true}}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "pkexec <base>/bin/ops-priv usb off"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/power-hub-tweaks.json": [
+    420,
+    "{\"wifi\": true, \"usbPinned\": true, \"usb\": false}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/power-hub-tweaks.json": [
+    420,
+    "{}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ]
+  }
+ }
+]

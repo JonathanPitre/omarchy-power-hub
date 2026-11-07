@@ -1,0 +1,27 @@
+[
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": 80, \"boost\": false, \"boostSavedLimit\": 80, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"power-saver\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 150, \"lock\": 300}, \"other\": 1}"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    420,
+    "{\"on\": true, \"complete\": true, \"reduceCpu\": true, \"source\": \"battery\", \"error\": \"\", \"pending\": [\"profile\", \"turbo\", \"brightness\", \"refresh\"], \"profile\": \"balanced\", \"cpu\": {\"turbo\": true, \"epp\": []}, \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 70}, \"monitor\": {\"output\": \"eDP-1\", \"name\": \"eDP-1\", \"width\": 1920, \"height\": 1200, \"x\": 0, \"y\": 0, \"refreshRate\": 165.004, \"scale\": 1.25, \"transform\": 0}, \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Frozen profile\"}, \"turbo\": {\"available\": true, \"detail\": \"Frozen turbo\"}, \"epp\": {\"available\": true, \"detail\": \"Frozen epp\"}, \"brightness\": {\"available\": true, \"detail\": \"Frozen brightness\"}, \"refresh\": {\"available\": false, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}}"
+   ]
+  }
+ }
+]

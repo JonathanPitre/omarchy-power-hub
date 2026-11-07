@@ -1,0 +1,254 @@
+[
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
+   "pkill -x ttfx",
+   "pkill -f [o]rg.omarchy.screensaver",
+   "framework_tool --kblight",
+   "sudo -n framework_tool --kblight",
+   "sudo -n <base>/bin/ops-priv kblight",
+   "framework_tool --kblight 0",
+   "sudo -n framework_tool --kblight 0",
+   "sudo -n <base>/bin/ops-priv kblight 0",
+   "framework_tool --fp-brightness",
+   "sudo -n framework_tool --fp-brightness",
+   "sudo -n <base>/bin/ops-priv fp-brightness",
+   "framework_tool --fp-brightness 0",
+   "sudo -n framework_tool --fp-brightness 0",
+   "sudo -n <base>/bin/ops-priv fp-brightness 0"
+  ],
+  "evals": [
+   "hl.config({ cursor = { invisible = false } })"
+  ],
+  "requests": [
+   "eval hl.config({ cursor = { invisible = false } })",
+   "j/monitors",
+   "j/monitors",
+   "dispatch hl.dsp.dpms({ action = \"disable\", monitor = \"eDP-1\" })",
+   "j/monitors"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 604800, \"lock\": 300}, \"other\": 1}"
+   ],
+   "run/omarchy-power-hub/display-off.json": [
+    420,
+    "{\"disabled\": []}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
+   "pkill -x ttfx",
+   "pkill -f [o]rg.omarchy.screensaver"
+  ],
+  "evals": [
+   "hl.config({ cursor = { invisible = false } })"
+  ],
+  "requests": [
+   "eval hl.config({ cursor = { invisible = false } })",
+   "j/monitors",
+   "dispatch hl.dsp.dpms({ action = \"enable\", monitor = \"eDP-1\" })"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 150, \"lock\": 300}, \"other\": 1}"
+   ],
+   "run/omarchy-power-hub/display-off.json": [
+    420,
+    "{\"disabled\": []}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
+   "pkill -x ttfx",
+   "pkill -f [o]rg.omarchy.screensaver",
+   "framework_tool --kblight",
+   "sudo -n framework_tool --kblight",
+   "sudo -n <base>/bin/ops-priv kblight",
+   "framework_tool --kblight 0",
+   "sudo -n framework_tool --kblight 0",
+   "sudo -n <base>/bin/ops-priv kblight 0",
+   "framework_tool --fp-brightness",
+   "sudo -n framework_tool --fp-brightness",
+   "sudo -n <base>/bin/ops-priv fp-brightness",
+   "framework_tool --fp-brightness 0",
+   "sudo -n framework_tool --fp-brightness 0",
+   "sudo -n <base>/bin/ops-priv fp-brightness 0"
+  ],
+  "evals": [
+   "hl.config({ cursor = { invisible = false } })"
+  ],
+  "requests": [
+   "eval hl.config({ cursor = { invisible = false } })",
+   "j/monitors",
+   "j/monitors",
+   "dispatch hl.dsp.dpms({ action = \"disable\", monitor = \"eDP-1\" })",
+   "j/monitors"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 604800, \"lock\": 300}, \"other\": 1}"
+   ],
+   "run/omarchy-power-hub/display-off.json": [
+    420,
+    "{\"disabled\": []}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
+   "pkill -x ttfx",
+   "pkill -f [o]rg.omarchy.screensaver"
+  ],
+  "evals": [
+   "hl.config({ cursor = { invisible = false } })"
+  ],
+  "requests": [
+   "eval hl.config({ cursor = { invisible = false } })",
+   "j/monitors",
+   "dispatch hl.dsp.dpms({ action = \"enable\", monitor = \"eDP-1\" })"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 150, \"lock\": 300}, \"other\": 1}"
+   ],
+   "run/omarchy-power-hub/display-off.json": [
+    420,
+    "{\"disabled\": []}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
+   "pkill -x ttfx",
+   "pkill -f [o]rg.omarchy.screensaver",
+   "framework_tool --kblight",
+   "sudo -n framework_tool --kblight",
+   "sudo -n <base>/bin/ops-priv kblight",
+   "framework_tool --kblight 0",
+   "sudo -n framework_tool --kblight 0",
+   "sudo -n <base>/bin/ops-priv kblight 0",
+   "framework_tool --fp-brightness",
+   "sudo -n framework_tool --fp-brightness",
+   "sudo -n <base>/bin/ops-priv fp-brightness",
+   "framework_tool --fp-brightness 0",
+   "sudo -n framework_tool --fp-brightness 0",
+   "sudo -n <base>/bin/ops-priv fp-brightness 0"
+  ],
+  "evals": [
+   "hl.config({ cursor = { invisible = false } })"
+  ],
+  "requests": [
+   "eval hl.config({ cursor = { invisible = false } })",
+   "j/monitors",
+   "j/monitors",
+   "dispatch hl.dsp.dpms({ action = \"disable\", monitor = \"eDP-1\" })",
+   "j/monitors"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 604800, \"lock\": 300}, \"other\": 1}"
+   ],
+   "run/omarchy-power-hub/display-off.json": [
+    420,
+    "{\"disabled\": []}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
+   "pkill -x ttfx",
+   "pkill -f [o]rg.omarchy.screensaver"
+  ],
+  "evals": [
+   "hl.config({ cursor = { invisible = false } })"
+  ],
+  "requests": [
+   "eval hl.config({ cursor = { invisible = false } })",
+   "j/monitors",
+   "dispatch hl.dsp.dpms({ action = \"enable\", monitor = \"eDP-1\" })"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 150, \"lock\": 300}, \"other\": 1}"
+   ],
+   "run/omarchy-power-hub/display-off.json": [
+    420,
+    "{\"disabled\": []}"
+   ]
+  }
+ }
+]

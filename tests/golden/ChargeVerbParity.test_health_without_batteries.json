@@ -1,0 +1,17 @@
+[
+ {
+  "code": 1,
+  "stdout": "Battery charge limits are not supported\n",
+  "calls": [
+   "upower -e"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ]
+  }
+ }
+]

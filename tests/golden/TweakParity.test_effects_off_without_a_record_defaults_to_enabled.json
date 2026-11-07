@@ -1,0 +1,25 @@
+[
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [],
+  "evals": [
+   "hl.config({ animations = { enabled = true } })",
+   "hl.config({ decoration = { shadow = { enabled = true } } })"
+  ],
+  "requests": [
+   "eval hl.config({ animations = { enabled = true } })",
+   "eval hl.config({ decoration = { shadow = { enabled = true } } })"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/power-hub-tweaks.json": [
+    420,
+    "{\"effects\": false}"
+   ]
+  }
+ }
+]

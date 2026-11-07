@@ -1,0 +1,104 @@
+[
+ {
+  "code": 0,
+  "stdout": "parked\n",
+  "calls": [],
+  "evals": [
+   "hl.monitor({ output = \"desc:RTK FlipGo-A2 8R33926O00QS\", disabled = true })"
+  ],
+  "requests": [
+   "j/monitors",
+   "eval hl.monitor({ output = \"desc:RTK FlipGo-A2 8R33926O00QS\", disabled = true })"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 150, \"lock\": 300}, \"other\": 1}"
+   ],
+   "home/.local/state/omarchy-power-hub/bus-droppers.json": [
+    420,
+    "[\"RTK FlipGo-A2 8R33926O00QS\"]"
+   ],
+   "run/omarchy-power-hub/display-off.json": [
+    420,
+    "{\"disabled\": [{\"name\": \"DP-1\", \"output\": \"desc:RTK FlipGo-A2 8R33926O00QS\", \"width\": 2560, \"height\": 1600, \"refreshRate\": 60, \"x\": 0, \"y\": 0, \"scale\": 1.6}]}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "parked\n",
+  "calls": [],
+  "evals": [
+   "hl.monitor({ output = \"desc:RTK FlipGo-A2 8R33926O00QS\", disabled = true })"
+  ],
+  "requests": [
+   "j/monitors",
+   "eval hl.monitor({ output = \"desc:RTK FlipGo-A2 8R33926O00QS\", disabled = true })"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 150, \"lock\": 300}, \"other\": 1}"
+   ],
+   "home/.local/state/omarchy-power-hub/bus-droppers.json": [
+    420,
+    "[\"RTK FlipGo-A2 8R33926O00QS\"]"
+   ],
+   "run/omarchy-power-hub/display-off.json": [
+    420,
+    "{\"disabled\": [{\"name\": \"DP-1\", \"output\": \"desc:RTK FlipGo-A2 8R33926O00QS\", \"width\": 2560, \"height\": 1600, \"refreshRate\": 60, \"x\": 0, \"y\": 0, \"scale\": 1.6}]}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "parked\n",
+  "calls": [],
+  "evals": [
+   "hl.monitor({ output = \"desc:b\", disabled = true })"
+  ],
+  "requests": [
+   "j/monitors",
+   "eval hl.monitor({ output = \"desc:b\", disabled = true })"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 150, \"lock\": 300}, \"other\": 1}"
+   ],
+   "home/.local/state/omarchy-power-hub/bus-droppers.json": [
+    420,
+    "[\"RTK FlipGo-A2 8R33926O00QS\", \"b\"]"
+   ],
+   "run/omarchy-power-hub/display-off.json": [
+    420,
+    "{\"disabled\": [{\"name\": \"DP-1\", \"output\": \"desc:RTK FlipGo-A2 8R33926O00QS\", \"width\": 2560, \"height\": 1600, \"refreshRate\": 60, \"x\": 0, \"y\": 0, \"scale\": 1.6}, {\"name\": \"DP-2\", \"output\": \"desc:b\", \"width\": 2560, \"height\": 1600, \"refreshRate\": 60, \"x\": 0, \"y\": 0, \"scale\": 1.6}]}"
+   ]
+  }
+ }
+]

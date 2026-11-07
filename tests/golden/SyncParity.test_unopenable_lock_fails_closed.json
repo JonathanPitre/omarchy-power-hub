@@ -1,0 +1,15 @@
+[
+ {
+  "code": 1,
+  "stdout": "",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "run/omarchy-power-hub/display-off.json": [
+    420,
+    "{\"disabled\": [{\"name\": \"DP-1\"}]}"
+   ]
+  }
+ }
+]

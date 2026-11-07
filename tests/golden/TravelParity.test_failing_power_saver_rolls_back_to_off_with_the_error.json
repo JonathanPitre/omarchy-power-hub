@@ -1,0 +1,86 @@
+[
+ {
+  "code": 1,
+  "stdout": "authorization denied\n",
+  "calls": [
+   "omarchy brightness display --monitor eDP-1",
+   "powerprofilesctl get",
+   "powerprofilesctl get",
+   "powerprofilesctl set power-saver",
+   "powerprofilesctl set performance",
+   "powerprofilesctl get",
+   "omarchy brightness display --no-osd --monitor eDP-1 80%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [
+   "hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })"
+  ],
+  "requests": [
+   "j/monitors",
+   "j/monitors",
+   "eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1920x1200@165.004\", position = \"0x0\", scale = 1.25, disabled = false })",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "performance\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "balanced\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": false, \"complete\": true, \"reduceCpu\": false, \"pending\": [], \"error\": \"authorization denied\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "performance\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "authorization denied\n",
+  "calls": [
+   "powerprofilesctl get",
+   "powerprofilesctl get",
+   "powerprofilesctl set power-saver",
+   "powerprofilesctl set performance",
+   "powerprofilesctl get"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "performance\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "balanced\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": false, \"complete\": true, \"reduceCpu\": false, \"pending\": [], \"error\": \"authorization denied\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "performance\n"
+  }
+ }
+]

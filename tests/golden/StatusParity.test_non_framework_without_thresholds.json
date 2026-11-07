@@ -1,0 +1,18 @@
+[
+ {
+  "code": 0,
+  "stdout": "{\"side\": \"ac\", \"config\": {\"chargeLimit\": 80, \"boost\": false, \"boostSavedLimit\": 80, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}, \"travel\": {\"phase\": \"off\", \"reduceCpu\": false, \"error\": \"\", \"controls\": {\"profile\": {\"available\": false, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"Energy-saving CPU preference\"}, \"brightness\": {\"available\": false, \"detail\": \"Brightness cannot be read\"}, \"refresh\": {\"available\": false, \"detail\": \"No supported mode at or below 60 Hz\"}}}, \"quickDim\": {\"on\": false, \"available\": false, \"brightness\": null, \"error\": \"\"}, \"charge\": {\"kind\": \"none\", \"available\": false, \"reason\": \"no charge threshold\", \"limit\": null, \"tool\": false, \"health\": null, \"policy\": null}, \"boost\": false, \"hibernate\": {\"available\": false, \"reason\": \"hibernate is not available: check swap and a resume= kernel parameter\"}, \"tweaks\": {}, \"framework\": false}\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
+   "upower -e",
+   "busctl call org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager CanHibernate",
+   "powerprofilesctl get"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {}
+ }
+]

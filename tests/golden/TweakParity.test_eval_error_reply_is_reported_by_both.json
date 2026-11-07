@@ -1,0 +1,27 @@
+[
+ {
+  "code": 1,
+  "stdout": "error: no such monitor error: no such monitor\n",
+  "calls": [],
+  "evals": [
+   "hl.config({ animations = { enabled = false } })",
+   "hl.config({ decoration = { shadow = { enabled = false } } })"
+  ],
+  "requests": [
+   "getoption animations:enabled",
+   "getoption decoration:shadow:enabled",
+   "eval hl.config({ animations = { enabled = false } })",
+   "eval hl.config({ decoration = { shadow = { enabled = false } } })"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/power-hub-tweaks.json": [
+    420,
+    "{\"effectsBefore\": {\"animations:enabled\": true, \"decoration:shadow:enabled\": true}, \"effects\": true}"
+   ]
+  }
+ }
+]

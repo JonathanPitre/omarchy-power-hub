@@ -1,4 +1,9 @@
-"""Sandbox for comparing bin/ops.py (reference) against the Rust binary on the same fake system."""
+"""Sandbox for comparing bin/ops.py (reference) against the Rust binary on the same fake system.
+
+`PARITY_RECORD=tests/golden python -m unittest tests.test_parity` also saves every Python result as a golden file,
+`<dir>/<Class>.<test>.json`, for tests/parity.rs to replay. Delete the old files first.
+"""
+import atexit
 import contextlib
 import fcntl
 import json
@@ -23,6 +28,10 @@ SYSTEM_PATHS = r"(?<![\w/.])/(?:sys|proc|run|var|etc|usr/(?!bin\b|local/bin\b))"
 STUBBED = ("hyprctl", "busctl", "iw", "systemctl", "sudo", "pkexec", "upower", "omarchy", "powerprofilesctl",
            "omarchy-powerprofiles-list", "omarchy-powerprofiles-set", "omarchy-system-lock",
            "omarchy-shell", "omarchy-launch-screensaver", "omarchy-launch-floating-terminal-with-presentation", "pkill")
+
+LED = "sys/class/leds/chromeos:white:power"
+RECORD = os.environ.get("PARITY_RECORD")
+_goldens = {}
 
 _case = unittest.TestCase()
 
@@ -63,6 +72,25 @@ def assert_same_files(a, b, normalise=None):
 
 
 DROPPED = ("hyprctl", "busctl get-property net.hadess", "omarchy-powerprofiles-list")
+
+
+def _running_test():
+    """`<Class>.<test>` of the test method on the stack."""
+    frame = sys._getframe()
+    while not (frame.f_code.co_name.startswith("test_") and "self" in frame.f_locals):
+        frame = frame.f_back
+    return f"{type(frame.f_locals['self']).__name__}.{frame.f_code.co_name}"
+
+
+def _save_goldens():
+    for name, steps in _goldens.items():
+        path = pathlib.Path(RECORD) / f"{name}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(steps, indent=1, ensure_ascii=False) + "\n")
+
+
+if RECORD:
+    atexit.register(_save_goldens)
 
 
 def both(setup, *steps, drop=DROPPED, normalise=None, stdout=True, inspect=None):
@@ -128,6 +156,7 @@ class Sandbox:
         self._evals = []
         self._requests = []
         self._rules = {}
+        self._traced = 0
         self._install_scripts()
         for tool in STUBBED:
             self._write_stub(tool)
@@ -345,6 +374,27 @@ esac''')
                 out[rel] = (stat.S_IMODE(p.stat().st_mode), text)
         return out
 
+    def _side(self):
+        """State both() leaves out that other tests compare: stateful stub files, the power LED, new Travel trace lines."""
+        files = [*self.base.glob("*.state"), *(self.root / LED).glob("*")]
+        out = {p.name: p.read_text() for p in sorted(files) if p.is_file()}
+        trace = self.base / "trace"
+        if trace.exists():
+            lines = [json.dumps(json.loads(l)) if l.startswith("{") else l
+                     for l in trace.read_text().replace(str(self.base), "<base>").splitlines()]
+            out["trace"], self._traced = lines[self._traced:], len(lines)
+        return out
+
+    def _record(self, r):
+        if RECORD:
+            s = self.settled(r)
+            step = {"code": s.code, "stdout": s.stdout, "calls": [c for c in s.calls if not c.startswith(DROPPED)],
+                    "evals": s.evals, "requests": s.requests, "files": self.snapshot()}
+            if side := self._side():
+                step["side"] = side
+            _goldens.setdefault(_running_test(), []).append(step)
+        return r
+
     def settled(self, r):
         """A result with this sandbox's base path masked, so two sandboxes compare equal."""
         mask = lambda t: t.replace(str(self.base), "<base>")  # noqa: E731
@@ -431,12 +481,12 @@ esac''')
         return Result(p.returncode, p.stdout, calls, "\n".join(calls), list(self._evals), list(self._requests))
 
     def python(self, *argv):
-        return self._exec([sys.executable, str(self.bin / "ops.py"), *argv])
+        return self._record(self._exec([sys.executable, str(self.bin / "ops.py"), *argv]))
 
     def bash_data(self):
         """The fixture still emits the removed wifiFix key until it goes; drop it here, on this side only."""
         r = self._exec(["bash", str(self.bin / "battery-plus-data")])
-        return replace(r, stdout=json.dumps({k: v for k, v in json.loads(r.stdout).items() if k != "wifiFix"}))
+        return self._record(replace(r, stdout=json.dumps({k: v for k, v in json.loads(r.stdout).items() if k != "wifiFix"})))
 
     def rust(self, *argv):
         return self._exec([str(RUST_BIN), *argv])

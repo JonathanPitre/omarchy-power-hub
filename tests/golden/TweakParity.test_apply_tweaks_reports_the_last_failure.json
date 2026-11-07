@@ -1,0 +1,43 @@
+[
+ {
+  "code": 1,
+  "stdout": "epp failed\n",
+  "calls": [
+   "pkexec <base>/bin/ops-priv wifi off",
+   "pkexec <base>/bin/ops-priv usb off",
+   "pkexec <base>/bin/ops-priv epp power"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/power-hub-tweaks.json": [
+    420,
+    "{\"wifiPinned\": true, \"usbPinned\": true, \"eppPinned\": true, \"epp\": \"power\", \"wifi\": false, \"usb\": false}"
+   ]
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "usb failed\n",
+  "calls": [
+   "pkexec <base>/bin/ops-priv wifi off",
+   "pkexec <base>/bin/ops-priv usb off"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/power-hub-tweaks.json": [
+    420,
+    "{\"wifiPinned\": true, \"usbPinned\": true, \"epp\": \"power\", \"wifi\": false, \"usb\": false}"
+   ]
+  }
+ }
+]

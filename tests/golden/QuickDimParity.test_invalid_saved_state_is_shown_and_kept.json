@@ -1,0 +1,194 @@
+[
+ {
+  "code": 1,
+  "stdout": "Quick dim restore point is malformed; restore ownership manually\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "run/omarchy-power-hub/quick-dim.json": [
+    420,
+    "{\"on\": \"yes\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "Quick dim restore point is malformed; restore ownership manually\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "run/omarchy-power-hub/quick-dim.json": [
+    420,
+    "{\"on\": \"yes\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "Quick dim restore point is malformed; restore ownership manually\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "run/omarchy-power-hub/quick-dim.json": [
+    420,
+    "{\"on\": true}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "Quick dim restore point is malformed; restore ownership manually\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "run/omarchy-power-hub/quick-dim.json": [
+    420,
+    "{\"on\": true}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "Quick dim restore point is malformed; restore ownership manually\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "run/omarchy-power-hub/quick-dim.json": [
+    420,
+    "{\"on\": true, \"monitor\": \"e DP\", \"brightness\": 5}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "Quick dim restore point is malformed; restore ownership manually\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "run/omarchy-power-hub/quick-dim.json": [
+    420,
+    "{\"on\": true, \"monitor\": \"e DP\", \"brightness\": 5}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "Quick dim restore point is malformed; restore ownership manually\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "run/omarchy-power-hub/quick-dim.json": [
+    420,
+    "{\"on\": true, \"monitor\": \"eDP-1\", \"brightness\": 101}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "Quick dim restore point is malformed; restore ownership manually\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "run/omarchy-power-hub/quick-dim.json": [
+    420,
+    "{\"on\": true, \"monitor\": \"eDP-1\", \"brightness\": 101}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "Saved settings are malformed\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "run/omarchy-power-hub/quick-dim.json": [
+    420,
+    "[1]"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "Saved settings are malformed\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "run/omarchy-power-hub/quick-dim.json": [
+    420,
+    "[1]"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "Saved settings are unreadable; restore ownership manually\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "run/omarchy-power-hub/quick-dim.json": [
+    420,
+    "{"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "Saved settings are unreadable; restore ownership manually\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "run/omarchy-power-hub/quick-dim.json": [
+    420,
+    "{"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n"
+  }
+ }
+]

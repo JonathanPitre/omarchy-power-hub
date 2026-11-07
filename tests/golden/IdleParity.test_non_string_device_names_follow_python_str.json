@@ -1,0 +1,34 @@
+[
+ {
+  "code": 0,
+  "stdout": "hold\n",
+  "calls": [
+   "\", enabled = true })"
+  ],
+  "evals": [
+   "hl.device({ name = \"5\", enabled = true })",
+   "hl.device({ name = \"True\", enabled = true })",
+   "hl.device({ name = \"1.5\", enabled = true })",
+   "hl.device({ name = \"x\", enabled = true })",
+   "hl.device({ name = \"nl\n\", enabled = true })",
+   "hl.device({ name = \"7\", enabled = true })"
+  ],
+  "requests": [
+   "cursorpos",
+   "j/monitors",
+   "j/devices",
+   "eval hl.device({ name = \"5\", enabled = true })",
+   "eval hl.device({ name = \"True\", enabled = true })",
+   "eval hl.device({ name = \"1.5\", enabled = true })",
+   "eval hl.device({ name = \"x\", enabled = true })",
+   "eval hl.device({ name = \"nl\n\", enabled = true })",
+   "eval hl.device({ name = \"7\", enabled = true })"
+  ],
+  "files": {
+   "run/omarchy-power-hub/idle-wake.json": [
+    420,
+    "{\"cursor\": \"\"}"
+   ]
+  }
+ }
+]

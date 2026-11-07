@@ -1,0 +1,70 @@
+[
+ {
+  "code": 0,
+  "stdout": "wake\n",
+  "calls": [],
+  "evals": [],
+  "requests": [
+   "cursorpos",
+   "j/monitors",
+   "j/devices"
+  ],
+  "files": {
+   "run/omarchy-power-hub/idle-wake.json": [
+    420,
+    "{\"cursor\": \"5, 5\"}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "hold\n",
+  "calls": [],
+  "evals": [],
+  "requests": [
+   "cursorpos",
+   "j/monitors",
+   "j/devices"
+  ],
+  "files": {
+   "run/omarchy-power-hub/idle-wake.json": [
+    420,
+    "{\"cursor\": \"5, 5\"}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "blank\n",
+  "calls": [],
+  "evals": [],
+  "requests": [
+   "cursorpos",
+   "j/monitors",
+   "j/devices"
+  ],
+  "files": {
+   "run/omarchy-power-hub/idle-wake.json": [
+    420,
+    "{\"cursor\": \"5, 5\"}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "hold\n",
+  "calls": [],
+  "evals": [],
+  "requests": [
+   "cursorpos",
+   "j/monitors",
+   "j/devices"
+  ],
+  "files": {
+   "run/omarchy-power-hub/idle-wake.json": [
+    420,
+    "{\"cursor\": \"5, 5\"}"
+   ]
+  }
+ }
+]

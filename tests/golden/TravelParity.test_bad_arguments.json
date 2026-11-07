@@ -1,0 +1,70 @@
+[
+ {
+  "code": 2,
+  "stdout": "usage: travel on|off\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "performance\n"
+  }
+ },
+ {
+  "code": 2,
+  "stdout": "usage: travel on|off\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "performance\n"
+  }
+ },
+ {
+  "code": 2,
+  "stdout": "usage: travel on|off\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "performance\n"
+  }
+ },
+ {
+  "code": 2,
+  "stdout": "usage: travel on|off\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "performance\n"
+  }
+ }
+]
