@@ -22,7 +22,6 @@ pub fn run(args: &[&str], timeout: Duration) -> (i32, String) {
 }
 
 /// `run` with `input` written to the child's stdin, which is then closed.
-#[allow(dead_code)] // consumed by the display, lid and light paths in the next tasks
 pub fn run_input(args: &[&str], input: &str, timeout: Duration) -> (i32, String) {
     run_with(args, Some(input), timeout)
 }

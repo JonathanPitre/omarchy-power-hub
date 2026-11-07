@@ -2466,5 +2466,231 @@ class DisplayHardening(unittest.TestCase):
             self.assertEqual(s.read_state(), {"disabled": [{"name": "DP-1"}]})
 
 
+KBLIGHT_FILE = "run/omarchy-power-hub/kblight.json"
+LIGHT_TOOLS = ("qmk_hid", "framework_tool", "sudo")
+LED = "sys/class/leds/chromeos:white:power"
+
+
+def qmk_keys(s, level):
+    """A Laptop 16 keyboard whose backlight rounds down to 0, 33, 67 or 100."""
+    state = s.base / "keys.state"
+    state.write_text(f"{level}\n")
+    s._stateful("qmk_hid", '''case "$*" in
+  "via --backlight") echo "Brightness: $(<STATE)%";;
+  "via --backlight "*) v=$3; if [ "$v" -ge 100 ]; then n=100; elif [ "$v" -ge 67 ]; then n=67; elif [ "$v" -ge 34 ]; then n=33; else n=0; fi; echo $n > STATE;;
+  *) exit 1;;
+esac'''.replace("STATE", str(state)))
+
+
+def ec_tool(s, keys=30, fp="Requested: Auto\nBrightness: 10%\n"):
+    s.stub("framework_tool", "--fp-led-level", 0, "")
+    s.stub("framework_tool", "--fp-brightness", 0, fp)
+    s.stub("framework_tool", "--kblight", 0, f"Keyboard backlight: {keys}%\n")
+
+
+def lights_setup(*tools, model="Laptop 16", vendor="Framework", led=None, lux=None, scale=None, daylight=False):
+    def setup(s):
+        displays_setup(head("eDP-1"))(s)
+        s.path = str(s.stubs)  # the host's own light tools must not be found
+        s.dmi(vendor, model)
+        for tool in tools:
+            tool(s)
+        if led:
+            s.power_led(*led)
+        if lux is not None:
+            s.light_sensor(lux, scale)
+        if daylight:
+            s.write("home/.config/omarchy/power-hub-tweaks.json", json.dumps({"daylight": True}))
+    return setup
+
+
+def keys_level(s):
+    return int((s.base / "keys.state").read_text())
+
+
+def led_file(s, name="brightness"):
+    return (s.root / LED / name).read_text().strip()
+
+
+def kblight_saved(s):
+    p = s._target(KBLIGHT_FILE)
+    return json.loads(p.read_text()) if p.exists() else None
+
+
+def light_calls(s):
+    return [c for c in s.calls_log.read_text().splitlines() if c.startswith(LIGHT_TOOLS)]
+
+
+def same_lights(py, rs):
+    """The fake keyboard and power button end up identical."""
+    def lights(s):
+        files = [*(s.root / LED).glob("*"), *s.base.glob("keys.state")]
+        return {p.name: p.read_text() for p in files}
+    unittest.TestCase().assertEqual(lights(py), lights(rs))
+
+
+class LightsParity(unittest.TestCase):
+    OFF, ON = ["displays", "off"], ["displays", "on"]
+
+    def test_laptop_16_levels_survive_a_sleep_because_the_wake_writes_one_more(self):
+        for step in (33, 67, 100):
+            with self.subTest(step=step):
+                both(lights_setup(lambda s: qmk_keys(s, step)), self.OFF,
+                     lambda s: self.assertEqual((keys_level(s), kblight_saved(s)), (0, {"level": step})),
+                     self.ON,
+                     lambda s: self.assertEqual((keys_level(s), kblight_saved(s)), (step, None)),
+                     inspect=same_lights)
+
+    def test_laptop_16_wake_writes_the_level_plus_one(self):
+        both(lights_setup(lambda s: qmk_keys(s, 67)), self.OFF, self.ON,
+             lambda s: self.assertIn("qmk_hid via --backlight 68", s.calls_log.read_text()))
+
+    def test_laptop_12_and_13_use_the_ec_keys_and_fingerprint_led(self):
+        for model in ("Laptop 13 (Intel Core Ultra Series 1)", "Laptop 12"):
+            with self.subTest(model=model):
+                both(lights_setup(ec_tool, model=model), self.OFF,
+                     lambda s: self.assertEqual(kblight_saved(s), {"level": 30, "fp": {"requested": "auto", "brightness": 10}}),
+                     self.ON,
+                     lambda s: self.assertEqual(light_calls(s), ["framework_tool --kblight 30", "framework_tool --fp-led-level auto"]))
+
+    def test_ec_power_button_restores_a_custom_brightness(self):
+        for fp, want in (("Requested: Custom\nBrightness: 55%\n", "framework_tool --fp-brightness 55"),
+                         ("Brightness: 0%\n", "framework_tool --fp-brightness 0")):
+            with self.subTest(fp=fp):
+                both(lights_setup(lambda s: ec_tool(s, fp=fp), model="Laptop 13"), self.OFF, self.ON,
+                     lambda s: self.assertEqual(light_calls(s)[-1], want))
+
+    def test_a_failing_tool_is_retried_with_sudo_then_the_helper(self):
+        def fails(s):
+            s.stub("sudo", "ops-priv kblight", 0, "Keyboard backlight: 30%\n")
+            s.stub("sudo", "ops-priv fp-brightness", 0, "Brightness: 10%\n")
+        for installed in (False, True):
+            with self.subTest(installed=installed):
+                def setup(s, installed=installed):
+                    lights_setup(fails, lambda s: s._write_stub("framework_tool"), model="Laptop 13")(s)
+                    if installed:
+                        s.install_helper()
+                both(setup, self.OFF,
+                     lambda s: self.assertIn(f"sudo -n {s.helper_dir if installed else s.bin}/ops-priv kblight 0", s.calls_log.read_text()),
+                     self.ON)
+
+    def test_sudo_alone_is_enough(self):
+        both(lights_setup(lambda s: s.stub("sudo", "framework_tool --kblight", 0, "Keyboard backlight: 30%\n"),
+                          lambda s: s._write_stub("framework_tool"), model="Laptop 13"), self.OFF,
+             lambda s: self.assertEqual(kblight_saved(s), {"level": 30}),
+             self.ON)
+
+    def test_tool_errors_in_a_zero_exit_are_failures(self):
+        for text in ("[ERROR] no", "Failed to communicate", "Not a Framework Laptop"):
+            with self.subTest(text=text):
+                both(lights_setup(lambda s: s.stub("framework_tool", "--kblight", 0, text), model="Laptop 13"), self.OFF,
+                     lambda s: self.assertIsNone(kblight_saved(s)), self.ON)
+
+    def test_a_failed_read_does_not_invent_a_restore_value(self):
+        both(lights_setup(lambda s: s._write_stub("qmk_hid")), self.OFF,
+             lambda s: self.assertIsNone(kblight_saved(s)),
+             self.ON, lambda s: self.assertEqual(light_calls(s), []))
+
+    def test_power_button_goes_dark_and_comes_back_with_its_trigger(self):
+        both(lights_setup(lambda s: qmk_keys(s, 40), led=("chromeos-auto", 80, 100)), self.OFF,
+             lambda s: self.assertEqual((led_file(s), kblight_saved(s)["fp"]),
+                                        ("0", {"sys": True, "trigger": "chromeos-auto", "brightness": 80})),
+             self.ON,
+             lambda s: self.assertEqual((led_file(s), led_file(s, "trigger")), ("80", "chromeos-auto")),
+             inspect=same_lights)
+
+    def test_power_button_brightness_falls_back_to_the_maximum_then_100(self):
+        for brightness, mx, want in (("junk", 60, 60), ("junk", "junk", 100), (200, 100, None), ("junk", 200, None)):
+            with self.subTest(brightness=brightness, max=mx):
+                both(lights_setup(lambda s: qmk_keys(s, 40), led=("chromeos-auto", brightness, mx)), self.OFF,
+                     lambda s: self.assertEqual(kblight_saved(s)["fp"].get("brightness"), want),
+                     self.ON, inspect=same_lights)
+
+    def test_power_button_uses_tee_when_sysfs_is_root_only(self):
+        def setup(s):
+            lights_setup(lambda s: qmk_keys(s, 40), lambda s: s.stub("sudo", "tee", 0, ""), led=("chromeos-auto", 80, 100))(s)
+            (s.root / LED / "brightness").chmod(0o444)
+        both(setup, self.OFF,
+             lambda s: self.assertIn(f"sudo -n tee {s.root}/{LED}/brightness", s.calls_log.read_text()),
+             self.ON, inspect=same_lights)
+
+    def test_the_first_power_button_in_name_order_wins(self):
+        def setup(s):
+            lights_setup(lambda s: qmk_keys(s, 40))(s)
+            for name, value in (("chromeos:white:power", 11), ("chromeos:amber:power", 22), ("chromeos:blue:power", 33)):
+                s.write(f"sys/class/leds/{name}/brightness", f"{value}\n")
+        both(setup, self.OFF, lambda s: self.assertEqual(kblight_saved(s)["fp"]["brightness"], 22))
+
+    def test_no_tools_and_no_power_button_touch_nothing(self):
+        both(lights_setup(), self.OFF, self.ON, lambda s: self.assertEqual(light_calls(s), []))
+        both(lights_setup(lambda s: s._write_stub("qmk_hid"), model="Laptop 13"), self.OFF, self.ON,
+             lambda s: self.assertEqual(light_calls(s), []))
+
+    def test_machines_that_are_not_a_framework_laptop_are_left_alone(self):
+        for vendor, model in (("LENOVO", "Laptop 16"), ("Framework", "Desktop"), ("Framework", "Laptop 15")):
+            with self.subTest(vendor=vendor, model=model):
+                both(lights_setup(lambda s: qmk_keys(s, 40), lambda s: s._write_stub("framework_tool"),
+                                  vendor=vendor, model=model, led=("chromeos-auto", 80, 100)),
+                     self.OFF, self.ON,
+                     lambda s: self.assertEqual((light_calls(s), led_file(s), kblight_saved(s)), ([], "80", None)))
+
+    def test_vendor_matches_framework_in_any_case(self):
+        both(lights_setup(lambda s: qmk_keys(s, 67), vendor="FRAMEWORK"), self.OFF,
+             lambda s: self.assertEqual(keys_level(s), 0), self.ON)
+
+    def test_daylight_keeps_the_keys_off_from_100_lux_up(self):
+        for lux, scale, daylight, kept in ((3355, None, True, True), (100, None, True, True), (99, None, True, False),
+                                           (None, None, True, False), (3355, None, False, False),
+                                           (50, 2.5, True, True), (49, 2.0, True, False)):
+            with self.subTest(lux=lux, scale=scale, daylight=daylight):
+                both(lights_setup(lambda s: qmk_keys(s, 67), led=("chromeos-auto", 80, 100), lux=lux, scale=scale, daylight=daylight),
+                     self.OFF, self.ON,
+                     lambda s: self.assertEqual(
+                         (keys_level(s), led_file(s), kblight_saved(s)),
+                         (0, "80", {"level": 67, "held": True}) if kept else (67, "80", None)),
+                     inspect=same_lights)
+
+    def test_a_bright_wake_keeps_the_level_for_the_next_wake_in_a_darker_room(self):
+        both(lights_setup(lambda s: qmk_keys(s, 67), led=("chromeos-auto", 80, 100), lux=3355, daylight=True),
+             self.OFF, self.ON,
+             lambda s: self.assertEqual((keys_level(s), kblight_saved(s)), (0, {"level": 67, "held": True})),
+             self.OFF,
+             lambda s: self.assertEqual(led_file(s), "0"),
+             lambda s: s.light_sensor(37), self.ON,
+             lambda s: self.assertEqual((keys_level(s), led_file(s), kblight_saved(s)), (67, "80", None)),
+             inspect=same_lights)
+
+    def test_a_level_set_by_hand_in_daylight_replaces_the_saved_one(self):
+        both(lights_setup(lambda s: qmk_keys(s, 67), lux=3355, daylight=True),
+             self.OFF, self.ON, lambda s: (s.base / "keys.state").write_text("33\n"), self.OFF,
+             lambda s: s.light_sensor(37), self.ON,
+             lambda s: self.assertEqual(keys_level(s), 33))
+
+    def test_a_second_off_keeps_the_saved_light_levels(self):
+        """A second off would read the darkened lights and lose the levels to restore."""
+        saved = {"level": 67, "fp": {"sys": True, "trigger": "chromeos-auto", "brightness": 80}}
+        both(lights_setup(lambda s: qmk_keys(s, 67), led=("chromeos-auto", 80, 100)), self.OFF,
+             lambda s: self.assertEqual(kblight_saved(s), saved),
+             self.OFF,
+             lambda s: self.assertEqual(kblight_saved(s), saved),
+             self.ON,
+             lambda s: self.assertEqual((keys_level(s), led_file(s), led_file(s, "trigger")), (67, "80", "chromeos-auto")),
+             inspect=same_lights)
+
+    def test_a_wake_without_saved_levels_does_nothing(self):
+        both(lights_setup(lambda s: qmk_keys(s, 67), led=("chromeos-auto", 80, 100)), self.ON,
+             lambda s: self.assertEqual((light_calls(s), led_file(s)), ([], "80")))
+
+    def test_saved_files_of_any_shape_wake_the_lights_or_nothing(self):
+        for text in ("", "nope", "[]", "5", '"x"', "null", '{"level": 150}', '{"level": 40.0}', '{"level": true}', '{"fp": 3}',
+                     '{"level": 40, "fp": {"requested": 5, "trigger": 5, "brightness": 200, "sys": "yes"}}',
+                     '{"level": 40, "held": 1, "fp": {"requested": "custom", "brightness": 7}}'):
+            with self.subTest(text=text):
+                def setup(s, text=text):
+                    lights_setup(lambda s: qmk_keys(s, 0), led=("chromeos-auto", 80, 100))(s)
+                    s.write(KBLIGHT_FILE, text)
+                both(setup, self.ON, inspect=same_lights)
+
+
 if __name__ == "__main__":
     unittest.main()

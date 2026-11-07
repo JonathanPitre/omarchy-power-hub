@@ -6,6 +6,7 @@ mod display;
 mod exec;
 mod hypr;
 mod idle;
+mod kblight;
 mod monitor;
 mod names;
 mod paths;

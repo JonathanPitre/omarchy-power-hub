@@ -68,11 +68,15 @@ DROPPED = ("hyprctl", "busctl get-property net.hadess", "omarchy-powerprofiles-l
 def both(setup, *steps, drop=DROPPED, normalise=None, stdout=True, inspect=None):
     """Run each step through python in one sandbox and rust in another; after every step the exit codes, evals,
     files and recorded calls must match, then `inspect(py, rs)` sees both sandboxes.
-    A step is an argv, or a (python_argv, rust_argv) pair."""
+    A step is an argv, a (python_argv, rust_argv) pair, or a callable run on both sandboxes."""
     with Sandbox() as py, Sandbox() as rs:
         for s in (py, rs):
             setup(s)
         for step in steps:
+            if callable(step):
+                for s in (py, rs):
+                    step(s)
+                continue
             py_argv, rs_argv = step if isinstance(step[0], (list, tuple)) else (step, step)
             a, b = (s.settled(r) for s, r in ((py, py.python(*py_argv)), (rs, rs.rust(*rs_argv))))
             assert_same(a, b, stdout)
