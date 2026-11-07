@@ -130,16 +130,15 @@ pub fn lid_opened() {
     charge::privileged(&["hid-wakeup", "on"]);
     set_inputs(&hypr::devices(), true);
     // Key presses re-enable DPMS but not heads that Displays off disabled.
-    let locked = with_state_lock(|| {
+    // The lights stay in the lock, so a lid bounce cannot relight keys after a close.
+    // Lit displays can still have blanked lights; this does nothing when none were saved.
+    with_state_lock(|| {
         let parked = load_state(&state_path())["disabled"].as_array().is_some_and(|d| !d.is_empty());
         if parked || blanked(&hypr::monitors_within(hypr::WRITE_WAIT)) {
             set_displays(false, true);
         }
-    });
-    // Lit displays can still have blanked lights; this does nothing when none were saved.
-    if locked.is_some() {
         sync_lights(false);
-    }
+    });
 }
 
 fn stay_awake() -> bool {

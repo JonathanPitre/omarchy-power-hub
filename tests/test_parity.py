@@ -2724,6 +2724,8 @@ def lid_setup(action="display-off", *, monitors=(head("eDP-1"),), **kw):
         displays_setup(*monitors, **kw)(s)
         s.config(**{side: {"profile": "balanced", "lid": action} for side in ("ac", "battery")})
         s.devices(mice=MICE, keyboards=KEYBOARDS)
+        # One ordered log: each Hyprland eval lands beside the systemctl calls.
+        s.hypr_on_eval = lambda lua: s.calls_log.open("a").write(f"EVAL {lua}\n")
     return setup
 
 
@@ -2743,6 +2745,10 @@ class LidParity(unittest.TestCase):
         last = max(i for i, q in enumerate(reqs) if q.startswith("eval hl.device"))
         later = [i for i, q in enumerate(reqs) if not q.startswith("eval hl.device") and q != "j/devices"]
         self.assertTrue(all(i > last for i in later), reqs)
+        log = s.calls_log.read_text().split("\n")
+        inputs = [i for i, c in enumerate(log) if c.startswith("EVAL hl.device")]
+        after = [i for i, c in enumerate(log) if c.startswith("systemctl")]
+        self.assertTrue(inputs and all(i > inputs[-1] for i in after), log)
         self.assertTrue(s.calls_log.read_text().startswith(f"pkexec {s.bin}/ops-priv hid-wakeup {'on' if enabled == 'true' else 'off'}\n"))
 
     def test_close_runs_the_action_after_the_inputs_are_off(self):
@@ -2813,7 +2819,7 @@ class LidParity(unittest.TestCase):
             same_requests(py, rs)
             self.inputs_come_first(rs, "true")
             self.assertEqual([q for q in rs._requests if q.startswith(("dispatch", "eval hl.monitor"))], [])
-            self.assertEqual(rs.calls_log.read_text(), f"pkexec {rs.bin}/ops-priv hid-wakeup on\n")
+            self.assertEqual([c for c in rs.calls_log.read_text().split("\n") if c and not c.startswith("EVAL")], [f"pkexec {rs.bin}/ops-priv hid-wakeup on"])
         both(lid_setup(state={"disabled": []}), ["lid-opened"], inspect=check)
         both(lid_setup(), ["lid-opened"], inspect=check)
 
