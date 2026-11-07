@@ -1927,6 +1927,176 @@ class TravelRecovery(unittest.TestCase):
                         self.run_steps(setup, steps, kill=(step, f"{n}:{mode}"))
 
 
+CPU_NEW = {"cpu": {"turbo": None, "epp": []}, "pending": ["profile", "brightness", "refresh"]}
+NO_PROFILE_CONTROL = travel_snapshot(profile=None, pending=["brightness", "refresh"], cpu=CPU_NEW["cpu"],
+                                     controls={**FROZEN, "profile": {"available": False, "detail": "No profile"}})
+APPLY_KEYS = {"ac": {"profile": "performance", "screensaver": 600, "lock": 900, "lid": "display-off"},
+              "battery": {"profile": "balanced", "screensaver": 120, "lock": 240, "lid": "nothing"}}
+
+
+def apply_env(travel=None, lid="open", on_battery=False, profile="balanced", keys=APPLY_KEYS):
+    def setup(s):
+        settings_setup(bindings="bind = x", battery=on_battery)(s)
+        s.config(**keys)
+        s.lid(lid)
+        s.stub("pkexec", "", 0)
+        s.stub("omarchy-powerprofiles-set", "", 0)
+        s.stateful_profile(profile)
+        if travel is not None:
+            s.write(TRAVEL_FILE, json.dumps(travel))
+    return setup
+
+
+class ApplyParity(unittest.TestCase):
+    def check(self, setup, *steps):
+        both(setup, *steps, normalise=mask_exec, inspect=no_leftovers)
+
+    @contextlib.contextmanager
+    def checked(self, setup, step):
+        self.check(setup, step)
+        with Sandbox() as s:
+            setup(s)
+            yield s, s.rust(*step)
+
+    def test_apply_profile_writes_profile_idle_and_lid_on_either_source(self):
+        for battery, side, profile, saver in ((False, "ac", "performance", 600), (True, "battery", "balanced", 120)):
+            with self.subTest(side=side), self.checked(apply_env(on_battery=battery), ["apply-profile"]) as (s, r):
+                self.assertEqual((r.code, r.stdout), (0, "ok\n"))
+                self.assertIn(f"omarchy-powerprofiles-set {side} {profile}", r.calls)
+                self.assertEqual(shell_of(s)["idle"]["screensaver"], saver)
+                self.assertIn("lid-closed", s._target(BINDINGS_FILE).read_text())
+
+    def test_hibernate_delay_is_applied_only_above_zero(self):
+        def setup(after):
+            def inner(s):
+                apply_env(keys={"ac": {**APPLY_KEYS["ac"], "hibernateAfter": after}})(s)
+                s.install_helper()
+                s.stub("busctl", "CanHibernate", 0, 's "yes"\n')
+            return inner
+        for after, expected in ((900, True), (0, False)):
+            with self.subTest(after=after), self.checked(setup(after), ["apply-profile"]) as (_, r):
+                self.assertEqual(any("hibernate-delay" in c for c in r.calls), expected)
+
+    def test_travel_owning_the_cpu_keeps_the_profile_and_reapplies_the_overlay(self):
+        with self.checked(apply_env(travel=travel_snapshot(**CPU_NEW), profile="performance"), ["apply-profile"]) as (_, r):
+            self.assertEqual((r.code, r.stdout), (0, "ok\n"))
+            self.assertIn("powerprofilesctl set power-saver", r.calls)
+            self.assertFalse([c for c in r.calls if "omarchy-powerprofiles-set" in c])
+
+    def test_travel_without_a_profile_control_applies_the_normal_profile_first(self):
+        with self.checked(apply_env(travel=NO_PROFILE_CONTROL), ["apply-profile"]) as (_, r):
+            self.assertIn("omarchy-powerprofiles-set ac performance", r.calls)
+            self.assertFalse([c for c in r.calls if "powerprofilesctl set" in c])
+
+    def test_normal_profile_that_is_not_offered_is_skipped(self):
+        def setup(s):
+            apply_env(travel=NO_PROFILE_CONTROL)(s)
+            s.profiles(["power-saver", "balanced"])
+        with self.checked(setup, ["apply-profile"]) as (_, r):
+            self.assertFalse([c for c in r.calls if "omarchy-powerprofiles-set" in c])
+
+    def test_incomplete_travel_shows_its_saved_error_and_still_writes_idle(self):
+        for error in ("Power saver was replaced by balanced", ""):
+            with self.subTest(error=error), self.checked(apply_env(travel=travel_snapshot(complete=False, error=error, **CPU_NEW)), ["apply-profile"]) as (s, r):
+                self.assertEqual((r.code, r.stdout.startswith(error or "Travel mode restoration is incomplete")), (1, True))
+                self.assertEqual(shell_of(s)["idle"]["screensaver"], 600)
+                self.assertFalse([c for c in r.calls if "powerprofilesctl set" in c])
+
+    def test_overlay_failure_marks_travel_incomplete(self):
+        def setup(s):
+            apply_env(travel=travel_snapshot(**CPU_NEW))(s)
+            s._stateful("powerprofilesctl", 'case "$1" in get) echo balanced;; *) echo "authorization denied"; exit 1;; esac')
+        with self.checked(setup, ["apply-profile"]) as (s, r):
+            saved = json.loads(s._target(TRAVEL_FILE).read_text())
+            self.assertEqual((r.code, r.stdout, saved["complete"], saved["error"]), (1, "authorization denied\n", False, "authorization denied"))
+
+    def test_overlay_that_is_replaced_reports_the_replacement(self):
+        def setup(s):
+            apply_env(travel=travel_snapshot(**CPU_NEW))(s)
+            s._stateful("powerprofilesctl", 'case "$1" in get) echo balanced;; *) ;; esac')
+        with self.checked(setup, ["apply-profile"]) as (s, r):
+            self.assertEqual(r.stdout, "Power saver was replaced by balanced\n")
+
+    def test_unwritable_run_dir_ends_the_verb_with_nothing_to_record(self):
+        with Sandbox() as py, Sandbox() as rs:
+            for s in (py, rs):
+                apply_env(travel=travel_snapshot(**CPU_NEW))(s)
+                s._target(TRAVEL_FILE).parent.chmod(0o555)
+            try:
+                self.assertEqual((py.python("apply-profile").code, rs.rust("apply-profile").code), (1, 1))
+            finally:
+                for s in (py, rs):
+                    s._target(TRAVEL_FILE).parent.chmod(0o755)
+
+    def test_display_only_source_transition(self):
+        point = travel_snapshot(reduceCpu=False, profile=None, cpu={"turbo": None, "epp": []}, pending=["brightness"],
+                                monitor=None, controls={**FROZEN, "refresh": {"available": False, "detail": "x"}})
+        with self.checked(apply_env(travel=point, on_battery=True), ["apply-profile"]) as (s, r):
+            self.assertIn("omarchy-powerprofiles-set battery balanced", r.calls)
+            self.assertTrue(json.loads(s._target(TRAVEL_FILE).read_text())["on"])
+
+    def test_apply_wakes_the_keyboards_hid_only_with_the_lid_open(self):
+        for lid, expected in (("open", True), ("closed", False)):
+            with self.subTest(lid=lid), self.checked(apply_env(lid=lid), ["apply"]) as (_, r):
+                self.assertEqual(any("hid-wakeup on" in c for c in r.calls), expected)
+
+    def test_apply_joins_each_stage_error_with_spaces(self):
+        def setup(s):
+            apply_env(travel=travel_snapshot(complete=False, error="E", **CPU_NEW), lid="open")(s)
+            s.write(SHELL_FILE, "{broken")
+            s.write(TWEAKS_FILE, json.dumps({"wifi": True, "wifiPinned": True}))
+            s.stub("pkexec", "", 1, "denied\n")
+        with self.checked(setup, ["apply"]) as (_, r):
+            self.assertEqual((r.code, r.stdout), (1, "E  shell.json unreadable denied denied\n"))
+
+    def test_apply_is_ok_when_every_stage_is(self):
+        with self.checked(apply_env(), ["apply"]) as (_, r):
+            self.assertEqual((r.code, r.stdout), (0, "ok\n"))
+
+    def test_unwritable_lid_file_ends_the_verb_like_an_uncaught_error(self):
+        def setup(s):
+            apply_env()(s)
+            s._target(BINDINGS_FILE).chmod(0o444)
+            s._target(BINDINGS_FILE).parent.chmod(0o555)
+        for verb in ("apply", "apply-profile"):
+            with self.subTest(verb=verb), Sandbox() as py, Sandbox() as rs:
+                for s in (py, rs):
+                    setup(s)
+                a, b = py.python(verb), rs.rust(verb)
+                for s in (py, rs):
+                    s._target(BINDINGS_FILE).parent.chmod(0o755)
+                self.assertEqual((a.code, b.code), (1, 1))
+                self.assertEqual(a.calls and [c for c in a.calls if "hid-wakeup" in c], [c for c in b.calls if "hid-wakeup" in c])
+
+    def test_unwritable_shell_json_ends_the_verb_like_an_uncaught_error(self):
+        def setup(s):
+            apply_env()(s)
+            s._target(SHELL_FILE).chmod(0o444)
+        with Sandbox() as py, Sandbox() as rs:
+            for s in (py, rs):
+                setup(s)
+            a, b = py.python("apply"), rs.rust("apply")
+            self.assertEqual((a.code, b.code), (1, 1))
+            self.assertFalse([c for c in b.calls if "hid-wakeup" in c or "pkexec" in c])
+
+    def test_older_restore_points_do_not_break_apply_or_travel_off(self):
+        legacy = {"on": True, "brightness": 80, "monitors": [{"name": "eDP-1", "width": 1920, "height": 1080, "refresh": 165,
+                                                                "x": 0, "y": 0, "scale": 1}]}
+        epp = travel_snapshot(cpu={"turbo": None, "epp": [{"cpu": 0, "before": "power", "target": None}]},
+                              pending=["profile", "epp:0", "brightness", "refresh"])
+        for point in (legacy, travel_snapshot(), epp):
+            with self.subTest(point=point), Sandbox() as s:
+                apply_env(travel=point)(s)
+                for verb in ("apply-profile", "apply"):
+                    r = s.rust(verb)
+                    self.assertIn(r.code, (0, 1))
+                saved = json.loads(s._target(TRAVEL_FILE).read_text())
+                for key in ("profile", "cpu", "monitors", "brightness"):
+                    self.assertEqual(saved.get(key), point.get(key))
+                r = s.rust("travel", "off")
+                self.assertEqual((r.stdout, r.code), (OLDER + "\n", 1))
+
+
 class HarnessTests(unittest.TestCase):
     def test_harness_sees_a_changed_file(self):
         with Sandbox() as a, Sandbox() as b:

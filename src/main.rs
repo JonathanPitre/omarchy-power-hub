@@ -71,6 +71,8 @@ fn main() {
                 std::process::exit(2);
             }
         },
+        Some("apply") => report(settings::apply()),
+        Some("apply-profile") => report(settings::apply_active().unwrap_or_else(|e| e.to_string())),
         Some("apply-tweaks") => report(tweaks::apply_saved_tweaks()),
         Some("unpin") if args.len() >= 2 => report(tweaks::unpin(&args[1])),
         Some("daylight") if args.len() >= 2 => report(tweaks::daylight(args[1] == "on")),
@@ -86,7 +88,7 @@ fn main() {
             std::process::exit(code);
         }
         _ => {
-            eprintln!("usage: power-hub status|data|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|set|profile|charge|boost|health|quick-dim|travel|tweak|apply-tweaks|unpin|daylight|cpu|helper-install|boost-check|idle-wake-poll|displays sync");
+            eprintln!("usage: power-hub status|data|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|set|profile|charge|boost|health|quick-dim|travel|tweak|apply|apply-profile|apply-tweaks|unpin|daylight|cpu|helper-install|boost-check|idle-wake-poll|displays sync");
             std::process::exit(2);
         }
     }

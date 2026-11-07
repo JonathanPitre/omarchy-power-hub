@@ -11,7 +11,7 @@ use std::time::{Duration, SystemTime};
 const CURSOR_FRESH: Duration = Duration::from_secs(5);
 
 /// First readable `state` file under the ACPI lid directory; open when there is none.
-fn lid_text() -> String {
+pub fn lid_text() -> String {
     let dir = paths::root("/proc/acpi/button/lid");
     let mut names: Vec<_> = fs::read_dir(dir.as_path())
         .into_iter()
@@ -27,7 +27,7 @@ fn lid_text() -> String {
         .map_or_else(|| "state:      open\n".into(), |b| String::from_utf8_lossy(&b).into_owned())
 }
 
-fn lid_is_open(text: &str) -> bool {
+pub fn lid_is_open(text: &str) -> bool {
     let t = text.to_lowercase();
     !t.contains("closed") && t.contains("open")
 }

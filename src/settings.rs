@@ -1,6 +1,6 @@
-use crate::state::{cpu_owned, energy_lock, py_float, py_int, travel_state};
+use crate::state::{atomic_state, cpu_owned, energy_lock, py_float, py_int, travel_path, travel_state};
 use crate::config::{self, LID_ACTIONS, truthy};
-use crate::{charge, exec, hypr, paths, power, system};
+use crate::{charge, exec, hypr, idle, paths, power, system, travel, tweaks};
 use serde_json::{Value, json};
 use std::time::Duration;
 use std::{fs, io};
@@ -23,21 +23,22 @@ fn equals(v: Option<&Value>, want: i64) -> bool {
 }
 
 /// Rewrite `idle` in shell.json, which the shell watches and reloads whole on every write.
-pub fn shell_idle(screensaver: i64, lock: i64) -> String {
+pub fn shell_idle(screensaver: i64, lock: i64) -> io::Result<String> {
     let path = paths::shell_file();
     let Some(Value::Object(mut data)) = fs::read_to_string(&path).ok().and_then(|t| serde_json::from_str(&t).ok()) else {
-        return "shell.json unreadable".into();
+        return Ok("shell.json unreadable".into());
     };
     let idle = data.entry("idle").or_insert_with(|| json!({}));
-    let Some(idle) = idle.as_object_mut() else { return "shell.json unreadable".into() };
+    let Some(idle) = idle.as_object_mut() else { return Ok("shell.json unreadable".into()) };
     let want = [("screensaver", weekly(screensaver)), ("lock", weekly(lock))];
     if want.iter().all(|(k, v)| equals(idle.get(*k), *v)) {
-        return String::new();
+        return Ok(String::new());
     }
     for (k, v) in want {
         idle.insert(k.into(), json!(v));
     }
-    io_err(serde_json::to_string_pretty(&data).map_err(io::Error::other).and_then(|t| fs::write(&path, t + "\n")))
+    fs::write(&path, serde_json::to_string_pretty(&data).map_err(io::Error::other)? + "\n")?;
+    Ok(String::new())
 }
 
 fn int_of(src: &Value, key: &str) -> i64 {
@@ -78,16 +79,16 @@ pub fn canonical_profile(value: &str, side: &str) -> String {
     )
 }
 
-pub fn apply_profile(side: &str, mode: &str, live: bool) -> String {
+pub fn apply_profile(side: &str, mode: &str, live: bool) -> io::Result<String> {
     let which = side_file(side);
     let name = canonical_profile(mode, which);
     if !live || which != power::active_side(&config::load()) {
-        return io_err(remember_profile(which, &name));
+        return remember_profile(which, &name).map(|()| String::new());
     }
-    match exec::run(&["omarchy-powerprofiles-set", which, &name], Duration::from_secs(4)) {
+    Ok(match exec::run(&["omarchy-powerprofiles-set", which, &name], Duration::from_secs(4)) {
         (0, _) => String::new(),
         (_, out) => out.trim().into(),
-    }
+    })
 }
 
 /// Drop every BEGIN..END block with the newline that follows it; an unterminated BEGIN stays.
@@ -174,7 +175,7 @@ pub fn set_key(side: &str, key: &str, value: &str) -> String {
             return e.to_string();
         }
         // Travel holds Omarchy's remembered profiles; restore writes this one back.
-        return if owned { String::new() } else { apply_profile(side, src["profile"].as_str().unwrap_or_default(), true) };
+        return if owned { String::new() } else { apply_profile(side, src["profile"].as_str().unwrap_or_default(), true).unwrap_or_else(|e| e.to_string()) };
     }
     if let Err(e) = config::save(&cfg) {
         return e.to_string();
@@ -183,11 +184,63 @@ pub fn set_key(side: &str, key: &str, value: &str) -> String {
         return String::new();
     }
     match key {
-        "screensaver" | "displaysOff" | "lock" => shell_idle(effective_saver(&src), int_of(&src, "lock")),
+        "screensaver" | "displaysOff" | "lock" => shell_idle(effective_saver(&src), int_of(&src, "lock")).unwrap_or_else(|e| e.to_string()),
         "hibernateAfter" if int_of(&src, key) > 0 => apply_hibernate_delay(int_of(&src, key)),
         "lid" => io_err(write_lid_block()),
         _ => String::new(),
     }
+}
+
+/// Apply the active side's profile, idle, hibernate delay and lid action under the energy lock.
+/// An error Python lets escape (an unwritable file) is an `Err`, which ends the verb with exit 1.
+pub fn apply_active() -> io::Result<String> {
+    let _lock = energy_lock()?;
+    let cfg = config::load();
+    let mut state = travel_state();
+    let owned = truthy(&state["on"]) && state.get("reduceCpu").is_none_or(truthy);
+    let side = power::active_side(&cfg);
+    let src = &cfg[side];
+    let mut err = String::new();
+    if owned {
+        if !truthy(&state["complete"]) {
+            err = state["error"].as_str().filter(|e| !e.is_empty()).unwrap_or("Travel mode restoration is incomplete").into();
+        } else {
+            if !truthy(&state["controls"]["profile"]["available"]) {
+                let normal = canonical_profile(src["profile"].as_str().unwrap_or_default(), side);
+                if travel::listed_profiles().unwrap_or_default().contains(&normal) {
+                    err = apply_profile(side, &normal, true)?;
+                }
+            }
+            if err.is_empty() {
+                err = travel::apply_cpu_overlay(&mut state).unwrap_or_else(|e| format!("Could not save CPU overlay progress: {e}"));
+            }
+            if !err.is_empty() {
+                state["complete"] = json!(false);
+                state["error"] = json!(err);
+                atomic_state(&travel_path(), &state)?;
+            }
+        }
+    }
+    let profile_error = if owned { String::new() } else { apply_profile(side, src["profile"].as_str().unwrap_or_default(), true)? };
+    let mut source_error = shell_idle(effective_saver(src), int_of(src, "lock"))?;
+    if int_of(src, "hibernateAfter") > 0 {
+        source_error = format!("{source_error} {}", apply_hibernate_delay(int_of(src, "hibernateAfter"))).trim().into();
+    }
+    write_lid_block()?;
+    Ok(format!("{err} {profile_error} {source_error}").trim().into())
+}
+
+/// `apply`: the active side, then the pinned tweaks (after the lock is released), then the HID wakeup when the lid is open.
+pub fn apply() -> String {
+    let active = match apply_active() {
+        Ok(e) => e,
+        Err(e) => return e.to_string(),
+    };
+    let mut err = format!("{active} {}", tweaks::apply_saved_tweaks()).trim().to_string();
+    if idle::lid_is_open(&idle::lid_text()) {
+        err = format!("{err} {}", charge::privileged(&["hid-wakeup", "on"])).trim().into();
+    }
+    err
 }
 
 #[cfg(test)]

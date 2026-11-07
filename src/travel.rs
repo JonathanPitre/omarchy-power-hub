@@ -247,7 +247,7 @@ pub fn quick_dim(on: bool) -> io::Result<String> {
 const OLDER_VERSION: &str = "Travel restore point is from an older version; reboot to clear it";
 
 /// `listed_profiles`: the first word of each line `omarchy-powerprofiles-list` prints, None when it fails.
-fn listed_profiles() -> Option<Vec<String>> {
+pub fn listed_profiles() -> Option<Vec<String>> {
     let (code, out) = exec::run(&["omarchy-powerprofiles-list"], Duration::from_secs(4));
     (code == 0).then(|| out.lines().filter_map(|l| l.split_whitespace().next().map(String::from)).collect())
 }
