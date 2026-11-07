@@ -12,7 +12,7 @@ import time
 import unittest
 
 sys.path.insert(0, os.path.dirname(__file__))
-from parity_env import DROPPED, Sandbox, assert_same, assert_same_files, both, build_rust  # noqa: E402
+from parity_env import DROPPED, REPO, RUST_BIN, Sandbox, assert_same, assert_same_files, both, build_rust  # noqa: E402
 
 
 def setUpModule():
@@ -1308,6 +1308,60 @@ def tweaked(setup, *steps):
     with Sandbox() as s:
         setup(s)
         yield s, [s.rust(*step) for step in steps][-1]
+
+
+class ActionParity(unittest.TestCase):
+    READS = ("busctl get-property org.freedesktop.UPower", "systemctl is-active")  # what the trailing data adds
+    ROWS = (
+        (["profile", "saver"], ["action", "mode", "saver"]),
+        (["cpu", "turbo", "off"], ["action", "turbo", "off"]),
+        (["cpu", "epp", "power"], ["action", "epp", "power"]),
+        (["tweak", "wifi", "on"], ["action", "wifi", "on"]),
+        (["tweak", "wifi", "on", "persist"], ["action", "persist", "wifi", "on"]),
+        (["unpin", "wifi"], ["action", "unpersist", "wifi"]),
+        (["daylight", "on"], ["action", "daylight", "on"]),
+    )
+
+    def test_action_changes_then_prints_data(self):
+        for py, rs in self.ROWS:
+            with self.subTest(verb=rs[1]):
+                both(tweak_setup(), (py, rs), normalise=mask_exec, stdout=False, drop=(*DROPPED, *self.READS))
+                with Sandbox() as s:
+                    tweak_setup()(s)
+                    s.stub("omarchy-powerprofiles-list", "", 0, "")
+                    out = s.rust(*rs)
+                    self.assertEqual((out.code, "battery" in json.loads(out.stdout)), (0, True))
+
+    def test_action_with_a_failing_write_still_prints_data(self):
+        with Sandbox() as s:
+            s.config()
+            for argv in (["action", "wifi", "on"], ["action", "nonsense"], ["action", "epp", ""]):
+                out = s.rust(*argv)
+                self.assertEqual((out.code, "battery" in json.loads(out.stdout)), (0, True), argv)
+
+    def test_terminal_action_quotes_the_path(self):
+        with Sandbox() as s:
+            s.config()
+            bin_dir = s.base / "a b" / "bin"
+            script = s.base / "a b" / "extras" / "sleep-tracking" / "apply.sh"
+            script.parent.mkdir(parents=True)
+            script.write_text("")
+            bin_dir.mkdir()
+            s.calls_log.write_text("")
+            p = subprocess.run([str(RUST_BIN), "action", "install-sleep-tracking"], env={**s._env(), "POWER_HUB_BIN": str(bin_dir)},
+                               cwd=s.base, text=True, capture_output=True, timeout=30)
+            for _ in range(100):
+                calls = s.calls_log.read_text().strip()
+                if calls:
+                    break
+                time.sleep(0.05)
+            self.assertEqual((p.returncode, p.stdout), (0, ""))
+            self.assertEqual(calls, f"omarchy-launch-floating-terminal-with-presentation bash '{script}'")
+
+    def test_python_free_panel_actions(self):
+        self.assertNotIn("battery-plus-action", (REPO / "PowerService.qml").read_text())
+        for gone in ("battery-plus-action", "battery-plus-priv"):
+            self.assertFalse((REPO / "bin" / gone).exists())
 
 
 class TweakParity(unittest.TestCase):

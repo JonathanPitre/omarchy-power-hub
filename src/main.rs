@@ -1,3 +1,4 @@
+mod action;
 mod charge;
 mod config;
 mod data;
@@ -37,6 +38,7 @@ fn main() {
         Some("status") => out(system::status()),
         Some("gpu") => out(system::gpu_status()),
         Some("data") => out(data::collect()),
+        Some("action") => action::run(&args[1..]).into_iter().for_each(out),
         Some("config") => {
             let cfg = config::load();
             out(serde_json::json!({"side": power::active_side(&cfg), "config": cfg}));
@@ -88,7 +90,7 @@ fn main() {
             std::process::exit(code);
         }
         _ => {
-            eprintln!("usage: power-hub status|data|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|set|profile|charge|boost|health|quick-dim|travel|tweak|apply|apply-profile|apply-tweaks|unpin|daylight|cpu|helper-install|boost-check|idle-wake-poll|displays sync");
+            eprintln!("usage: power-hub status|data|action|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|set|profile|charge|boost|health|quick-dim|travel|tweak|apply|apply-profile|apply-tweaks|unpin|daylight|cpu|helper-install|boost-check|idle-wake-poll|displays sync");
             std::process::exit(2);
         }
     }

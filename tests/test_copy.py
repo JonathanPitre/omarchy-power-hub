@@ -87,7 +87,7 @@ class PowerPanelCleanupTests(unittest.TestCase):
         model = (ROOT / "Model.js").read_text()
         self.assertIn('key: "abm"', model)
         self.assertIn('key: "effects"', model)
-        self.assertIn("wifi|usb|pcie|audio|abm|effects)", (ROOT / "bin/battery-plus-action").read_text())
+        self.assertIn('"wifi" | "usb" | "pcie" | "audio" | "abm" | "effects"', (ROOT / "src/action.rs").read_text())
         self.assertIn("  abm)\n", (ROOT / "bin/ops-priv").read_text())
 
     def test_panel_holds_estimate_after_plug_or_unplug(self):

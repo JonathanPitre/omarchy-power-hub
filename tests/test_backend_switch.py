@@ -30,7 +30,7 @@ class BackendSwitch(unittest.TestCase):
         svc = (ROOT / "PowerService.qml").read_text()
         self.assertIn('[root.binDir + "/power-hub", "data"]', svc)
         self.assertFalse((ROOT / "bin/battery-plus-data").exists())
-        self.assertIn('exec "$DIR/power-hub" data', (ROOT / "bin/battery-plus-action").read_text())
+        self.assertIn("data::collect()", (ROOT / "src/action.rs").read_text())
 
     def test_binary_is_executable_and_matches_checksum(self):
         hub = ROOT / "bin/power-hub"

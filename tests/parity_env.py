@@ -21,7 +21,7 @@ RUST_BIN = REPO / "target" / "debug" / "power-hub"
 SYSTEM_PATHS = r"(?<![\w/.])/(?:sys|proc|run|var|etc|usr/(?!bin\b|local/bin\b))"
 STUBBED = ("hyprctl", "busctl", "iw", "systemctl", "sudo", "pkexec", "upower", "omarchy", "powerprofilesctl",
            "omarchy-powerprofiles-list", "omarchy-powerprofiles-set", "omarchy-system-lock",
-           "omarchy-shell", "omarchy-launch-screensaver", "pkill")
+           "omarchy-shell", "omarchy-launch-screensaver", "omarchy-launch-floating-terminal-with-presentation", "pkill")
 
 _case = unittest.TestCase()
 
