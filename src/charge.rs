@@ -36,6 +36,15 @@ pub fn helper_needed() -> bool {
     code != 0 || !out.contains(&format!("NOPASSWD: {}", helper.display()))
 }
 
+/// Runs a helper op through sudo only, never prompting; skipped when no current helper is installed.
+pub fn helper_quiet(args: &[&str]) {
+    if let Some(helper) = helper_bin() {
+        let helper = helper.to_string_lossy();
+        let cmd: Vec<&str> = ["sudo", "-n", &helper].into_iter().chain(args.iter().copied()).collect();
+        exec::run(&cmd, secs(8));
+    }
+}
+
 /// Runs a privileged op through the sudo-allowed helper, falling back to pkexec. Empty on success.
 pub fn privileged(args: &[&str]) -> String {
     if let Some(helper) = helper_bin() {
@@ -67,7 +76,7 @@ fn none() -> Value {
     json!({"kind": "none", "available": false, "reason": "", "limit": null, "tool": false, "health": null, "policy": null})
 }
 
-/// Python's `parse_busctl_value`.
+/// One `busctl get-property` reply as a JSON value.
 fn parse_busctl_value(raw: &str) -> Option<Value> {
     let text = raw.trim().split('\n').next().unwrap_or("");
     if text.is_empty() {
@@ -102,7 +111,7 @@ fn upower_batteries() -> Vec<String> {
         .collect()
 }
 
-/// Python `isinstance(v, int)`, where bool counts.
+/// An integer, where a bool counts.
 fn as_int(v: &Option<Value>) -> Option<i64> {
     match v {
         Some(Value::Bool(b)) => Some(i64::from(*b)),

@@ -13,8 +13,14 @@ use std::time::Duration;
 pub(crate) const D: Replay = Replay::direct();
 /// What `both()` compares.
 pub(crate) const BOTH: Replay = Replay { calls: true, ..Replay::direct() };
-/// Python's uncaught error prints a traceback on stderr and Rust prints the message on stdout; its tests compared only the exit code.
+/// An uncaught error ends the verb with exit 1 and the message on stdout; the recorded run printed a traceback on stderr, so only the exit code is compared.
 const UNCAUGHT: Replay = Replay { stdout: false, ..BOTH };
+
+/// The old failed apply left bindings.lua as it was; the binary rewrites the lid block so it never names a gone backend.
+fn without_bindings(rel: &str, text: &str) -> String {
+    if rel.ends_with("hypr/bindings.lua") { String::new() } else { text.to_string() }
+}
+
 pub(crate) const MASKED: Replay = Replay { normalise: Some(mask_exec), ..BOTH };
 
 const SHELL_FILE: &str = "home/.config/omarchy/shell.json";
@@ -44,7 +50,7 @@ pub(crate) fn mask_exec(_path: &str, text: &str) -> String {
     }).collect()
 }
 
-/// Python and Rust must agree on every step: replays each step in a fresh sandbox, calls `after` with the sandbox and
+/// The binary must match the recorded run on every step: replays each step in a fresh sandbox, calls `after` with the sandbox and
 /// the result of each, and returns the sandbox with the last result.
 pub(crate) fn checked_each(name: &str, setup: &impl Setup, steps: &[&[&str]], opts: Replay, after: &mut dyn FnMut(&Sandbox, &Outcome)) -> (Sandbox, Outcome) {
     let s = Sandbox::new();
@@ -205,7 +211,7 @@ mod settings_parity {
         }
     }
 
-    /// Python stubbed which side is active; the binary asks UPower, and that read is its only call.
+    /// The recorded run stubbed which side is active; the binary asks UPower, and that read is its only call.
     const ON_BATTERY_READ: &str = "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery";
 
     #[test]
@@ -656,7 +662,7 @@ mod charge_verb_parity {
     }
 }
 
-/// What a trailing `data` adds to an action: reads Python does and Rust does not fork the same way.
+/// What a trailing `data` adds to an action: reads the recorded run made and the binary does not fork the same way.
 const READS: &[&str] = &["busctl get-property org.freedesktop.UPower", "systemctl is-active"];
 const ACTION_DROP: &[&str] = &["hyprctl", "busctl get-property net.hadess", "omarchy-powerprofiles-list", READS[0], READS[1]];
 
@@ -1153,7 +1159,7 @@ mod apply_parity {
         let s = Sandbox::new();
         ApplyEnv::default().setup(&s);
         chmod(&s.target(SHELL_FILE), 0o444);
-        let r = replay(&s, "ApplyParity.test_unwritable_shell_json_ends_the_verb_like_an_uncaught_error", &["apply"], UNCAUGHT);
+        let r = replay(&s, "ApplyParity.test_unwritable_shell_json_ends_the_verb_like_an_uncaught_error", &["apply"], Replay { normalise: Some(without_bindings), ..UNCAUGHT });
         assert_eq!(r.code, 1);
         assert!(!called(&r, "hid-wakeup") && !called(&r, "pkexec"));
     }

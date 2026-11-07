@@ -45,7 +45,7 @@ fn restore(state: &Value) {
     }
 }
 
-/// Runs `f` holding the display-state lock; None when the lock cannot be taken, as Python's `state_lock` raises.
+/// Runs `f` holding the display-state lock; None when the lock cannot be taken.
 pub fn with_state_lock<T>(f: impl FnOnce() -> T) -> Option<T> {
     let dir = paths::plugin_run_dir();
     fs::create_dir_all(&dir).ok()?;
@@ -61,7 +61,7 @@ pub fn sync() -> Option<String> {
 }
 
 fn sync_locked() -> String {
-    // Unlike Python, a `disabled` that is not a list counts as empty: `idle`, not a crash or a restore of nothing.
+    // A `disabled` that is not a list counts as empty: `idle`, not a crash or a restore of nothing.
     let state = load_state(&state_path());
     if !truthy(&state["disabled"]) {
         return "idle".into();
@@ -183,7 +183,7 @@ fn fallback_disable(monitors: &[Value]) -> Vec<Value> {
     }
     let owned: Vec<Value> = enabled.iter().map(|m| (*m).clone()).collect();
     let keep = laptop_monitor(&owned).map_or_else(|| enabled[0]["name"].clone(), Value::String);
-    // Python also counts down to never disable the last output, but `keep` is never chosen, so that cannot trigger.
+    // The last output is never disabled: `keep` is never chosen, so the count cannot reach it.
     enabled
         .into_iter()
         .filter(|m| truthy(&m["dpmsStatus"]) && m["name"] != keep)
@@ -285,18 +285,14 @@ pub fn park(name: &str) -> bool {
     true
 }
 
-/// Put the idle timers where blanking (or waking) needs them. A config that cannot be read must not stop the blank.
+/// Put the idle timers where blanking (or waking) needs them. A config that cannot be read must not stop the blank,
+/// and a lock or screensaver that is not a number leaves the timers alone rather than turning auto-lock off.
 fn idle_for_blank(blank: bool) {
     let cfg = config::load();
     let src = &cfg[power::active_side(&cfg)];
-    let _ = settings::shell_idle(
-        if blank {
-            0
-        } else {
-            settings::effective_saver(src)
-        },
-        py_int(&src["lock"]).unwrap_or(0),
-    );
+    if let (Some(_), Some(lock)) = (py_int(&src["screensaver"]), py_int(&src["lock"])) {
+        let _ = settings::shell_idle(if blank { 0 } else { settings::effective_saver(src) }, lock);
+    }
 }
 
 /// Keyboard and power-LED lights follow the displays; `daylight` keeps the keys off in a bright room.

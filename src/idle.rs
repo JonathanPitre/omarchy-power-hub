@@ -56,9 +56,9 @@ fn device_names(devices: &Value, key: &str, keep: impl Fn(&str) -> bool) -> Vec<
         .collect()
 }
 
-fn set_enabled(names: &[String], enabled: bool) {
+fn set_enabled(names: &[String], enabled: bool, eval: fn(&str)) {
     for name in names {
-        hypr::eval(&format!(r#"hl.device({{ name = "{name}", enabled = {enabled} }})"#));
+        eval(&format!(r#"hl.device({{ name = "{name}", enabled = {enabled} }})"#));
     }
 }
 
@@ -80,19 +80,20 @@ pub fn poll(blanked: bool) -> String {
     } else {
         "hold"
     };
-    set_inputs(&devices, result == "wake" || lid_open || !blanked);
+    set_inputs(&devices, result == "wake" || lid_open || !blanked, hypr::eval);
     result.into()
 }
 
 /// Enable or disable every mouse and every keyboard that is not a lid, power or video-bus switch.
-pub fn set_inputs(devices: &Value, enabled: bool) {
-    set_enabled(&device_names(devices, "mice", |_| true), enabled);
+pub fn set_inputs(devices: &Value, enabled: bool, eval: fn(&str)) {
+    set_enabled(&device_names(devices, "mice", |_| true), enabled, eval);
     set_enabled(
         &device_names(devices, "keyboards", |n| {
             let n = n.strip_suffix('\n').unwrap_or(n);
             !(n.contains("video-bus") || n.contains("gpio-keys") || n == "power-button")
         }),
         enabled,
+        eval,
     );
 }
 
@@ -104,15 +105,16 @@ fn lid_action(cfg: &Value) -> &str {
 /// Lid switch closed. Inputs go off first so a bump cannot wake what is about to sleep.
 /// Prints nothing and exits 0; when the display-state lock cannot be taken, `display-off` touches nothing.
 pub fn lid_closed() {
-    charge::privileged(&["hid-wakeup", "off"]);
-    set_inputs(&hypr::devices(), false);
+    charge::helper_quiet(&["hid-wakeup", "off"]);
+    set_inputs(&hypr::devices(), false, hypr::eval_slow);
     let cfg = config::load();
     let systemctl = |verb: &str| exec::run(&["systemctl", verb], Duration::from_secs(8)).0;
     match lid_action(&cfg) {
         "display-off" => {
-            if with_state_lock(|| set_displays(true, false)).is_some() {
+            with_state_lock(|| {
+                set_displays(true, false);
                 sync_lights(true);
-            }
+            });
         }
         "suspend" => {
             systemctl("suspend");
@@ -127,8 +129,8 @@ pub fn lid_closed() {
 /// Lid switch opened. Inputs come back before the displays, so a failed display step never leaves them dead.
 /// Prints nothing and exits 0; when the display-state lock cannot be taken, the displays stay as they are.
 pub fn lid_opened() {
-    charge::privileged(&["hid-wakeup", "on"]);
-    set_inputs(&hypr::devices(), true);
+    charge::helper_quiet(&["hid-wakeup", "on"]);
+    set_inputs(&hypr::devices(), true, hypr::eval_slow);
     // Key presses re-enable DPMS but not heads that Displays off disabled.
     // The lights stay in the lock, so a lid bounce cannot relight keys after a close.
     // Lit displays can still have blanked lights; this does nothing when none were saved.

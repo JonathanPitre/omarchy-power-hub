@@ -2,7 +2,7 @@
 //! same test names.
 use crate::read::{TWEAKS_FILE, merged, parsed};
 use crate::support::{Outcome, RUST_BIN, Replay, Sandbox, replay, spawn_with};
-use crate::write::{ApplyEnv, BOTH, Setup, Settings, called, checked, checked_each, has_call, read, starting};
+use crate::write::{ApplyEnv, BOTH, Setup, Settings, called, checked, checked_each, chmod, has_call, read, starting};
 use serde_json::{Value, json};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -133,6 +133,22 @@ mod display_parity {
     }
 
     #[test]
+    fn test_a_lock_or_saver_that_is_not_a_number_leaves_the_idle_timers_alone() {
+        let shell = r#"{"idle": {"screensaver": 150, "lock": 300}}"#;
+        for keys in [json!({"lock": "soon", "screensaver": 150}), json!({"lock": 60, "screensaver": "soon"})] {
+            let s = Sandbox::new();
+            displays(vec![lit("eDP-1")]).keys(json!({"ac": merged(json!({"profile": "balanced"}), keys)})).setup(&s);
+            s.write(SHELL_FILE, shell);
+            for mode in ["off", "on"] {
+                let r = s.rust(&["displays", mode]);
+                assert_eq!((r.code, r.stdout.as_str()), (0, "ok\n"), "{mode}");
+                assert_eq!(read(&s, SHELL_FILE), shell, "{mode}");
+                assert!(r.requests.contains(&dpms(if mode == "off" { "disable" } else { "enable" }, &["eDP-1"])[0]), "{mode}");
+            }
+        }
+    }
+
+    #[test]
     fn test_off_blanks_every_head_and_parks_the_ones_dpms_cannot_reach() {
         let flip = json!({"description": FLIP});
         let with_flip = |name: &str| head(name, true, flip.clone());
@@ -166,7 +182,7 @@ mod display_parity {
         checked("DisplayParity.test_off_keeps_heads_that_were_already_parked", &setup, &[&["displays", "off"], &["displays", "off"], &["displays", "on"]], REQ);
     }
 
-    /// Rust-only: no recorded case has two direct disables. Expected values were observed from `bin/ops.py` on this
+    /// Rust-only: no recorded case has two direct disables. Expected values were observed from the old implementation on this
     /// system; the eval order follows the monitor list, whatever order the droppers file has.
     #[test]
     fn test_off_with_two_droppers_disables_them_in_monitor_order() {
@@ -439,7 +455,7 @@ type Go = Box<dyn Fn(&Sandbox, &[&str])>;
 mod lights_parity {
     use super::*;
 
-    /// Runs steps one at a time in the sandbox `setup` made, each compared with the next recorded Python step.
+    /// Runs steps one at a time in the sandbox `setup` made, each compared with the next recorded step.
     fn start(setup: &impl Setup, name: &'static str) -> (Sandbox, Go) {
         let s = Sandbox::new();
         setup.setup(&s);
@@ -715,6 +731,10 @@ mod lights_parity {
 
 const LID_BEGIN: &str = "-- BEGIN Omarchy Power Hub lid action override";
 const LID_END: &str = "-- END Omarchy Power Hub lid action override";
+/// The goldens show the old `pkexec` wakeup; the lid verbs never call it, so replays drop it and the tests below pin that.
+const LID_DROP: &[&str] = &["hyprctl", "busctl get-property net.hadess", "omarchy-powerprofiles-list", "pkexec"];
+const LID: Replay = Replay { drop: LID_DROP, ..BOTH };
+const LID_REQ: Replay = Replay { requests: true, ..LID };
 const SEEN_INPUTS: [&str; 3] = ["m1", "pixa3854:00-093a:0274-mouse", "kb"];
 
 fn device_eval(name: &str, enabled: &str) -> String {
@@ -753,8 +773,7 @@ fn inputs_come_first(s: &Sandbox, r: &Outcome, enabled: &str) {
     let inputs: Vec<usize> = log.iter().enumerate().filter(|(_, c)| c.starts_with("EVAL hl.device")).map(|(i, _)| i).collect();
     let after: Vec<usize> = log.iter().enumerate().filter(|(_, c)| c.starts_with("systemctl")).map(|(i, _)| i).collect();
     assert!(!inputs.is_empty() && after.iter().all(|i| *i > *inputs.last().unwrap()), "{log:?}");
-    let wakeup = format!("pkexec {}/ops-priv hid-wakeup {}\n", s.bin.display(), if enabled == "true" { "on" } else { "off" });
-    assert!(fs::read_to_string(&s.calls_log).unwrap().starts_with(&wakeup));
+    assert!(log_starting(s, "pkexec").is_empty(), "{log:?}");
 }
 
 mod lid_parity {
@@ -765,11 +784,31 @@ mod lid_parity {
         let wanted: [(&'static str, &[&str]); 4] = [("nothing", &[]), ("display-off", &[]), ("suspend", &["systemctl suspend"]),
                                                     ("hibernate", &["systemctl hibernate", "systemctl suspend"])];
         for (action, systemctl) in wanted {
-            let (_, r) = checked_each("LidParity.test_close_runs_the_action_after_the_inputs_are_off", &default_lid(action), &[&["lid-closed"]], REQ, &mut |s, r| {
+            let (_, r) = checked_each("LidParity.test_close_runs_the_action_after_the_inputs_are_off", &default_lid(action), &[&["lid-closed"]], LID_REQ, &mut |s, r| {
                 inputs_come_first(s, r, "false");
                 assert_eq!(log_starting(s, "systemctl"), systemctl, "{action}");
             });
             assert_eq!(r.evals[..3], SEEN_INPUTS.map(|n| device_eval(n, "false")), "{action}");
+        }
+    }
+
+    #[test]
+    fn test_no_verb_asks_for_a_password_and_a_current_helper_is_asked_once_first() {
+        for (verb, enabled, word) in [("lid-closed", "false", "off"), ("lid-opened", "true", "on")] {
+            let s = Sandbox::new();
+            default_lid("nothing")(&s);
+            s.rust(&[verb]);
+            assert!(log_starting(&s, "pkexec").is_empty() && log_starting(&s, "sudo").is_empty(), "{verb} without a helper: {:?}", log_lines(&s));
+            let s = Sandbox::new();
+            default_lid("nothing")(&s);
+            s.install_helper(false);
+            let r = s.rust(&[verb]);
+            let log = log_lines(&s);
+            let call = format!("sudo -n {}/ops-priv hid-wakeup {word}", s.helper_dir().display());
+            assert_eq!(log.iter().filter(|c| c.starts_with("sudo")).collect::<Vec<_>>(), [&call], "{verb}");
+            assert!(log_starting(&s, "pkexec").is_empty(), "{verb}");
+            assert!(log.iter().position(|c| *c == call) < log.iter().position(|c| c.starts_with("EVAL hl.device")), "{verb}: {log:?}");
+            assert!(input_evals(&r, enabled), "{verb}");
         }
     }
 
@@ -789,7 +828,7 @@ mod lid_parity {
             default_lid("hibernate")(s);
             s.stub("systemctl", "hibernate", 0, "");
         };
-        checked_each("LidParity.test_a_working_hibernate_does_not_fall_back_to_suspend", &setup, &[&["lid-closed"]], BOTH, &mut |s, _| {
+        checked_each("LidParity.test_a_working_hibernate_does_not_fall_back_to_suspend", &setup, &[&["lid-closed"]], LID, &mut |s, _| {
             assert_eq!(log_starting(s, "systemctl"), ["systemctl hibernate"]);
         });
     }
@@ -800,7 +839,7 @@ mod lid_parity {
         let parked = json!([{"name": "DP-9", "width": 100, "height": 100}]);
         let mons = vec![lit("eDP-1"), described("DP-1", FLIP)];
         let setup = lid_setup("display-off", displays(mons).state(json!({"disabled": parked})).droppers(Some(json!([FLIP]))));
-        checked_each("LidParity.test_close_with_display_off_sends_dpms_only_and_disables_no_head", &setup, &[&["lid-closed"]], REQ, &mut |s, r| {
+        checked_each("LidParity.test_close_with_display_off_sends_dpms_only_and_disables_no_head", &setup, &[&["lid-closed"]], LID_REQ, &mut |s, r| {
             assert_eq!(r.requests.iter().filter(|q| q.starts_with("dispatch")).cloned().collect::<Vec<_>>(), dpms("disable", &["eDP-1", "DP-1"]));
             assert!(r.evals.iter().all(|e| !e.contains("disabled")));
             assert_eq!(s.read_state(), json!({"disabled": parked}));
@@ -817,7 +856,7 @@ mod lid_parity {
         let s = Sandbox::new();
         setup(&s);
         let go = |argv: &[&str]| {
-            replay(&s, T, argv, BOTH);
+            replay(&s, T, argv, LID);
         };
         go(&["lid-closed"]);
         assert_eq!((keys_level(&s), kblight_saved(&s)), (0, Some(json!({"level": 67}))));
@@ -838,7 +877,7 @@ mod lid_parity {
         ];
         for (label, mons, state) in cases {
             let shown = state.into_iter().fold(displays(mons), |d, state| d.state(state));
-            checked_each("LidParity.test_open_restores_parked_heads_and_wakes_dark_ones_after_the_inputs", &lid_setup("display-off", shown), &[&["lid-opened"]], REQ, &mut |s, r| {
+            checked_each("LidParity.test_open_restores_parked_heads_and_wakes_dark_ones_after_the_inputs", &lid_setup("display-off", shown), &[&["lid-opened"]], LID_REQ, &mut |s, r| {
                 inputs_come_first(s, r, "true");
                 assert!(r.requests.contains(&dpms("enable", &["eDP-1"])[0]), "{label}");
                 assert_eq!(s.read_state(), json!({"disabled": []}), "{label}");
@@ -850,11 +889,11 @@ mod lid_parity {
     fn test_open_with_lit_heads_and_nothing_parked_only_enables_the_inputs() {
         for state in [Some(json!({"disabled": []})), None] {
             let shown = state.into_iter().fold(displays(vec![lit("eDP-1")]), |d, state| d.state(state));
-            checked_each("LidParity.test_open_with_lit_heads_and_nothing_parked_only_enables_the_inputs", &lid_setup("display-off", shown), &[&["lid-opened"]], REQ, &mut |s, r| {
+            checked_each("LidParity.test_open_with_lit_heads_and_nothing_parked_only_enables_the_inputs", &lid_setup("display-off", shown), &[&["lid-opened"]], LID_REQ, &mut |s, r| {
                 inputs_come_first(s, r, "true");
                 assert!(r.requests.iter().all(|q| !q.starts_with("dispatch") && !q.starts_with("eval hl.monitor")));
                 let logged: Vec<String> = log_lines(s).into_iter().filter(|c| !c.is_empty() && !c.starts_with("EVAL")).collect();
-                assert_eq!(logged, [format!("pkexec {}/ops-priv hid-wakeup on", s.bin.display())]);
+                assert_eq!(logged, Vec::<String>::new());
             });
         }
     }
@@ -867,7 +906,7 @@ mod lid_parity {
         assert_eq!((r.code, r.stdout.as_str()), (0, ""));
     }
 
-    /// Python dies on the lock with a traceback; the binary exits 0 and leaves the displays alone.
+    /// The binary exits 0 and leaves the displays alone; the recorded old run died on the lock with a traceback.
     #[test]
     fn test_a_lock_that_cannot_be_taken_still_turns_the_inputs_off_and_on() {
         let s = Sandbox::new();
@@ -1024,6 +1063,7 @@ mod recovery_parity {
     }
 }
 
+const SHELL_FILE: &str = "home/.config/omarchy/shell.json";
 const UPDATE_UNIT: &str = "[Unit]\nDescription=Omarchy Power Hub device tweaks\n\n[Service]\nType=oneshot\nExecStart=/usr/bin/python3 {bin}/ops.py apply-tweaks\n\n[Install]\nWantedBy=default.target\n";
 const BINDINGS_FILE: &str = "home/.config/hypr/bindings.lua";
 const UNIT_FILE: &str = "home/.config/systemd/user/omarchy-power-hub-tweaks.service";
@@ -1066,6 +1106,20 @@ mod update_from_python {
         let again = s.rust(&["apply"]);
         assert_eq!((again.requests.iter().filter(|q| *q == "reload").count(), read(&s, UNIT_FILE)), (0, unit));
         assert!(!has_call(&again, "systemctl --user daemon-reload"));
+    }
+
+    #[test]
+    fn test_a_failed_apply_still_rewrites_a_lid_block_that_names_python() {
+        let s = Sandbox::new();
+        old_install(true)(&s);
+        chmod(&s.target(SHELL_FILE), 0o444);
+        let r = s.rust(&["apply"]);
+        let bindings = read(&s, BINDINGS_FILE);
+        assert_eq!(r.code, 1);
+        assert!(!bindings.contains("python3"));
+        assert_eq!(bindings.matches(LID_BEGIN).count(), 1);
+        assert!(bindings.contains(&format!("{}/power-hub lid-closed", s.bin.display())));
+        assert!(bindings.contains(&format!("{}/power-hub lid-opened", s.bin.display())));
     }
 
     #[test]

@@ -17,7 +17,7 @@ fn weekly(n: i64) -> i64 {
     if n <= 0 { WEEK } else { n }
 }
 
-/// Python `idle.get(k) == v` for a number.
+/// Whether the idle key already holds the number.
 fn equals(v: Option<&Value>, want: i64) -> bool {
     v.is_some_and(|v| matches!(v, Value::Number(_) | Value::Bool(_)) && py_float(v) == Some(want as f64))
 }
@@ -192,7 +192,7 @@ pub fn set_key(side: &str, key: &str, value: &str) -> String {
 }
 
 /// Apply the active side's profile, idle, hibernate delay and lid action under the energy lock.
-/// An error Python lets escape (an unwritable file) is an `Err`, which ends the verb with exit 1.
+/// An unwritable file is an `Err`, which ends the verb with exit 1.
 pub fn apply_active() -> io::Result<String> {
     let _lock = energy_lock()?;
     let cfg = config::load();
@@ -233,11 +233,14 @@ pub fn apply_active() -> io::Result<String> {
 /// `apply`: the active side, then the pinned tweaks (after the lock is released), then the HID wakeup when the lid is open.
 pub fn apply() -> String {
     let active = apply_active();
-    // A failed profile apply must not leave a unit that still names ops.py.
+    // A failed apply must not leave a unit or a lid binding that still names the old backend.
     tweaks::refresh_unit();
     let active = match active {
         Ok(e) => e,
-        Err(e) => return e.to_string(),
+        Err(e) => {
+            let _ = write_lid_block();
+            return e.to_string();
+        }
     };
     let mut err = format!("{active} {}", tweaks::apply_saved_tweaks()).trim().to_string();
     if idle::lid_is_open(&idle::lid_text()) {
