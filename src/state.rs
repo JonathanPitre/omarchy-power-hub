@@ -111,6 +111,12 @@ pub fn travel_state() -> Value {
     state
 }
 
+/// Whether Travel holds the CPU controls, and with them the remembered profiles.
+pub fn cpu_owned() -> bool {
+    let travel = travel_state();
+    truthy(&travel["on"]) && travel.get("reduceCpu").is_none_or(truthy)
+}
+
 pub fn quick_dim_state() -> Value {
     let state = read_energy(&paths::plugin_run_dir().join("quick-dim.json"), json!({"on": false}));
     if truthy(&state["invalid"]) {

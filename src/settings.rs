@@ -1,4 +1,4 @@
-use crate::state::{energy_lock, py_float, py_int, travel_state};
+use crate::state::{cpu_owned, energy_lock, py_float, py_int, travel_state};
 use crate::config::{self, LID_ACTIONS, truthy};
 use crate::{charge, exec, hypr, paths, power, system};
 use serde_json::{Value, json};
@@ -146,12 +146,6 @@ pub fn apply_hibernate_delay(seconds: i64) -> String {
         };
     }
     charge::privileged(&["hibernate-delay", &seconds.to_string()])
-}
-
-/// Whether Travel holds the CPU controls, and with them the remembered profiles.
-fn cpu_owned() -> bool {
-    let travel = travel_state();
-    truthy(&travel["on"]) && travel.get("reduceCpu").is_none_or(truthy)
 }
 
 pub fn set_key(side: &str, key: &str, value: &str) -> String {

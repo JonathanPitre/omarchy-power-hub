@@ -1,5 +1,5 @@
 use crate::config::{save_tweaks, saved_prefs, truthy};
-use crate::state::{energy_lock, travel_state};
+use crate::state::{cpu_owned, energy_lock};
 use crate::{charge::privileged, data::panel_power_savings, exec, hypr, paths};
 use serde_json::{Map, Value, json};
 use std::{fs, io, time::Duration};
@@ -11,12 +11,6 @@ const EFFECT_OPTIONS: [(&str, &str); 2] = [
     ("animations:enabled", "animations = { enabled = {} }"),
     ("decoration:shadow:enabled", "decoration = { shadow = { enabled = {} } }"),
 ];
-
-/// Python `bool(travel.on and travel.reduceCpu)`: Travel holds the CPU settings.
-fn cpu_owned() -> bool {
-    let travel = travel_state();
-    truthy(&travel["on"]) && travel.get("reduceCpu").is_none_or(truthy)
-}
 
 /// The option's boolean as Hyprland prints it: text after the last `:` of the first line.
 fn hypr_option(name: &str) -> Option<bool> {

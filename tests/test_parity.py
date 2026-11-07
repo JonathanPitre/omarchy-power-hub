@@ -1385,8 +1385,16 @@ class TweakParity(unittest.TestCase):
         tweak_both(tweak_setup(prefs, travel=travel_snapshot()), ["apply-tweaks"])
 
     def test_apply_tweaks_reports_the_last_failure(self):
-        prefs = {"wifiPinned": True, "usbPinned": True, "eppPinned": True, "epp": "power"}
-        tweak_both(lambda s: (s.config(), s.write(TWEAKS_FILE, json.dumps(prefs))), ["apply-tweaks"])
+        def setup(pins):
+            def go(s):
+                s.config()
+                s.write(TWEAKS_FILE, json.dumps({k: True for k in pins} | {"epp": "power"}))
+                for key in ("wifi", "usb", "epp"):
+                    s.stub("pkexec", key, 1, f"{key} failed\n")
+            return go
+        for pins, last in ((["wifiPinned", "usbPinned", "eppPinned"], "epp failed"), (["wifiPinned", "usbPinned"], "usb failed")):
+            with self.subTest(last=last), tweaked(setup(pins), ["apply-tweaks"]) as (_, r):
+                self.assertEqual(r.stdout.strip(), last)
 
     def test_tweaks_unit_runs_the_binary(self):
         with Sandbox() as s:
