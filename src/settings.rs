@@ -1,5 +1,5 @@
 use crate::state::{energy_lock, py_float, py_int, travel_state};
-use crate::config::{self, truthy};
+use crate::config::{self, LID_ACTIONS, truthy};
 use crate::{charge, exec, hypr, paths, power, system};
 use serde_json::{Value, json};
 use std::time::Duration;
@@ -8,7 +8,6 @@ use std::{fs, io};
 const WEEK: i64 = 7 * 24 * 3600;
 const BEGIN: &str = "-- BEGIN Omarchy Power Hub lid action override";
 const END: &str = "-- END Omarchy Power Hub lid action override";
-const LID_ACTIONS: [&str; 4] = ["nothing", "display-off", "suspend", "hibernate"];
 
 fn io_err(r: io::Result<()>) -> String {
     r.err().map(|e| e.to_string()).unwrap_or_default()
@@ -74,8 +73,10 @@ pub fn remember_travel_profiles(cfg: Option<&Value>, held: Option<&str>) -> io::
 }
 
 pub fn canonical_profile(value: &str, side: &str) -> String {
-    let default = if side == "ac" && config::offered(&mut None).iter().any(|p| p == "performance") { "performance" } else { "balanced" };
-    config::alias(value).unwrap_or(default).into()
+    config::alias(value).map_or_else(
+        || if side == "ac" && config::offered(&mut None).iter().any(|p| p == "performance") { "performance" } else { "balanced" }.into(),
+        String::from,
+    )
 }
 
 pub fn apply_profile(side: &str, mode: &str, live: bool) -> String {
@@ -103,7 +104,7 @@ fn without_blocks(text: &str) -> String {
     out + rest
 }
 
-pub fn write_lid_block(action: &str) -> io::Result<()> {
+pub fn write_lid_block() -> io::Result<()> {
     let path = paths::bindings_file();
     let original = match fs::read_to_string(&path) {
         Ok(t) => t,
@@ -111,16 +112,14 @@ pub fn write_lid_block(action: &str) -> io::Result<()> {
         Err(e) => return Err(e),
     };
     let mut text = without_blocks(&original);
-    if action != "system-default" {
-        let exe = paths::bin_dir().join("ops.py");
-        let exe = exe.display();
-        if !text.ends_with('\n') {
-            text.push('\n');
-        }
-        text += &format!(
-            "{BEGIN}\nhl.unbind(\"switch:on:Lid Switch\")\nhl.unbind(\"switch:off:Lid Switch\")\no.bind(\"switch:on:Lid Switch\", nil, \"python3 {exe} lid-closed\", {{ locked = true }})\no.bind(\"switch:off:Lid Switch\", nil, \"python3 {exe} lid-opened\", {{ locked = true }})\n{END}\n"
-        );
+    let exe = paths::bin_dir().join("ops.py");
+    let exe = exe.display();
+    if !text.ends_with('\n') {
+        text.push('\n');
     }
+    text += &format!(
+        "{BEGIN}\nhl.unbind(\"switch:on:Lid Switch\")\nhl.unbind(\"switch:off:Lid Switch\")\no.bind(\"switch:on:Lid Switch\", nil, \"python3 {exe} lid-closed\", {{ locked = true }})\no.bind(\"switch:off:Lid Switch\", nil, \"python3 {exe} lid-opened\", {{ locked = true }})\n{END}\n"
+    );
     if text != original {
         fs::write(path, text)?;
         hypr::request("reload");
@@ -193,7 +192,7 @@ pub fn set_key(side: &str, key: &str, value: &str) -> String {
     match key {
         "screensaver" | "displaysOff" | "lock" => shell_idle(effective_saver(&src), int_of(&src, "lock")),
         "hibernateAfter" if int_of(&src, key) > 0 => apply_hibernate_delay(int_of(&src, key)),
-        "lid" => io_err(write_lid_block(src["lid"].as_str().unwrap_or("suspend"))),
+        "lid" => io_err(write_lid_block()),
         _ => String::new(),
     }
 }

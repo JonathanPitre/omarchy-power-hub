@@ -1070,6 +1070,11 @@ class SettingsParity(unittest.TestCase):
         with checked(settings_setup(), ["profile", "saver"]) as (_, last):
             self.assertIn("omarchy-powerprofiles-set ac power-saver", last.calls)
 
+    def test_a_named_profile_never_asks_the_daemon(self):
+        for step in (["profile", "saver"], ["set", "ac", "profile", "saver"]):
+            with checked(settings_setup(), step) as (_, last):
+                self.assertFalse([c for c in last.calls if "net.hadess" in c])
+
     def test_profile_on_the_battery_side_is_applied(self):
         with checked(settings_setup(battery=True), ["profile", "full"]) as (_, last):
             self.assertIn("omarchy-powerprofiles-set battery performance", last.calls)

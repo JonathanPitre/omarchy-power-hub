@@ -3,7 +3,7 @@ use serde_json::{Map, Value, json};
 use std::time::Duration;
 use std::{fs, io};
 
-const LID_ACTIONS: [&str; 4] = ["nothing", "display-off", "suspend", "hibernate"];
+pub const LID_ACTIONS: [&str; 4] = ["nothing", "display-off", "suspend", "hibernate"];
 
 /// Python truthiness of a JSON value.
 pub fn truthy(v: &Value) -> bool {
