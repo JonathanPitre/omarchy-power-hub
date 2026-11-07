@@ -1,11 +1,7 @@
-use crate::{config, data, paths, power, settings, tweaks};
+use crate::{config, on, data, paths, power, settings, tweaks};
 use serde_json::Value;
 use std::path::Path;
 use std::process::{Command, Stdio};
-
-fn on(arg: &str) -> bool {
-    matches!(arg, "1" | "on" | "true")
-}
 
 /// The panel's one round trip: make the change, discard its result as the script's `>/dev/null` did, then return fresh data.
 /// `install-sleep-tracking` opens a terminal instead and returns nothing.

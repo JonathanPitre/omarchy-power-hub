@@ -28,7 +28,7 @@ fn report(err: String) -> ! {
     std::process::exit(i32::from(!err.is_empty()))
 }
 
-fn on(arg: &str) -> bool {
+pub(crate) fn on(arg: &str) -> bool {
     matches!(arg, "1" | "on" | "true")
 }
 
