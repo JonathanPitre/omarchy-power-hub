@@ -203,7 +203,7 @@ jq -cn \
     rapl:   { available:$raplAvail, package:$rpkg, core:$rcore, gpu:$rgpu },
     tlp:    { installed:$tlpInstalled, active:$tlpActive, mode:$tlpMode, manual:$tlpManual },
     tweaks: ({ wifi:$wifi, usb:$usb, pcie:$pcie, audio:$audio, abm:$abm, abmAvailable:$abmAvailable,
-               effects:$effects } + $pins),
+               effects:$effects, daylight:false, daylightAvailable:false } + $pins),
     sleep:  ($sleep + {installed:$sleepInstalled}),
     wifiFix: { chipPresent:$wifiChip, installed:$wifiFixInstalled, problemSeen:$wifiProblem, failCount:$wifiFails }
   }'

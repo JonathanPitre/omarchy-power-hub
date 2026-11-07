@@ -1306,7 +1306,7 @@ def lid_closed():
     if action == "display-off":
         with display_power.state_lock():
             set_displays("off", disable=False)
-        kblight.sync("off", priv_bin=helper_bin())
+        sync_lights("off")
         return 0
     if action == "suspend":
         run(["systemctl", "suspend"], timeout=8)
@@ -1331,7 +1331,7 @@ def lid_opened():
         if (display_power.load_state().get("disabled")
                 or display_power.blanked(display_power.default_monitors())):
             set_displays("on")
-            kblight.sync("on", priv_bin=helper_bin())
+            sync_lights("on")
     return 0
 
 def tweak_state():
@@ -1344,6 +1344,13 @@ def _hypr_option(name):
     code, out = run(["hyprctl", "getoption", name])
     first = out.split("\n", 1)[0].split(":")[-1].strip() if code == 0 else ""
     return {"true": True, "1": True, "false": False, "0": False}.get(first)
+
+def saved_prefs():
+    prefs = tweak_state()
+    return prefs if isinstance(prefs, dict) else {}
+
+def sync_lights(mode):
+    kblight.sync(mode, priv_bin=helper_bin(), daylight=saved_prefs().get("daylight") is True)
 
 def tweak_on(key):
     """Live state of a saving tweak, or None when this machine cannot do it."""
@@ -1630,6 +1637,11 @@ def main(argv):
         err = set_key(side, "profile", argv[2])
         print(err or "ok")
         return 0 if not err else 1
+    if cmd == "daylight" and len(argv) >= 3:
+        TWEAKS.parent.mkdir(parents=True, exist_ok=True)
+        TWEAKS.write_text(json.dumps({**saved_prefs(), "daylight": argv[2] == "on"}, indent=2) + "\n")
+        print("ok")
+        return 0
     if cmd == "unpin" and len(argv) >= 3:
         state = tweak_state()
         state.pop(argv[2] + "Pinned", None)
@@ -1739,7 +1751,7 @@ def main(argv):
             if argv[2] in {"off", "disable", "on"}:
                 idle_for_blank(argv[2] in {"off", "disable"})
             err = set_displays(argv[2])
-        kblight.sync(argv[2], priv_bin=helper_bin())
+        sync_lights(argv[2])
         print(err or "ok")
         return 0 if not err else 1
     if cmd == "lid-closed":

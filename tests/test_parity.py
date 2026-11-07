@@ -623,7 +623,7 @@ class DataParity(unittest.TestCase):
             r = s.rust("data")
             d = data_of(s)
             self.assertEqual(d["tweaks"], {"wifi": True, "usb": False, "pcie": True, "audio": True, "abm": True,
-                                           "abmAvailable": True, "effects": True,
+                                           "abmAvailable": True, "effects": True, "daylight": False, "daylightAvailable": False,
                                            "wifiPinned": True, "usbPinned": False, "audioPinned": 3})
             self.assertEqual(r.requests, ["getoption animations:enabled"])
             self.assertIn("iw dev wlan0 get power_save", r.calls_text)
@@ -634,7 +634,18 @@ class DataParity(unittest.TestCase):
             s.write("/sys/class/drm/card1/amdgpu/panel_power_savings", "0\n")
             s.write("/sys/module/snd_hda_intel/parameters/power_save", "0\n")
             self.assertEqual(data_of(s)["tweaks"], {"wifi": False, "usb": False, "pcie": False, "audio": False,
-                                                    "abm": False, "abmAvailable": True, "effects": False})
+                                                    "abm": False, "abmAvailable": True, "effects": False,
+                                                    "daylight": False, "daylightAvailable": False})
+
+    def test_daylight_option_needs_a_framework_with_a_sensor(self):
+        with Sandbox() as s:
+            tweaks = lambda: json.loads(s.rust("data").stdout)["tweaks"]
+            s.write("/sys/bus/iio/devices/iio:device0/in_illuminance_raw", "37\n")
+            self.assertFalse(tweaks()["daylightAvailable"])
+            s.write("/sys/class/dmi/id/sys_vendor", "Framework\n")
+            self.assertTrue(tweaks()["daylightAvailable"])
+            s.write("home/.config/omarchy/power-hub-tweaks.json", json.dumps({"daylight": True}))
+            self.assertTrue(tweaks()["daylight"])
 
     def test_tweaks_file_holding_a_list(self):
         with Sandbox() as s:

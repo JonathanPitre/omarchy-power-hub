@@ -182,6 +182,87 @@ class KblightTests(unittest.TestCase):
             self.assertEqual(level["keys"], 67)
             self.assertEqual(led.joinpath("brightness").read_text().strip(), "80")
 
+    def daylight_keyboard(self, tmp, lux):
+        """A Laptop 16 at 67% whose lights went off, with a sensor reading `lux`."""
+        self.keys = 67
+
+        def run(args, timeout=4, input=None):
+            if args == ["qmk_hid", "via", "--backlight"]:
+                return 0, f"Brightness: {self.keys}%\n"
+            if args[:3] == ["qmk_hid", "via", "--backlight"]:
+                self.keys = laptop_16_step(int(args[3]))
+            return 0, ""
+
+        self.run_keys = run
+        self.path = os.path.join(tmp, "kblight.json")
+        self.leds = os.path.join(tmp, "leds")
+        self.led = fake_led(self.leds)
+        self.sensors = pathlib.Path(tmp, "iio")
+        device = self.sensors / "iio:device0"
+        device.mkdir(parents=True)
+        if lux is not None:
+            device.joinpath("in_illuminance_raw").write_text(f"{lux}\n")
+        self.sync("off")
+
+    def sync(self, mode, daylight=True):
+        kblight.sync(mode, run=self.run_keys, which=only_qmk, path=self.path, priv_bin="",
+                     model_fn=lambda: "16", leds=self.leds, daylight=daylight, sensors=self.sensors)
+
+    def test_daylight_keeps_keys_off_and_restores_the_power_button(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.daylight_keyboard(tmp, 100)
+            self.sync("on")
+            self.assertEqual(self.keys, 0)
+            self.assertEqual(self.led.joinpath("brightness").read_text().strip(), "80")
+
+    def test_room_below_the_cut_off_restores_the_keys(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.daylight_keyboard(tmp, 99)
+            self.sync("on")
+            self.assertEqual(self.keys, 67)
+            self.assertFalse(os.path.exists(self.path))
+
+    def test_unreadable_sensor_restores_the_keys(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.daylight_keyboard(tmp, None)
+            self.sync("on")
+            self.assertEqual(self.keys, 67)
+
+    def test_daylight_option_off_restores_the_keys(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.daylight_keyboard(tmp, 3355)
+            self.sync("on", daylight=False)
+            self.assertEqual(self.keys, 67)
+
+    def test_saved_level_returns_at_a_later_wake_in_the_dark(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.daylight_keyboard(tmp, 3355)
+            self.sync("on")
+            self.sync("off")
+            self.assertEqual(self.led.joinpath("brightness").read_text().strip(), "0")
+            self.sensors.joinpath("iio:device0/in_illuminance_raw").write_text("37\n")
+            self.sync("on")
+            self.assertEqual(self.keys, 67)
+            self.assertEqual(self.led.joinpath("brightness").read_text().strip(), "80")
+
+    def test_level_set_by_hand_in_daylight_replaces_the_saved_one(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.daylight_keyboard(tmp, 3355)
+            self.sync("on")
+            self.keys = 33
+            self.sync("off")
+            self.sensors.joinpath("iio:device0/in_illuminance_raw").write_text("37\n")
+            self.sync("on")
+            self.assertEqual(self.keys, 33)
+
+    def test_lux_applies_the_sensor_scale(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            device = pathlib.Path(tmp, "iio:device3")
+            device.mkdir()
+            device.joinpath("in_illuminance_raw").write_text("50\n")
+            device.joinpath("in_illuminance_scale").write_text("2.5\n")
+            self.assertEqual(kblight.lux(tmp), 125)
+
     def test_power_button_uses_tee_when_sysfs_is_root_only(self):
         calls = []
 

@@ -7,6 +7,7 @@
 #   battery-plus-action turbo on|off
 #   battery-plus-action epp   power|balance_power|balance_performance|performance
 #   battery-plus-action wifi|usb|pcie|audio|abm|effects  on|off
+#   battery-plus-action daylight on|off
 #   battery-plus-action persist   wifi|usb|pcie|audio  on|off   (write to TLP config)
 #   battery-plus-action unpersist wifi|usb|pcie|audio          (back to defaults)
 #   battery-plus-action scan | dashboard | install                    (opens a terminal)
@@ -41,6 +42,8 @@ case "$verb" in
     python3 "$DIR/ops.py" cpu "$verb" "$arg" >/dev/null ;;
   wifi|usb|pcie|audio|abm|effects)
     python3 "$DIR/ops.py" tweak "$verb" "$arg" >/dev/null ;;
+  daylight)
+    python3 "$DIR/ops.py" daylight "$arg" >/dev/null ;;
   persist)
     python3 "$DIR/ops.py" tweak "$arg" "$arg2" persist >/dev/null ;;
   unpersist)

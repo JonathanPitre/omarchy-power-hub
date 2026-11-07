@@ -16,6 +16,8 @@ FP_LEVEL = re.compile(r"Brightness:\s*(\d{1,3})\s*%")
 REQUESTED = re.compile(r"Requested:\s*(.+)")
 FP_LEVELS = {"auto", "high", "medium", "low", "ultra-low"}
 PRIV = pathlib.Path(__file__).resolve().parent / "ops-priv"
+DAYLIGHT_LUX = 100
+SENSORS = "/sys/bus/iio/devices"
 
 
 def _run(args, timeout=4, input=None):
@@ -72,6 +74,8 @@ def _load_state(path):
     if not isinstance(raw, dict):
         return {}
     state = {}
+    if raw.get("held") is True:
+        state["held"] = True
     level = raw.get("level")
     if isinstance(level, int) and not isinstance(level, bool) and 0 <= level <= 100:
         state["level"] = level
@@ -226,7 +230,22 @@ def _drop(path):
         pass
 
 
-def sync(mode, run=None, which=None, path=None, priv_bin=None, model_fn=None, leds=None):
+def lux(sensors=None):
+    """Ambient light, or None when no sensor can be read."""
+    for raw in sorted(pathlib.Path(sensors or SENSORS).glob("iio:device*/in_illuminance_raw")):
+        try:
+            value = float(raw.read_text())
+        except (OSError, ValueError):
+            continue
+        try:
+            return value * float(raw.with_name("in_illuminance_scale").read_text())
+        except (OSError, ValueError):
+            return value
+    return None
+
+
+def sync(mode, run=None, which=None, path=None, priv_bin=None, model_fn=None, leds=None,
+         daylight=False, sensors=None):
     run, which = _deps(run, which)
     path = path or STATE_PATH
     if priv_bin is None and PRIV.is_file():
@@ -251,7 +270,9 @@ def sync(mode, run=None, which=None, path=None, priv_bin=None, model_fn=None, le
         saved = _load_state(path)
         if not saved:
             return ""
-        if (qmk or ec_keys) and "level" in saved:
+        reading = lux(sensors) if daylight else None
+        held = (qmk or ec_keys) and "level" in saved and reading is not None and reading >= DAYLIGHT_LUX
+        if (qmk or ec_keys) and "level" in saved and not held:
             # The Laptop 16 keyboard rounds down, so writing its reported 33 back gives 0.
             level = min(saved["level"] + 1, 100) if qmk else saved["level"]
             argv = keys + [str(level)]
@@ -263,15 +284,21 @@ def sync(mode, run=None, which=None, path=None, priv_bin=None, model_fn=None, le
             argv = _fp_restore(fp)
             if argv:
                 _call(argv, run, _priv_argv(argv, priv_bin))
-        _drop(path)
+        if held:
+            # Kept so the next wake in a darker room can still restore the level.
+            _save(path, {"level": saved["level"], "held": True})
+        else:
+            _drop(path)
         return ""
     # A second off would read the darkened lights and lose the levels to restore.
-    if _load_state(path):
+    saved = _load_state(path)
+    if saved and not saved.get("held"):
         return ""
     state = {}
     if qmk or ec_keys:
         code, out = _call(keys, run, key_priv)
         level = _percent(out) if _tool_ok(code, out) else None
+        level = level or saved.get("level", level)
         if level is not None:
             state["level"] = level
         set_keys = keys + ["0"]

@@ -301,6 +301,7 @@ var TWEAK_INFO = [
   },
   {
     key: "abm",
+    optional: true,
     title: "Panel power saving",
     blurb: "Lowers the backlight and boosts contrast",
     help: "AMD's adaptive backlight. Saves display power, but colors can look less accurate "
@@ -312,5 +313,14 @@ var TWEAK_INFO = [
     blurb: "Turns off animations and shadows",
     help: "Less work for the GPU on every window change. Windows open and move instantly "
         + "instead of animating. Travel mode turns this on for its duration."
+  },
+  {
+    key: "daylight",
+    optional: true,
+    setting: true,
+    title: "Keyboard light off in daylight",
+    blurb: "Stays off when waking in bright light",
+    help: "When the displays wake at 100 lux or more, the keyboard light stays off. In a "
+        + "darker room it returns to its level. The light sensor is only read at wake."
   }
 ];

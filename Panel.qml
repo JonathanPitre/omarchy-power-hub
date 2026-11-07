@@ -666,7 +666,7 @@ Panel {
 
               TweakRow {
                 required property var modelData
-                visible: modelData.key !== "abm" || root.tweaks.abmAvailable === true
+                visible: !modelData.optional || root.tweaks[modelData.key + "Available"] === true
                 width: parent.width
                 tweakKey: modelData.key
                 title: modelData.title
@@ -674,6 +674,7 @@ Panel {
                 help: modelData.help
                 on: root.tweaks[modelData.key] === true
                 pinned: root.tweaks[modelData.key + "Pinned"] === true
+                pinnable: !modelData.setting
 
                 onSetOn: function(next) {
                   if (pinned) service.act("persist", tweakKey, next ? "on" : "off")
@@ -909,6 +910,7 @@ Panel {
     property string help: ""
     property bool on: false
     property bool pinned: false
+    property bool pinnable: true
     property bool expanded: false
 
     signal setOn(bool next)
@@ -1002,6 +1004,7 @@ Panel {
       }
 
       AccentButton {
+        visible: tw.pinnable
         text: tw.pinned ? "\uf00c  Kept after reboot" : "Keep after reboot"
         fontSize: Style.font.caption
         bordered: true

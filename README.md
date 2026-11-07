@@ -37,7 +37,8 @@ are supported where they expose the required Linux controls. See
   and display settings, depending on available tools and hardware.
 - **GPU status:** shows whether a supported discrete GPU is asleep or awake.
 - **Framework lighting:** controls supported keyboard and fingerprint power
-  button lights.
+  button lights, and can keep the keyboard light off when the displays wake in
+  daylight.
 - **Bar widget:** battery icon and optional percentage, configurable for
   battery and plugged-in states.
 

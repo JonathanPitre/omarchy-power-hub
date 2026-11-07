@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Keyboard light off in daylight: an option to keep the keyboard light off when
+  the displays wake at 100 lux or more, on Framework laptops with a light sensor.
+
 ## [0.0.54] - 2026-11-07
 
 ### Added
