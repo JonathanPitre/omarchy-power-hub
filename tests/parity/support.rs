@@ -610,7 +610,7 @@ pub fn assert_same_files(a: &Sandbox, b: &Sandbox, normalise: Option<Normalise>)
     assert_eq!(a.snapshot(normalise), b.snapshot(normalise), "files differ");
 }
 
-/// Python's `==` on parsed JSON, which `assert_same` relies on: key order is free and 1 equals 1.0.
+/// Equality of parsed JSON: key order is free and 1 equals 1.0.
 pub fn same_json(a: &Value, b: &Value) -> bool {
     match (a, b) {
         (Value::Number(x), Value::Number(y)) => x == y || x.as_f64() == y.as_f64(),

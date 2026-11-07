@@ -5,7 +5,7 @@ use std::{fs, io};
 
 pub const LID_ACTIONS: [&str; 4] = ["nothing", "display-off", "suspend", "hibernate"];
 
-/// Python truthiness of a JSON value.
+/// Truthiness of a JSON value: null, false, zero and empty are false.
 pub fn truthy(v: &Value) -> bool {
     match v {
         Value::Null => false,

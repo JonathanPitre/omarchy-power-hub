@@ -10,7 +10,7 @@ pub fn safe_name(s: &str) -> bool {
     matches_set(s, |c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
 }
 
-/// `display_power.safe_name` on any JSON value: Python tests `str(value)` when it is truthy.
+/// `display_power.safe_name` on any JSON value: a truthy value is tested as its text.
 pub fn safe_name_v(v: &Value) -> bool {
     match v {
         Value::String(s) => safe_name(s),

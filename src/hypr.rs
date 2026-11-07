@@ -46,7 +46,7 @@ pub fn monitors() -> Vec<Value> {
     monitors_within(Duration::from_secs(2))
 }
 
-/// `monitors` for the read that verifies a mode change, which Python allows 4 s.
+/// `monitors` for the read that verifies a mode change, which gets 4 s.
 pub fn monitors_within(timeout: Duration) -> Vec<Value> {
     request_within("j/monitors", timeout)
         .and_then(|r| serde_json::from_str(&r).ok())
@@ -96,7 +96,7 @@ fn eval_reply(reply: Option<String>) -> Result<(), String> {
     }
 }
 
-/// Run Lua in Hyprland, waiting up to 8 s as Python does; Err when the socket is unreachable or the reply starts with `error`.
+/// Run Lua in Hyprland, waiting up to 8 s; Err when the socket is unreachable or the reply starts with `error`.
 pub fn eval_checked(lua: &str) -> Result<(), String> {
     eval_reply(request_within(&format!("eval {lua}"), Duration::from_secs(8)))
 }

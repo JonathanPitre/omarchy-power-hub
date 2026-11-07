@@ -7,14 +7,11 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [0.0.59] - 2026-11-11
 
-### Added
-
-- Source checks that fail if Python is tracked or started.
-
 ### Changed
 
 - The whole backend runs in one binary, `bin/power-hub`. Python is no longer needed.
 - The first start asks once to update the root helper.
+- Lid close no longer asks for a password before the helper is updated.
 
 ### Removed
 

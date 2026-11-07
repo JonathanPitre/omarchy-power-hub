@@ -14,7 +14,7 @@ use std::{fs, io};
 /// Saving tweaks Travel turns on for its duration when they are off.
 const TRAVEL_TWEAKS: [&str; 2] = ["abm", "effects"];
 
-/// Python's `%g` formatting (`format(x, "g")`): six significant digits, trailing zeros dropped.
+/// C `%g` formatting: six significant digits, trailing zeros dropped.
 pub fn fmt_g(x: f64) -> String {
     if x.is_nan() {
         return "nan".into();
@@ -416,7 +416,7 @@ fn finish_rollback(saved: &mut Value, path: &Path, failure: String) -> io::Resul
     Ok(saved["error"].as_str().unwrap_or_default().into())
 }
 
-/// The first non-empty of two errors, as Python `a or b`.
+/// The first non-empty of two errors.
 fn first(a: String, b: String) -> String {
     if a.is_empty() { b } else { a }
 }
@@ -583,7 +583,7 @@ pub fn quick_dim_status(monitors: &[Value], brightness: &mut BrightnessCache) ->
     let state = quick_dim_state();
     let monitor = if truthy(&state["on"]) { state["monitor"].clone() } else { laptop_monitor(monitors).map_or(Value::Null, Value::from) };
     let value = brightness.get(monitors, &monitor);
-    // Python `state.get("on", False) or value is not None` yields the saved `on` itself when truthy.
+    // The saved `on` itself when truthy, else whether a value was read.
     let available = if truthy(&state["on"]) { state["on"].clone() } else { json!(value.is_some()) };
     json!({"on": truthy(&state["on"]), "available": available, "brightness": value, "error": state.get("error").cloned().unwrap_or_else(|| json!(""))})
 }

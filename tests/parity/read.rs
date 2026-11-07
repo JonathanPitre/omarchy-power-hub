@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime};
 
-/// What `assert_same(s.python(...), s.rust(...))` compared.
+/// What the replay compares by default.
 const D: Replay = Replay::direct();
 pub(crate) const CONFIG_FILE: &str = Sandbox::CONFIG_PATH;
 pub(crate) const PROFILES: &[&str] = &["power-saver", "balanced", "performance"];
@@ -73,7 +73,7 @@ mod gpu_parity {
         replay(&s, "GpuParity.test_no_gpu", &["gpu"], D);
     }
 
-    /// Expected values come from `bin/ops.py`'s `gpu_status` on the same trees (the old `test_gpu.py`).
+    /// Expected values were recorded from the old implementation on the same trees.
     #[test]
     fn test_which_gpu_counts_and_whether_it_sleeps() {
         let cases = [
@@ -213,7 +213,7 @@ mod power_source_parity {
         same(&s, "PowerSourceParity.test_discharging_below_limit_is_battery_side", 1, "battery", 0);
     }
 
-    /// Expected values come from `bin/ops.py` on the same supplies (the old `test_power_source.py`).
+    /// Expected values were recorded from the old implementation on the same supplies.
     #[test]
     fn test_which_plan_applies_while_the_pack_discharges() {
         let brick: &[(&str, f64, f64)] = &[("USBC000:003", 20.0, 5.0)];
@@ -301,7 +301,7 @@ mod charge_parity {
             if let Some(raw) = raw {
                 s.write(CONFIG_FILE, raw);
             }
-            let r = if raw == Some(r#"{"boost": 0, "ac": 5}"#) { // Python crashes on a non-object side
+            let r = if raw == Some(r#"{"boost": 0, "ac": 5}"#) { // the golden is the old crash on a non-object side
                 s.rust(&["boost-check"])
             } else {
                 replay(&s, "ChargeParity.test_boost_off_forks_nothing_without_valid_saved_profiles", &["boost-check"], D)
@@ -571,7 +571,7 @@ mod status_parity {
         assert_eq!(status_of(&s, T)["travel"]["error"], TRAVEL_MALFORMED);
     }
 
-    /// Expected values come from `bin/ops.py` (`_valid_travel_snapshot`, `_epp_saving_supported`).
+    /// Expected values were recorded from the old implementation.
     #[test]
     fn test_a_tweak_the_plugin_does_not_know_is_malformed_even_when_pending_agrees() {
         let point = |tweaks: Value, pending: Value| travel_snapshot(json!({"cpu": {"turbo": null, "epp": []}, "tweaks": tweaks, "pending": pending,
@@ -730,7 +730,7 @@ mod status_parity {
         assert_eq!((&charge["health"], &charge["policy"]), (&json!(false), &json!("firmware")));
     }
 
-    /// Expected values come from `bin/ops.py`'s `charge_status` on the same replies (the old `test_charge.py`).
+    /// Expected values were recorded from the old implementation on the same replies.
     #[test]
     fn test_upower_thresholds_unsupported_or_end_only() {
         let charge = |supported: &str, enabled: &str| {

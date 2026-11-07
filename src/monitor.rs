@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 /// How long a mode change may take to show up after Hyprland accepts it.
 const MODE_SETTLE: Duration = Duration::from_secs(3);
 
-/// Python `repr(float)`: shortest round-trip digits, `60.0` not `60`, exponent from 1e16 or below 1e-4.
+/// A float's shortest round-trip digits, `60.0` not `60`, exponent from 1e16 or below 1e-4.
 fn py_float_repr(x: f64) -> String {
     if x.is_nan() {
         return "nan".into();
@@ -40,7 +40,7 @@ fn py_float_repr(x: f64) -> String {
     format!("{sign}{}{frac}e{}{:02}", &digits[..1], if exp < 0 { '-' } else { '+' }, exp.abs())
 }
 
-/// Python `str(value)` for a JSON value.
+/// A JSON value as the text the shell shows: `True`, `None`, `60.0`.
 pub fn py_str(v: &Value) -> String {
     match v {
         Value::Null => "None".into(),
@@ -51,7 +51,7 @@ pub fn py_str(v: &Value) -> String {
     }
 }
 
-/// `spec.get(key) or default`, as Python evaluates it.
+/// `spec.get(key) or default`: the default for any falsy value.
 pub fn or_default(v: &Value, default: Value) -> Value {
     if truthy(v) { v.clone() } else { default }
 }

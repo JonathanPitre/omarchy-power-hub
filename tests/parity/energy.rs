@@ -142,7 +142,7 @@ mod quick_dim_parity {
             (r.stdout.starts_with(prefix), r.code, r.calls.iter().filter(|c| c.contains("--no-osd")).cloned().collect())
         }
         assert_eq!(attempt(as_file, "Quick dim could not save its recovery state: "), (true, 1, vec![]));
-        if !root_user() { // root ignores directory modes; Python words this case on its own
+        if !root_user() { // root ignores directory modes; the recorded run words this case on its own
             assert_eq!(attempt(read_only, "Could not save brightness restore point: "), (true, 1, vec![]));
         }
     }
@@ -340,7 +340,7 @@ mod travel_parity {
         check("TravelParity.test_internal_output_only_is_changed_and_restored", &travel_env(), &[ON, OFF]);
     }
 
-    /// Expected values come from `bin/ops.py` (the old `test_energy_controls.py`).
+    /// Expected values were recorded from the old implementation.
     #[test]
     fn test_quick_dim_and_travel_keep_nested_restore_points_independent() {
         let s = Sandbox::new();
