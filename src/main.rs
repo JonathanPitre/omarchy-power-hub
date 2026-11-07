@@ -50,10 +50,21 @@ fn main() {
         Some("led-sudo-needed") => out(system::led_sudo_needed()),
         Some("battery-history") => out(system::battery_history()),
         Some("idle-wake-poll") => out(idle::poll(matches!(args.get(1).map(String::as_str), Some("blanked" | "off")))),
-        Some("displays" | "dpms") if args.get(1).map(String::as_str) == Some("sync") => match display::sync() {
-            Some(result) => out(result),
-            None => std::process::exit(1),
-        },
+        Some("displays" | "dpms") => {
+            let result = match args.get(1..).unwrap_or_default().iter().map(String::as_str).collect::<Vec<_>>()[..] {
+                ["sync", ..] => display::sync(),
+                ["park", name, ..] => display::park_verb(name),
+                [mode @ ("on" | "off" | "disable"), ..] => display::displays(mode),
+                _ => {
+                    out("usage: displays on|off|disable|park NAME|sync");
+                    std::process::exit(2);
+                }
+            };
+            match result {
+                Some(text) => out(text),
+                None => std::process::exit(1),
+            }
+        }
         Some("set") if args.len() >= 4 => report(settings::set_key(&args[1], &args[2], &args[3])),
         Some("profile") if args.len() >= 2 => report(settings::set_key(power::active_side(&config::load()), "profile", &args[1])),
         Some("charge") if args.len() >= 2 => report(charge::charge_verb(&args[1])),
@@ -91,7 +102,7 @@ fn main() {
             std::process::exit(code);
         }
         _ => {
-            eprintln!("usage: power-hub status|data|action|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|set|profile|charge|boost|health|quick-dim|travel|tweak|apply|apply-profile|apply-tweaks|unpin|daylight|cpu|helper-install|boost-check|idle-wake-poll|displays sync");
+            eprintln!("usage: power-hub status|data|action|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|set|profile|charge|boost|health|quick-dim|travel|tweak|apply|apply-profile|apply-tweaks|unpin|daylight|cpu|helper-install|boost-check|idle-wake-poll|displays");
             std::process::exit(2);
         }
     }

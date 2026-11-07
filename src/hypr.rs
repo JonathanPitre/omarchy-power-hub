@@ -64,16 +64,13 @@ pub fn cursor() -> String {
 }
 
 /// How long a display write may take to reply: Hyprland applies mode and power changes slowly.
-#[allow(dead_code)] // consumed by the display, lid and light paths in the next tasks
 pub const WRITE_WAIT: Duration = Duration::from_secs(4);
 
-#[allow(dead_code)] // consumed by the display, lid and light paths in the next tasks
 fn write_at(path: &Path, verb: &str, lua: &str) -> Option<String> {
     request_at(path, &format!("{verb} {lua}"), WRITE_WAIT)
 }
 
 /// `eval` that waits `WRITE_WAIT` for the reply.
-#[allow(dead_code)] // consumed by the display, lid and light paths in the next tasks
 pub fn eval_slow(lua: &str) {
     if let Some(p) = socket_path() {
         write_at(&p, "eval", lua);
@@ -81,7 +78,6 @@ pub fn eval_slow(lua: &str) {
 }
 
 /// `hyprctl dispatch <lua>` over the socket, waiting `WRITE_WAIT`.
-#[allow(dead_code)] // consumed by the display, lid and light paths in the next tasks
 pub fn dispatch(lua: &str) {
     if let Some(p) = socket_path() {
         write_at(&p, "dispatch", lua);

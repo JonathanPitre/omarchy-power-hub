@@ -2261,5 +2261,193 @@ class HarnessTests(unittest.TestCase):
                 p.communicate(timeout=5)
 
 
+DROPPERS_FILE = "home/.local/state/omarchy-power-hub/bus-droppers.json"
+FLIP = "RTK FlipGo-A2 8R33926O00QS"
+SAVER_CLEARED = 'hl.config({ cursor = { invisible = false } })'
+
+
+def head(name, lit=True, **extra):
+    return {"name": name, "dpmsStatus": lit, "width": 2560, "height": 1600, "refreshRate": 60, "x": 0, "y": 0, "scale": 1.6} | extra
+
+
+def displays_setup(*monitors, state=None, droppers=None, lid="open", **keys):
+    """A non-Framework machine, so the lights are a no-op."""
+    def setup(s):
+        settings_setup(**keys)(s)
+        s.monitors(*monitors)
+        s.lid(lid)
+        if state is not None:
+            s.write(STATE_FILE, state if isinstance(state, str) else json.dumps(state))
+        if droppers is not None:
+            s.write(DROPPERS_FILE, droppers if isinstance(droppers, str) else json.dumps(droppers))
+    return setup
+
+
+def same_requests(py, rs):
+    """The exact socket traffic, reads and dispatches included, in order."""
+    unittest.TestCase().assertEqual(py._requests, rs._requests)
+
+
+class DisplayParity(unittest.TestCase):
+    def test_on_restores_parked_heads_then_enables_every_monitor_and_clears_state(self):
+        parked = [{"name": "DP-1", "output": "desc:" + FLIP, "width": 2560, "height": 1600, "refreshRate": 60, "x": 0, "y": 0, "scale": 1.6},
+                  {"name": "DP-2", "width": 1920, "height": 1080}, "HDMI-A-1", {"name": "bad name"}]
+        mons = [head("eDP-1", False), head("DP-1", False), head("DP-2", False, disabled=True), head("bad name")]
+
+        def check(py, rs):
+            same_requests(py, rs)
+            self.assertEqual(rs.read_state(), {"disabled": []})
+            self.assertEqual(rs._evals[0], SAVER_CLEARED)
+            self.assertEqual(rs._evals[-1], 'hl.monitor({ output = "HDMI-A-1", disabled = false })')
+            self.assertIn('dispatch hl.dsp.dpms({ action = "enable", monitor = "eDP-1" })', rs._requests)
+            self.assertNotIn('dispatch hl.dsp.dpms({ action = "enable", monitor = "bad name" })', rs._requests)
+        both(displays_setup(*mons, state={"disabled": parked}), ["displays", "on"], inspect=check)
+
+    def test_on_applies_the_saver_the_displays_off_setting_allows(self):
+        for keys in ({"screensaver": 150, "displaysOff": 200}, {"screensaver": 300, "displaysOff": 200}, {"displaysOff": 0}):
+            with self.subTest(keys=keys):
+                both(displays_setup(head("eDP-1"), **{"ac": {"profile": "balanced", "lock": 60, **keys}}), ["displays", "on"], ["displays", "off"], ["displays", "on"])
+
+    def test_off_blanks_every_head_and_parks_the_ones_dpms_cannot_reach(self):
+        flip = {"description": FLIP}
+        shapes = {
+            "one head": ([head("eDP-1")], None),
+            "two heads": ([head("eDP-1"), head("DP-1")], None),
+            "three heads": ([head("eDP-1"), head("DP-1"), head("DP-2")], None),
+            "dropper": ([head("eDP-1"), head("DP-1", **flip)], [FLIP]),
+            "dropper listed, not connected": ([head("eDP-1"), head("DP-1")], [FLIP]),
+            "every head a dropper": ([head("DP-1", **flip), head("DP-2", **flip)], [FLIP]),
+            "dropper with an unsafe description": ([head("eDP-1"), head("DP-1", description='bad" desc')], ['bad" desc']),
+            "laptop panel is kept, listed second": ([head("DP-1"), head("eDP-1")], None),
+            "deaf head, panel kept": ([head("eDP-1"), head("DP-1", True), head("DP-2", False)], None),
+            "dark and disabled heads": ([head("eDP-1", False), head("DP-1", disabled=True), head("DP-2")], None),
+            "unsafe name": ([head("eDP-1"), head("bad name"), head("DP-2", **flip)], [FLIP]),
+            "no monitors": ([], [FLIP]),
+        }
+        for label, (mons, droppers) in shapes.items():
+            for verb in ("off", "disable"):
+                with self.subTest(shape=label, verb=verb):
+                    both(displays_setup(*mons, droppers=droppers), ["displays", verb], inspect=same_requests)
+
+    def test_off_keeps_heads_that_were_already_parked(self):
+        parked = [{"name": "DP-9", "width": 100, "height": 100}, "DP-8", {"name": "DP-2", "width": 1}]
+        both(displays_setup(head("eDP-1"), head("DP-2", description=FLIP), head("DP-3"), state={"disabled": parked}, droppers=[FLIP]),
+             ["displays", "off"], ["displays", "off"], ["displays", "on"], inspect=same_requests)
+
+    def test_off_writes_the_parked_heads_with_the_eight_snapshot_keys(self):
+        def check(py, rs):
+            self.assertEqual(rs.read_state(), py.read_state())
+            self.assertEqual(list(rs.read_state()["disabled"][0]),
+                             ["name", "output", "width", "height", "refreshRate", "x", "y", "scale"])
+        both(displays_setup(head("eDP-1"), head("DP-1", description=FLIP, width=0, scale=0, refreshRate=None), droppers=[FLIP]),
+             ["displays", "off"], inspect=check)
+
+    def test_screensaver_is_dismissed_before_anything_else(self):
+        def check(py, rs):
+            self.assertEqual(rs._evals[0], SAVER_CLEARED)
+            self.assertEqual([c for c in rs.calls_log.read_text().split("\n") if c.startswith("pkill")], ["pkill -x ttfx", "pkill -f [o]rg.omarchy.screensaver"])
+        for verb in ("on", "off"):
+            both(displays_setup(head("eDP-1")), ["displays", verb], inspect=check)
+
+    def test_park_a_head_that_came_back_lit_while_the_others_sleep(self):
+        mons = [head("eDP-1", False), head("DP-1", description=FLIP), head("DP-2", description="b")]
+        after_each = iter([(["DP-1"], [FLIP]), (["DP-1"], [FLIP]), (["DP-1", "DP-2"], [FLIP, "b"])])
+
+        def check(py, rs):
+            same_requests(py, rs)
+            names, droppers = next(after_each)
+            self.assertEqual(([s["name"] for s in rs.read_state()["disabled"]], json.loads(rs._target(DROPPERS_FILE).read_text())), (names, droppers))
+        both(displays_setup(*mons), ["displays", "park", "DP-1"], ["displays", "park", "DP-1"],
+             ["displays", "park", "DP-2"], inspect=check)
+
+    def test_park_skips(self):
+        cases = {
+            "all lit": ([head("eDP-1"), head("DP-1")], "open", "DP-1"),
+            "unknown": ([head("eDP-1", False), head("DP-1")], "open", "DP-7"),
+            "unsafe name": ([head("eDP-1", False), head("bad name")], "open", "bad name"),
+            "last head": ([head("eDP-1", disabled=True), head("DP-1")], "open", "DP-1"),
+            "already disabled": ([head("eDP-1", False), head("DP-1", disabled=True)], "open", "DP-1"),
+            "lid closed": ([head("eDP-1", False), head("DP-1")], "closed", "DP-1"),
+            "no monitors": ([], "open", "DP-1"),
+        }
+        for label, (mons, lid, name) in cases.items():
+            with self.subTest(label):
+                def check(py, rs):
+                    same_requests(py, rs)
+                    self.assertEqual((rs._evals, rs.read_state()["disabled"] if rs._target(STATE_FILE).exists() else []), ([], []))
+                both(displays_setup(*mons, lid=lid), ["displays", "park", name], inspect=check)
+
+    def test_park_prints_parked(self):
+        def check(py, rs):
+            self.assertEqual(rs.read_state()["disabled"][0]["name"], "DP-1")
+        both(displays_setup(head("eDP-1", False), head("DP-1")), ["displays", "park", "DP-1"], inspect=check)
+
+    def test_dpms_is_an_alias(self):
+        both(displays_setup(head("eDP-1"), head("DP-1")), ["dpms", "off"], ["dpms", "on"], ["dpms", "sync"], inspect=same_requests)
+
+    def test_unopenable_lock_fails_closed(self):
+        with Sandbox() as s:
+            displays_setup(head("eDP-1"))(s)
+            for verb in (["on"], ["off"], ["park", "DP-1"]):
+                lock = s._target("run/omarchy-power-hub/display-off.lock")
+                lock.mkdir(parents=True)
+                r = s.rust("displays", *verb)
+                lock.rmdir()
+                self.assertEqual((r.code, r.stdout, r.evals), (1, "", []), verb)
+
+
+class DisplayHardening(unittest.TestCase):
+    """Corrupt state never stops a wake; Python raised on some of these."""
+
+    STATES = ["", "nope", "[]", "5", '"x"', "null", '{"disabled": 1}', '{"disabled": "x"}', '{"disabled": {"a": 1}}',
+              '[{"name": "DP-1"}]', '{"disabled": [null, 5, [1], {"name": "bad name"}, {"output": 3}]}']
+    DROPPERS = ["", "nope", "{}", "5", '"x"', "[1, null, {}]", '[["a"]]']
+
+    def wake(self, s):
+        r = s.rust("displays", "on")
+        self.assertEqual((r.code, r.stdout.strip()), (0, "ok"))
+        for name in ("eDP-1", "DP-1"):
+            self.assertIn(f'dispatch hl.dsp.dpms({{ action = "enable", monitor = "{name}" }})', s._requests)
+        return r
+
+    def test_on_enables_every_monitor_for_any_state_file(self):
+        for text in self.STATES:
+            with self.subTest(state=text), Sandbox() as s:
+                displays_setup(head("eDP-1", False), head("DP-1", False), state=text)(s)
+                self.wake(s)
+                self.assertEqual(s.read_state(), {"disabled": []})
+
+    def test_any_droppers_file_still_wakes_and_blanks(self):
+        for text in self.DROPPERS:
+            with self.subTest(droppers=text), Sandbox() as s:
+                displays_setup(head("eDP-1", False), head("DP-1", False), droppers=text)(s)
+                self.wake(s)
+                self.assertEqual(s.rust("displays", "off").code, 0)
+
+    def test_sync_of_a_non_list_is_idle(self):
+        with Sandbox() as s:
+            displays_setup(head("eDP-1"), state='{"disabled": 1}')(s)
+            r = s.rust("displays", "sync")
+            self.assertEqual((r.code, r.stdout.strip(), r.evals), (0, "idle", []))
+
+    def test_a_reply_held_for_three_seconds_still_delivers_every_eval(self):
+        with Sandbox() as s:
+            displays_setup(head("eDP-1", False), head("DP-1", False), state={"disabled": [{"name": "DP-5", "width": 1, "height": 1}]})(s)
+            s.hypr_on_eval = lambda lua: time.sleep(3)
+            r = s.rust("displays", "on")
+            self.assertEqual((r.code, r.stdout.strip()), (0, "ok"))
+            self.assertEqual(r.evals, [SAVER_CLEARED, 'hl.monitor({ output = "DP-5", mode = "1x1@60", position = "0x0", scale = 1, disabled = false })'])
+            self.assertEqual(s.read_state(), {"disabled": []})
+
+    def test_bad_modes_print_usage_and_touch_nothing(self):
+        with Sandbox() as s:
+            displays_setup(head("eDP-1", False), state={"disabled": [{"name": "DP-1"}]})(s)
+            for argv in (["displays"], ["displays", "bogus"], ["displays", ""], ["displays", "park"], ["dpms", "ON"]):
+                r = s.rust(*argv)
+                self.assertEqual((r.code, r.evals, r.calls), (2, [], []), argv)
+                self.assertTrue(r.stdout.startswith("usage: displays"), argv)
+            self.assertEqual(s.read_state(), {"disabled": [{"name": "DP-1"}]})
+
+
 if __name__ == "__main__":
     unittest.main()

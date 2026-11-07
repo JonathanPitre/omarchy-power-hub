@@ -64,10 +64,13 @@ pub fn bindings_file() -> PathBuf {
     home().join(".config/hypr/bindings.lua")
 }
 
-pub fn profile_state_dir() -> PathBuf {
+pub fn state_dir() -> PathBuf {
     match env::var_os("XDG_STATE_HOME") {
         Some(base) if !base.is_empty() => PathBuf::from(base),
         _ => home().join(".local/state"),
     }
-    .join("omarchy/powerprofiles")
+}
+
+pub fn profile_state_dir() -> PathBuf {
+    state_dir().join("omarchy/powerprofiles")
 }
