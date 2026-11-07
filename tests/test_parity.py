@@ -451,7 +451,6 @@ class StatusParity(unittest.TestCase):
             self.assertNotIn("sudo", s.rust("status").calls_text)
 
     def test_framework_with_unreadable_limit(self):
-        # No missing-tool case: the host's own /usr/bin/framework_tool stays on the sandbox PATH.
         with Sandbox() as s:
             s.framework(); s.install_helper()
             s.stub("sudo", "charge-limit", 1, "sudo: a password is required\n")
@@ -1141,7 +1140,51 @@ def battery_setup(*devices, fail=False):
     return setup
 
 
+def no_helper_setup(**keys):
+    def setup(s):
+        s.framework(); s.config(**keys)
+    return setup
+
+
+def no_tool_setup(**keys):
+    def setup(s):
+        s.framework(tool=False); s.install_helper(); s.config(**keys)
+    return setup
+
+
 class ChargeVerbParity(unittest.TestCase):
+    def test_missing_framework_tool(self):
+        message = "framework_tool is not installed"
+        for step in (["charge", "70"], ["boost", "on"], ["boost", "off"]):
+            with self.subTest(step=step), checked(no_tool_setup(chargeLimit=80), step) as (_, r):
+                self.assertEqual((r.code, r.stdout.strip()), (1, message))
+        with Sandbox() as s:
+            no_tool_setup()(s)
+            py, rs = s.python("status"), s.rust("status")
+            assert_same(py, rs)
+            self.assertEqual(json.loads(rs.stdout)["charge"]["reason"], message)
+
+    def test_charge_without_the_helper_goes_through_pkexec(self):
+        for code, out in ((0, "ok"), (1, "privilege required")):
+            with self.subTest(code=code):
+                def setup(s):
+                    no_helper_setup(chargeLimit=80)(s)
+                    s.stub("pkexec", "charge-limit", code)
+                with checked(setup, ["charge", "70"], ["boost", "on"]) as (s, r):
+                    cfg = s.read_config()
+                    self.assertEqual((r.code, r.stdout.strip(), cfg["boostSavedLimit"], cfg["boost"]), (code, out, 70 if code == 0 else 80, True))
+                    self.assertIn("ops-priv charge-limit 100", r.calls_text)
+                    self.assertNotIn("sudo", r.calls_text)
+
+    def test_boost_off_without_the_helper(self):
+        for code in (0, 1):
+            def setup(s):
+                no_helper_setup(boost=True, boostSavedLimit=75)(s)
+                s.stub("pkexec", "charge-limit", code)
+            with self.subTest(code=code), checked(setup, ["boost", "off"]) as (s, r):
+                self.assertEqual((r.code, s.read_config()["boost"]), (code, False))
+                self.assertIn("ops-priv charge-limit 75", r.calls_text)
+
     def test_charge_saves_the_limit_and_the_boost_restore_point(self):
         for keys, saved in (({}, 70), ({"boost": True, "boostSavedLimit": 60}, 60)):
             with self.subTest(keys=keys), checked(framework_setup(**keys), ["charge", "70"]) as (s, r):

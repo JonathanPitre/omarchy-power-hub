@@ -110,6 +110,7 @@ class Sandbox:
         for d in (self.root, self.home, self.run, self.stubs, self.bin):
             d.mkdir()
         self.calls_log = self.base / "calls.log"
+        self.path = f"{self.stubs}:/usr/bin:/bin"
         self.hypr = {}
         self.hypr_on_eval = None
         self._evals = []
@@ -264,6 +265,8 @@ class Sandbox:
         self.write("/sys/class/dmi/id/sys_vendor", "Framework\n")
         if tool:
             self._write_stub("framework_tool")
+        else:  # the host's own framework_tool must not be found
+            self.path = str(self.stubs)
 
     @property
     def helper_dir(self):
@@ -375,7 +378,7 @@ esac''')
 
     def _env(self):
         return {
-            "PATH": f"{self.stubs}:/usr/bin:/bin",
+            "PATH": self.path,
             "HOME": str(self.home),
             "XDG_RUNTIME_DIR": str(self.run),
             "HYPRLAND_INSTANCE_SIGNATURE": "test",
