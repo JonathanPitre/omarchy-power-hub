@@ -162,6 +162,21 @@ mod display_parity {
         checked("DisplayParity.test_off_keeps_heads_that_were_already_parked", &setup, &[&["displays", "off"], &["displays", "off"], &["displays", "on"]], REQ);
     }
 
+    /// Rust-only: no recorded case has two direct disables. Expected values were observed from `bin/ops.py` on this
+    /// system; the eval order follows the monitor list, whatever order the droppers file has.
+    #[test]
+    fn test_off_with_two_droppers_disables_them_in_monitor_order() {
+        let (flip, other) = (r#"hl.monitor({ output = "desc:RTK FlipGo-A2 8R33926O00QS", disabled = true })"#, r#"hl.monitor({ output = "desc:b", disabled = true })"#);
+        for droppers in [json!([FLIP, "b"]), json!(["b", FLIP])] {
+            let s = Sandbox::new();
+            displays(vec![lit("eDP-1"), described("DP-1", FLIP), described("DP-2", "b")]).droppers(Some(droppers)).setup(&s);
+            let r = s.rust(&["displays", "off"]);
+            assert_eq!((r.code, r.stdout.trim()), (0, "ok"));
+            assert_eq!(r.evals, [SAVER_CLEARED, flip, other, flip, other]);
+            assert_eq!(state_names(&s), ["DP-1", "DP-2"]);
+        }
+    }
+
     #[test]
     fn test_off_writes_the_parked_heads_with_the_eight_snapshot_keys() {
         let odd = head("DP-1", true, json!({"description": FLIP, "width": 0, "scale": 0, "refreshRate": null}));
