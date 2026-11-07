@@ -2,6 +2,7 @@
 import contextlib
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -1269,6 +1270,138 @@ class ChargeVerbParity(unittest.TestCase):
             with self.subTest(out=out), checked(setup, ["helper-install"]) as (s, r):
                 self.assertEqual((r.code, r.stdout.strip()), (code, out))
                 self.assertIn(f"pkexec {s.bin}/ops-priv helper-install", r.calls_text)
+
+
+TWEAKS_FILE = "home/.config/omarchy/power-hub-tweaks.json"
+UNIT_FILE = "home/.config/systemd/user/omarchy-power-hub-tweaks.service"
+
+
+def mask_exec(path, text):
+    return re.sub(r"ExecStart=.*", "ExecStart=<masked>", text)
+
+
+def tweak_setup(prefs=None, travel=None, effects=(True, True), **rules):
+    def setup(s):
+        s.config()
+        s.stub("pkexec", "", 0)
+        s.hypr["getoption animations:enabled"] = f"bool: {str(effects[0]).lower()}\nset: true\n"
+        s.hypr["getoption decoration:shadow:enabled"] = f"int: {int(effects[1])}\nset: true\n"
+        if prefs is not None:
+            s.write(TWEAKS_FILE, prefs if isinstance(prefs, str) else json.dumps(prefs))
+        if travel is not None:
+            s.write(TRAVEL_FILE, json.dumps(travel))
+        for tool, (match, code, out) in rules.items():
+            s.stub(tool, match, code, out)
+    return setup
+
+
+def tweak_both(setup, *steps):
+    both(setup, *steps, normalise=mask_exec)
+
+
+@contextlib.contextmanager
+def tweaked(setup, *steps):
+    """Python and Rust agree on every step; yields a fresh Rust sandbox after the steps and the last result."""
+    tweak_both(setup, *steps)
+    with Sandbox() as s:
+        setup(s)
+        yield s, [s.rust(*step) for step in steps][-1]
+
+
+class TweakParity(unittest.TestCase):
+    def test_privileged_tweaks_follow_their_spellings(self):
+        tweak_both(tweak_setup(), ["tweak", "wifi", "on"], ["tweak", "wifi", "off"], ["tweak", "usb", "true"], ["tweak", "pcie", "x"])
+
+    def test_failing_privilege_reports_and_still_saves(self):
+        tweak_both(lambda s: s.config(), ["tweak", "wifi", "on"])
+
+    def test_persist_writes_the_unit_and_enables_it(self):
+        for spelling in ("persist", "1", "pin", "no"):
+            with self.subTest(spelling=spelling), tweaked(tweak_setup(), ["tweak", "wifi", "on", spelling]) as (s, r):
+                self.assertEqual((s._target(UNIT_FILE).exists(), "systemctl --user enable --now omarchy-power-hub-tweaks.service" in r.calls_text),
+                                 (spelling != "no",) * 2)
+
+    def test_effects_on_saves_the_previous_values_and_sends_both_evals(self):
+        for effects in ((True, True), (False, True)):
+            with self.subTest(effects=effects), tweaked(tweak_setup(effects=effects), ["tweak", "effects", "on"]) as (s, r):
+                self.assertEqual(json.loads(s._target(TWEAKS_FILE).read_text())["effectsBefore"],
+                                 {"animations:enabled": effects[0], "decoration:shadow:enabled": effects[1]})
+                self.assertEqual(r.evals, ["hl.config({ animations = { enabled = false } })", "hl.config({ decoration = { shadow = { enabled = false } } })"])
+
+    def test_effects_off_restores_from_the_saved_values(self):
+        before = {"effectsBefore": {"animations:enabled": False, "decoration:shadow:enabled": True}}
+        tweak_both(tweak_setup(before), ["tweak", "effects", "off"])
+        tweak_both(tweak_setup({"effectsBefore": {"animations:enabled": None}}), ["tweak", "effects", "off"])
+
+    def test_effects_off_without_a_record_defaults_to_enabled(self):
+        with tweaked(tweak_setup(), ["tweak", "effects", "off"]) as (_, r):
+            self.assertEqual(r.evals, ["hl.config({ animations = { enabled = true } })", "hl.config({ decoration = { shadow = { enabled = true } } })"])
+
+    def test_second_effects_on_keeps_the_first_record(self):
+        tweak_both(tweak_setup(), ["tweak", "effects", "on"], ["tweak", "effects", "on"])
+        with Sandbox() as s:
+            tweak_setup()(s)
+            s.rust("tweak", "effects", "on")
+            s.hypr["getoption animations:enabled"] = "bool: false\n"
+            s.rust("tweak", "effects", "on")
+            self.assertTrue(json.loads(s._target(TWEAKS_FILE).read_text())["effectsBefore"]["animations:enabled"])
+
+    def test_effects_unreachable_hyprland_is_an_error(self):
+        with Sandbox(hypr_up=False) as s:
+            s.config()
+            r = s.rust("tweak", "effects", "on")
+            self.assertEqual(r.code, 1)
+            self.assertIn("Hyprland is not reachable", r.stdout)
+
+    def test_turbo_is_refused_while_travel_owns_the_cpu(self):
+        travel = travel_snapshot()
+        tweak_both(tweak_setup(travel=travel), ["tweak", "turbo", "on"])
+        tweak_both(tweak_setup(travel=travel_snapshot(reduceCpu=False)), ["tweak", "turbo", "on"])
+
+    def test_unpin_daylight_and_cpu_keep_every_other_key(self):
+        prefs = {"z": 1, "wifi": True, "wifiPinned": True, "usbPinned": True, "daylight": False, "a": [1]}
+        tweak_both(tweak_setup(prefs), ["unpin", "wifi"], ["unpin", "missing"], ["daylight", "on"], ["daylight", "off"], ["daylight", "x"])
+
+    def test_cpu_pins_epp_and_leaves_turbo_alone(self):
+        tweak_both(tweak_setup({"z": 1}), ["cpu", "epp", "power"], ["cpu", "turbo", "off"])
+        tweak_both(tweak_setup(), ["cpu", "epp", "power"])
+
+    def test_failed_cpu_change_is_not_saved(self):
+        tweak_both(lambda s: s.config(), ["cpu", "epp", "power"])
+
+    def test_cpu_is_refused_while_travel_owns_it(self):
+        tweak_both(tweak_setup({"z": 1}, travel=travel_snapshot()), ["cpu", "epp", "power"], ["cpu", "turbo", "off"])
+
+    def test_apply_tweaks_replays_the_pinned_keys(self):
+        prefs = {k + "Pinned": True for k in ("wifi", "pcie", "usb", "audio", "abm", "effects", "turbo")}
+        prefs.update(wifi=True, usb=False, effects=True, turbo=True, pcie=0, epp="power", eppPinned=True)
+        tweak_both(tweak_setup(prefs), ["apply-tweaks"])
+        tweak_both(tweak_setup({"wifi": True, "usbPinned": True}), ["apply-tweaks"])
+        tweak_both(tweak_setup({}), ["apply-tweaks"])
+        tweak_both(lambda s: s.config(), ["apply-tweaks"])
+
+    def test_apply_tweaks_skips_the_cpu_while_travel_owns_it(self):
+        prefs = {"turboPinned": True, "turbo": True, "wifiPinned": True, "wifi": True, "eppPinned": True, "epp": "power"}
+        tweak_both(tweak_setup(prefs, travel=travel_snapshot()), ["apply-tweaks"])
+
+    def test_apply_tweaks_reports_the_last_failure(self):
+        prefs = {"wifiPinned": True, "usbPinned": True, "eppPinned": True, "epp": "power"}
+        tweak_both(lambda s: (s.config(), s.write(TWEAKS_FILE, json.dumps(prefs))), ["apply-tweaks"])
+
+    def test_tweaks_unit_runs_the_binary(self):
+        with Sandbox() as s:
+            tweak_setup()(s)
+            s.rust("tweak", "wifi", "on", "persist")
+            unit = s._target(UNIT_FILE).read_text()
+            self.assertIn(f"ExecStart={s.bin}/power-hub apply-tweaks\n", unit)
+            self.assertEqual(unit.replace(f"{s.bin}/power-hub", "X"), "[Unit]\nDescription=Omarchy Power Hub device tweaks\n\n"
+                             "[Service]\nType=oneshot\nExecStart=X apply-tweaks\n\n[Install]\nWantedBy=default.target\n")
+
+    def test_list_in_tweaks_file_is_replaced_not_a_crash(self):
+        with Sandbox() as s:
+            tweak_setup("[1]")(s)
+            r = s.rust("tweak", "wifi", "on")
+            self.assertEqual((r.code, json.loads(s._target(TWEAKS_FILE).read_text())), (0, {"wifi": True}))
 
 
 class HarnessTests(unittest.TestCase):

@@ -62,7 +62,6 @@ fn eval_reply(reply: Option<String>) -> Result<(), String> {
 }
 
 /// Run Lua in Hyprland; Err when the socket is unreachable or the reply starts with `error`.
-#[allow(dead_code)] // wired by the write verbs
 pub fn eval_checked(lua: &str) -> Result<(), String> {
     eval_reply(request(&format!("eval {lua}")))
 }

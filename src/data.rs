@@ -162,7 +162,7 @@ fn mostly_auto(dir: &str) -> bool {
     !controls.is_empty() && auto > controls.len() / 2
 }
 
-fn panel_power_savings() -> Option<bool> {
+pub fn panel_power_savings() -> Option<bool> {
     sorted_dir(paths::root("/sys/class/drm"))
         .into_iter()
         .map(|d| d.join("amdgpu/panel_power_savings"))

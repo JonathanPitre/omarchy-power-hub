@@ -118,7 +118,6 @@ pub fn save(cfg: &Value) -> io::Result<()> {
 }
 
 /// The saved tweaks, always an object.
-#[allow(dead_code)] // wired by the write verbs
 pub fn saved_prefs() -> Value {
     match tweak_state() {
         v @ Value::Object(_) => v,
@@ -126,7 +125,6 @@ pub fn saved_prefs() -> Value {
     }
 }
 
-#[allow(dead_code)] // wired by the write verbs
 pub fn save_tweaks(prefs: &Value) -> io::Result<()> {
     let p = paths::tweaks_file();
     if let Some(dir) = p.parent() {
