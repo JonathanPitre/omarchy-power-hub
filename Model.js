@@ -199,7 +199,7 @@ function idleOptions(stops, current) {
 }
 
 // Displays going off first would close the saver, so it counts as Never.
-// Mirrors effective_saver in ops.py.
+// Mirrors effective_saver in src/settings.rs.
 function effectiveSaver(saver, displaysOff) {
   var s = Number(saver) || 0, d = Number(displaysOff) || 0;
   return d > 0 && d <= s ? 0 : s;

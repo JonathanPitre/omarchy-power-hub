@@ -9,7 +9,6 @@ import "Model.js" as Model
 Item {
   id: root
 
-  readonly property string ops: String(Qt.resolvedUrl("bin/ops.py")).replace(/^file:\/\//, "")
   readonly property string hub: String(Qt.resolvedUrl("bin/power-hub")).replace(/^file:\/\//, "")
   readonly property string priv: String(Qt.resolvedUrl("bin/ops-priv")).replace(/^file:\/\//, "")
   property var state: ({})
@@ -73,7 +72,7 @@ Item {
 
   function dpms(mode) {
     if (mode === "on" || mode === "off") root.dismissScreensaver()
-    dpmsProc.command = ["python3", root.ops, "displays", mode]
+    dpmsProc.command = [root.hub, "displays", mode]
     dpmsProc.running = true
     root.displaysOff = mode === "off"
   }
@@ -93,7 +92,7 @@ Item {
     if (parkProc.running || root.parkQueue.length === 0) return
     var name = root.parkQueue[0]
     root.parkQueue = root.parkQueue.slice(1)
-    parkProc.command = ["python3", root.ops, "displays", "park", name]
+    parkProc.command = [root.hub, "displays", "park", name]
     parkProc.running = true
   }
 
@@ -207,7 +206,7 @@ Item {
   Process { id: sleepProc }
   Process { id: boostProc; command: [root.hub, "boost-check"] }
   // Past the kernel's ~10 s PPM init, so missing USB-C data means it failed.
-  Process { id: ucsiProc; command: ["python3", root.ops, "recover-ucsi"] }
+  Process { id: ucsiProc; command: [root.hub, "recover-ucsi"] }
   Timer { interval: 60000; running: true; onTriggered: ucsiProc.running = true }
   Process {
     id: inhibitProc
@@ -236,7 +235,7 @@ Item {
     }
   }
 
-  Process { id: saverLaunchProc; command: ["python3", root.ops, "saver-past-inhibitor"] }
+  Process { id: saverLaunchProc; command: [root.hub, "saver-past-inhibitor"] }
 
   // IdleMonitor does not re-arm when its timeout or enabled state changes after
   // creation, so each new timeout gets a fresh monitor.
@@ -278,13 +277,13 @@ Item {
     }
   }
 
-  // Holds the lock deadline across Displays off, including a tie: see idle_lock in ops.py.
+  // Holds the lock deadline across Displays off, including a tie: see idle_lock in src/idle.rs.
   Timer {
     interval: Math.max(1, (root.lockTimeout - root.displaysTimeout) * 1000)
     running: root.displaysIdle && root.lockTimeout >= root.displaysTimeout && root.lockTimeout > 0
     onTriggered: if (!idleLockProc.running) idleLockProc.running = true
   }
-  Process { id: idleLockProc; command: ["python3", root.ops, "idle-lock"] }
+  Process { id: idleLockProc; command: [root.hub, "idle-lock"] }
 
   Instantiator {
     model: root.sleepTimeout > 0 ? [root.sleepTimeout] : []

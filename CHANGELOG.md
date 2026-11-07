@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.59] - 2026-11-11
+
+### Added
+
+- Source checks that fail if Python is tracked or started.
+
+### Changed
+
+- The whole backend runs in one binary, `bin/power-hub`. Python is no longer needed.
+- The first start asks once to update the root helper.
+
+### Removed
+
+- The two hidden install cards and `battery-dashboard`.
+- All Python files and their tests.
+
 ## [0.0.57] - 2026-11-09
 
 ### Changed

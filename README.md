@@ -150,8 +150,8 @@ installed backport, rollback steps, and verification.
 
 Panel data and background polling run in a small Rust binary, `bin/power-hub`.
 The bar, panel and idle service stay in QML. Saving settings, profiles, Travel,
-Quick dim and Power Tweaks run in the binary too. Python remains for display
-control, idle lock, screen saver launch, UCSI recovery and the lid handlers.
+Quick dim, Power Tweaks, display control, idle lock, screen saver launch, UCSI
+recovery and the lid handlers run in the binary too. Nothing needs Python.
 
 Python and Bash (0.0.53) compared with Rust:
 

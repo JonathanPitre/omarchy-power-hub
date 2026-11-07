@@ -1,4 +1,4 @@
-//! Checks on the QML and Model.js source the panel ships. None needs the Python backend.
+//! Checks on the QML and Model.js source the panel ships. 
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
@@ -297,5 +297,54 @@ mod idle_wiring {
     #[test]
     fn lock_timer_outlives_the_saver_displays_off_closes() {
         has_all(&file("Service.qml"), "Service.qml", &["root.displaysIdle && root.lockTimeout >= root.displaysTimeout", r#""idle-lock""#]);
+    }
+}
+
+mod no_python {
+    use super::*;
+    use std::process::Command;
+
+    fn root() -> &'static Path {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+    }
+
+    fn files_under(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
+        for entry in fs::read_dir(dir).into_iter().flatten().flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                files_under(&path, out);
+            } else {
+                out.push(path);
+            }
+        }
+    }
+
+    #[test]
+    fn no_python_is_tracked() {
+        let listing = Command::new("git").args(["ls-files", "-z"]).current_dir(root()).output().unwrap().stdout;
+        for name in String::from_utf8(listing).unwrap().split('\0').filter(|n| !n.is_empty()) {
+            assert!(!name.ends_with(".py"), "{name} is Python");
+            let head = fs::read(root().join(name)).unwrap_or_default();
+            let first = head.split(|b| *b == b'\n').next().unwrap_or_default();
+            assert!(!(first.starts_with(b"#!") && String::from_utf8_lossy(first).contains("python")), "{name} has a Python shebang");
+        }
+    }
+
+    #[test]
+    fn nothing_starts_python() {
+        let mut paths = Vec::new();
+        for dir in ["src", "bin", "scripts", "extras"] {
+            files_under(&root().join(dir), &mut paths);
+        }
+        paths.push(root().join(".github/workflows/ci.yml"));
+        paths.extend(fs::read_dir(root()).unwrap().flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|e| e == "qml" || e == "js")));
+        for path in paths {
+            if path.file_name().is_some_and(|n| n == "power-hub") {
+                continue;
+            }
+            if let Ok(text) = fs::read_to_string(&path) {
+                assert!(!text.contains("python3"), "{} starts python3", path.display());
+            }
+        }
     }
 }
