@@ -118,13 +118,14 @@ pub fn hibernate_available() -> Value {
 
 /// Everything the panel shows, from one monitors query and at most one brightness read per display.
 pub fn status() -> Value {
-    let cfg = config::load();
+    let mut profiles = None;
+    let cfg = config::load_with(&mut profiles);
     let monitors = hypr::monitors();
     let mut brightness = BrightnessCache::default();
     json!({
         "side": power::active_side(&cfg),
         "config": cfg,
-        "travel": travel::travel_status(&monitors, &mut brightness),
+        "travel": travel::travel_status(&monitors, &mut brightness, &mut profiles),
         "quickDim": travel::quick_dim_status(&monitors, &mut brightness),
         "charge": charge::maybe_reapply(&cfg, charge::charge_status()),
         "boost": truthy(&cfg["boost"]),

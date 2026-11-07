@@ -188,7 +188,7 @@ fn target_refresh(mon: &Value) -> Option<f64> {
         .reduce(f64::max)
 }
 
-fn cpu_available() -> (bool, bool, bool) {
+fn cpu_available(profiles: &mut config::Profiles) -> (bool, bool, bool) {
     let cpu = paths::root("/sys/devices/system/cpu");
     let turbo = ["intel_pstate/no_turbo", "cpufreq/boost"].iter().map(|p| cpu.join(p)).find(|p| p.exists()).is_some_and(|p| {
         let raw = fs::read_to_string(&p).unwrap_or_default();
@@ -203,7 +203,7 @@ fn cpu_available() -> (bool, bool, bool) {
                 && fs::read_to_string(freq.join("energy_performance_available_preferences")).is_ok_and(|t| t.split_whitespace().any(|p| matches!(p, "power" | "balance_power")))
         })
     });
-    let profile = config::power_profiles().is_some_and(|l| l.iter().any(|p| p == "power-saver"));
+    let profile = config::offered(profiles).iter().any(|p| p == "power-saver");
     (profile, turbo, epp)
 }
 
@@ -215,12 +215,12 @@ fn control_report(saved: &Value, fallback: bool, detail: &str) -> Value {
     }
 }
 
-pub fn travel_status(monitors: &[Value], brightness: &mut BrightnessCache) -> Value {
+pub fn travel_status(monitors: &[Value], brightness: &mut BrightnessCache, profiles: &mut config::Profiles) -> Value {
     let state = travel_state();
     let active = truthy(&state["on"]);
     let laptop = laptop_monitor(monitors).map_or(Value::Null, Value::from);
     let internal = monitors.iter().find(|m| m["name"] == laptop).filter(|m| truthy(m));
-    let (profile, turbo, epp) = cpu_available();
+    let (profile, turbo, epp) = cpu_available(profiles);
     let current_refresh = internal.and_then(|m| py_float(&m["refreshRate"]));
     let target = internal.and_then(target_refresh);
     let refresh_available = internal.is_some() && (target.is_some() || current_refresh.is_some_and(|c| c <= 60.0));

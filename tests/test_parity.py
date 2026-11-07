@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import contextlib
 import json
 import os
 import subprocess
@@ -944,6 +945,177 @@ class SyncParity(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+SHELL_FILE = "home/.config/omarchy/shell.json"
+BINDINGS_FILE = "home/.config/hypr/bindings.lua"
+HIBERNATE_DROPIN = "/etc/systemd/sleep.conf.d/90-omarchy-power-hub.conf"
+SHELL_IDLE = '{"idle": {"screensaver": 150, "lock": 300}, "other": 1}'
+PROFILES = ["power-saver", "balanced", "performance"]
+
+
+def settings_setup(shell=SHELL_IDLE, bindings=None, battery=False, **keys):
+    def setup(s):
+        s.config(**keys)
+        s.profiles(PROFILES)
+        s.write("home/.config/hypr/.keep", "")
+        if shell is not None:
+            s.write(SHELL_FILE, shell)
+        if bindings is not None:
+            s.write(BINDINGS_FILE, bindings)
+        if battery:
+            s.stub("busctl", "OnBattery", 0, "b true\n")
+    return setup
+
+
+@contextlib.contextmanager
+def checked(setup, *steps):
+    """Python and Rust must agree on every step; yields a fresh Rust sandbox after the steps and the last result."""
+    both(setup, *steps)
+    with Sandbox() as s:
+        setup(s)
+        last = [s.rust(*step) for step in steps][-1]
+        yield s, last
+
+
+def shell_of(s):
+    return json.loads(s._target(SHELL_FILE).read_text())
+
+
+class SettingsParity(unittest.TestCase):
+    def test_active_side_rewrites_only_idle(self):
+        with checked(settings_setup(battery=True), ["set", "battery", "lock", "600"]) as (s, _):
+            self.assertEqual(shell_of(s), {"idle": {"screensaver": 150, "lock": 600}, "other": 1})
+
+    def test_inactive_side_changes_the_config_only(self):
+        with checked(settings_setup(), ["set", "battery", "lock", "600"]) as (s, _):
+            self.assertEqual(s._target(SHELL_FILE).read_text(), SHELL_IDLE)
+            self.assertEqual(s.read_config()["battery"]["lock"], 600)
+
+    def test_matching_shell_json_is_not_written(self):
+        text = '{"idle":{"screensaver":150.0,"lock":300}}'
+        with checked(settings_setup(shell=text), ["set", "ac", "lock", "300"]) as (s, _):
+            self.assertEqual(s._target(SHELL_FILE).read_text(), text)
+
+    def test_saver_hidden_by_displays_off_maps_to_a_week(self):
+        with checked(settings_setup(ac={"profile": "balanced", "displaysOff": 200}), ["set", "ac", "screensaver", "300"]) as (s, _):
+            self.assertEqual(shell_of(s)["idle"]["screensaver"], 7 * 24 * 3600)
+
+    def test_negative_values_clamp_to_zero(self):
+        with checked(settings_setup(), ["set", "ac", "sleep", "-5"]) as (s, _):
+            self.assertEqual(s.read_config()["ac"]["sleep"], 0)
+
+    def test_lid_writes_one_block_and_reloads_once(self):
+        step = ["set", "ac", "lid", "display-off"]
+        with checked(settings_setup(bindings="bind = x"), step, step) as (s, last):
+            text = s._target(BINDINGS_FILE).read_text()
+            self.assertEqual((text.count("-- BEGIN"), text.count("-- END")), (1, 1))
+            self.assertIn(f"python3 {s.bin}/ops.py lid-closed", text)
+            self.assertEqual(last.requests, [])
+        with Sandbox() as s:
+            settings_setup(bindings="bind = x")(s)
+            self.assertEqual(s.rust(*step).requests, ["reload"])
+
+    def test_lid_block_cases(self):
+        stale = "a = 1\n-- BEGIN Omarchy Power Hub lid action override\nold\n-- END Omarchy Power Hub lid action override\nb = 2\n"
+        cases = {"missing": None, "empty": "", "no final newline": "a = 1", "stale block": stale, "two blocks": stale + stale,
+                 "begin without end": "a = 1\n-- BEGIN Omarchy Power Hub lid action override\nold\n"}
+        for name, bindings in cases.items():
+            for action in ("display-off", "nothing"):
+                with self.subTest(name, action=action):
+                    both(settings_setup(bindings=bindings), ["set", "ac", "lid", action])
+
+    def test_matching_hibernate_delay_needs_no_sudo(self):
+        def setup(s):
+            settings_setup()(s)
+            s.write(HIBERNATE_DROPIN, "[Sleep]\nHibernateDelaySec=1800\n")
+        with checked(setup, ["set", "ac", "hibernateAfter", "1800"]) as (_, last):
+            self.assertFalse([c for c in last.calls if c.startswith("sudo")])
+
+    def test_hibernate_delay_is_pushed_through_the_helper(self):
+        def setup(s):
+            settings_setup()(s)
+            s.install_helper()
+            s.stub("busctl", "CanHibernate", 0, 's "yes"\n')
+        with checked(setup, ["set", "ac", "hibernateAfter", "900"]) as (_, last):
+            self.assertTrue([c for c in last.calls if "hibernate-delay 900" in c])
+
+    def test_unavailable_hibernation_gives_the_reason(self):
+        def setup(s):
+            settings_setup()(s)
+            s.write("/sys/power/disk", "[disabled]\n")
+        with checked(setup, ["set", "ac", "hibernateAfter", "1800"]) as (_, last):
+            self.assertEqual((last.code, "secret memory" in last.stdout), (1, True))
+
+    def test_bad_arguments_give_the_error_strings(self):
+        steps = [["set", "ac", "nope", "1"], ["set", "x", "lock", "1"], ["set", "ac", "lid", "bad"], ["set", "ac", "profile", "bad"]]
+        with checked(settings_setup(), *steps) as (s, _):
+            self.assertEqual([s.rust(*step).stdout.strip() for step in steps], ["bad key", "bad source", "bad lid action", "bad profile"])
+
+    def test_non_numbers_are_a_bad_value(self):
+        with Sandbox() as s:
+            settings_setup()(s)
+            r = s.rust("set", "ac", "lock", "abc")
+            self.assertEqual((r.code, r.stdout.strip()), (1, "bad value"))
+
+    def test_travel_holding_the_cpu_only_saves_the_profile(self):
+        def setup(s):
+            settings_setup()(s)
+            s.write(TRAVEL_FILE, json.dumps(travel_snapshot()))
+        with checked(setup, ["set", "ac", "profile", "saver"]) as (s, last):
+            self.assertEqual(s.read_config()["ac"]["profile"], "power-saver")
+            self.assertFalse([c for c in last.calls if "powerprofiles-set" in c])
+
+    def test_profile_on_the_active_side_is_applied(self):
+        with checked(settings_setup(), ["profile", "saver"]) as (_, last):
+            self.assertIn("omarchy-powerprofiles-set ac power-saver", last.calls)
+
+    def test_profile_on_the_battery_side_is_applied(self):
+        with checked(settings_setup(battery=True), ["profile", "full"]) as (_, last):
+            self.assertIn("omarchy-powerprofiles-set battery performance", last.calls)
+
+    def test_profile_for_the_inactive_side_is_only_remembered(self):
+        with checked(settings_setup(), ["set", "battery", "profile", "saver"]) as (s, last):
+            self.assertEqual(s._target("home/.local/state/omarchy/powerprofiles/battery").read_text(), "power-saver\n")
+            self.assertFalse([c for c in last.calls if "powerprofiles-set" in c])
+
+    def test_failed_profile_change_reports_the_tool_output(self):
+        def setup(s):
+            settings_setup()(s)
+            s.stub("omarchy-powerprofiles-set", "", 1, "no daemon\n")
+        with checked(setup, ["profile", "saver"]) as (_, last):
+            self.assertEqual((last.code, last.stdout.strip()), (1, "no daemon"))
+
+    def test_missing_arguments_are_usage(self):
+        with Sandbox() as s:
+            self.assertEqual([s.rust(*a).code for a in (["set", "ac", "lock"], ["profile"])], [2, 2])
+
+    def test_shell_json_keeps_everything_but_idle(self):
+        raw = '{"zeta": "café", "idle": {"screensaver": 1, "other": 0.30000000000000004}, "alpha": [1]}'
+        with Sandbox() as s:
+            settings_setup(shell=raw)(s)
+            self.assertEqual(s.rust("set", "ac", "lock", "600").code, 0)
+            text = s._target(SHELL_FILE).read_text()
+            self.assertEqual(list(json.loads(text)), ["zeta", "idle", "alpha"])
+            self.assertEqual(json.loads(text)["idle"], {"screensaver": 150, "other": 0.30000000000000004, "lock": 600})
+            self.assertIn("café", text)
+            self.assertIn("0.30000000000000004", text)
+
+    def test_malformed_shell_json_is_left_alone(self):
+        with checked(settings_setup(shell="{broken"), ["set", "ac", "lock", "600"]) as (s, last):
+            self.assertEqual((last.code, last.stdout.strip(), s._target(SHELL_FILE).read_text()), (1, "shell.json unreadable", "{broken"))
+
+    def test_load_asks_for_profiles_only_when_ac_lacks_one(self):
+        def setup(s):
+            s.write(Sandbox.CONFIG_PATH, '{"ac": {"profile": "saver"}, "battery": {}}')
+            s.profiles(PROFILES)
+        with checked(setup, ["config"]) as (_, last):
+            self.assertFalse([c for c in last.calls if "net.hadess" in c])
+
+    def test_status_asks_for_profiles_once(self):
+        with Sandbox() as s:
+            s.profiles(PROFILES)
+            self.assertEqual(len([c for c in s.rust("status").calls if "net.hadess" in c]), 1)
 
 
 class HarnessTests(unittest.TestCase):

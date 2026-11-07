@@ -7,6 +7,7 @@ mod idle;
 mod names;
 mod paths;
 mod power;
+mod settings;
 mod state;
 mod system;
 mod travel;
@@ -16,6 +17,12 @@ use std::io::{self, Write};
 /// Stdout that never panics: a closed or full pipe must not abort the process.
 fn out(line: impl std::fmt::Display) {
     let _ = writeln!(io::stdout(), "{line}");
+}
+
+/// Print the error, or `ok` without one, and exit 1 or 0.
+fn report(err: String) -> ! {
+    out(if err.is_empty() { "ok" } else { &err });
+    std::process::exit(i32::from(!err.is_empty()))
 }
 
 fn main() {
@@ -38,13 +45,15 @@ fn main() {
             Some(result) => out(result),
             None => std::process::exit(1),
         },
+        Some("set") if args.len() >= 4 => report(settings::set_key(&args[1], &args[2], &args[3])),
+        Some("profile") if args.len() >= 2 => report(settings::set_key(power::active_side(&config::load()), "profile", &args[1])),
         Some("boost-check") => {
             let (code, msg) = charge::boost_check();
             out(msg);
             std::process::exit(code);
         }
         _ => {
-            eprintln!("usage: power-hub status|data|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|boost-check|idle-wake-poll|displays sync");
+            eprintln!("usage: power-hub status|data|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|set|profile|boost-check|idle-wake-poll|displays sync");
             std::process::exit(2);
         }
     }

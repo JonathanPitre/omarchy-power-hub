@@ -45,7 +45,7 @@ pub fn power_profiles() -> Option<Vec<String>> {
     (code == 0).then(|| parse_profiles(&out))
 }
 
-fn alias(name: &str) -> Option<&'static str> {
+pub fn alias(name: &str) -> Option<&'static str> {
     match name {
         "auto" | "balanced" => Some("balanced"),
         "saver" | "power-saver" => Some("power-saver"),
@@ -63,10 +63,22 @@ pub fn raw() -> Value {
     read_json(&paths::cfg_file())
 }
 
-/// Saved settings merged over defaults; asks power-profiles-daemon only when a side lacks a valid profile.
+/// What power-profiles-daemon offered, once asked; `None` until then.
+pub type Profiles = Option<Option<Vec<String>>>;
+
+/// The offered profiles, asking power-profiles-daemon on first use only.
+pub fn offered(slot: &mut Profiles) -> &[String] {
+    slot.get_or_insert_with(power_profiles).as_deref().unwrap_or(&[])
+}
+
+/// Saved settings merged over defaults; asks power-profiles-daemon only when the AC side lacks a valid profile.
 pub fn load() -> Value {
+    load_with(&mut None)
+}
+
+/// `load`, leaving the profile list in `available` for a caller that needs it too.
+pub fn load_with(available: &mut Profiles) -> Value {
     let raw = raw();
-    let mut available: Option<Option<Vec<String>>> = None;
     let mut cfg = Map::new();
     for (k, v) in [("chargeLimit", json!(80)), ("boost", json!(false)), ("boostSavedLimit", json!(80))] {
         cfg.insert(k.into(), v);
@@ -75,11 +87,8 @@ pub fn load() -> Value {
         let src = raw[side].as_object().cloned().unwrap_or_default();
         let profile = match src.get("profile").and_then(Value::as_str).and_then(alias) {
             Some(p) => p,
-            None => {
-                let list = available.get_or_insert_with(power_profiles);
-                let performance = list.as_ref().is_some_and(|l| l.iter().any(|p| p == "performance"));
-                if side == "ac" && performance { "performance" } else { "balanced" }
-            }
+            None if side == "ac" && offered(available).iter().any(|p| p == "performance") => "performance",
+            None => "balanced",
         };
         let mut base = Map::new();
         for (k, v) in [("screensaver", json!(150)), ("displaysOff", json!(0)), ("lock", json!(300)), ("sleep", json!(0)), ("hibernateAfter", json!(0)), ("lid", json!("suspend"))] {

@@ -79,10 +79,9 @@ pub fn atomic_state(path: &Path, value: &Value) -> io::Result<()> {
 }
 
 /// An exclusive flock on `<run>/energy-controls.lock`, shared with ops.py, released on drop.
-#[allow(dead_code)] // wired by the write verbs
+#[allow(dead_code)] // the file is held open for its flock
 pub struct EnergyLock(File);
 
-#[allow(dead_code)] // wired by the write verbs
 pub fn energy_lock() -> io::Result<EnergyLock> {
     let path = paths::plugin_run_dir().join("energy-controls.lock");
     if let Some(dir) = path.parent() {
