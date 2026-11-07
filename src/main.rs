@@ -25,6 +25,10 @@ fn report(err: String) -> ! {
     std::process::exit(i32::from(!err.is_empty()))
 }
 
+fn on(arg: &str) -> bool {
+    matches!(arg, "1" | "on" | "true")
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
@@ -47,13 +51,21 @@ fn main() {
         },
         Some("set") if args.len() >= 4 => report(settings::set_key(&args[1], &args[2], &args[3])),
         Some("profile") if args.len() >= 2 => report(settings::set_key(power::active_side(&config::load()), "profile", &args[1])),
+        Some("charge") if args.len() >= 2 => report(charge::charge_verb(&args[1])),
+        Some("boost") if args.len() >= 2 => report(charge::boost(on(&args[1]))),
+        Some("health") if args.len() >= 2 => report(charge::set_health(on(&args[1]))),
+        Some("helper-install") => {
+            let (code, msg) = charge::helper_install();
+            out(msg);
+            std::process::exit(code);
+        }
         Some("boost-check") => {
             let (code, msg) = charge::boost_check();
             out(msg);
             std::process::exit(code);
         }
         _ => {
-            eprintln!("usage: power-hub status|data|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|set|profile|boost-check|idle-wake-poll|displays sync");
+            eprintln!("usage: power-hub status|data|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|set|profile|charge|boost|health|helper-install|boost-check|idle-wake-poll|displays sync");
             std::process::exit(2);
         }
     }

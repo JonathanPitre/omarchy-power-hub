@@ -1123,6 +1123,111 @@ class SettingsParity(unittest.TestCase):
             self.assertEqual(len([c for c in s.rust("status").calls if "net.hadess" in c]), 1)
 
 
+BATTERY = "/org/freedesktop/UPower/devices/battery_BAT0"
+
+
+def framework_setup(limit=90, **keys):
+    def setup(s):
+        s.framework(); s.install_helper(); s.config(**keys); s.charge_limit(limit)
+    return setup
+
+
+def battery_setup(*devices, fail=False):
+    def setup(s):
+        s.config()
+        s.stub("upower", "-e", 0, "".join(f"{d}\n" for d in devices))
+        s.stub("busctl", "ChargeThresholdSupported", 0, "b true\n")
+        s.stub("busctl", "EnableChargeThreshold", int(fail))
+    return setup
+
+
+class ChargeVerbParity(unittest.TestCase):
+    def test_charge_saves_the_limit_and_the_boost_restore_point(self):
+        for keys, saved in (({}, 70), ({"boost": True, "boostSavedLimit": 60}, 60)):
+            with self.subTest(keys=keys), checked(framework_setup(**keys), ["charge", "70"]) as (s, r):
+                cfg = s.read_config()
+                self.assertEqual((r.stdout.strip(), cfg["chargeLimit"], cfg["boostSavedLimit"]), ("ok", 70, saved))
+
+    def test_charge_clamps_the_tool_argument_and_saves_the_raw_value(self):
+        for raw, sent in ((30, 40), (110, 100)):
+            with self.subTest(raw=raw), checked(framework_setup(), ["charge", str(raw)]) as (s, r):
+                self.assertEqual(s.read_config()["chargeLimit"], raw)
+                self.assertIn(f"ops-priv charge-limit {sent}", r.calls_text)
+
+    def test_charge_failure_leaves_the_config_alone(self):
+        def setup(s):
+            s.stub("sudo", "charge-limit 70", 1)
+            framework_setup(chargeLimit=80)(s)
+        with checked(setup, ["charge", "70"]) as (s, r):
+            self.assertEqual((r.code, r.stdout.strip(), s.read_config()["chargeLimit"]), (1, "privilege required", 80))
+
+    def test_charge_without_a_framework(self):
+        with checked(lambda s: s.config(), ["charge", "70"]) as (s, r):
+            self.assertEqual((r.code, r.stdout.strip(), "chargeLimit" in s.read_config()), (1, "not a Framework machine", False))
+
+    def test_charge_with_a_bad_value_changes_nothing(self):
+        for bad in ("abc", "", "7.5"):
+            with self.subTest(bad=bad), Sandbox() as s:
+                framework_setup(chargeLimit=80)(s)
+                before = s.snapshot()
+                r = s.rust("charge", bad)
+                self.assertEqual((r.code, r.stdout.strip(), r.calls), (1, "bad value", []))
+                self.assertEqual(s.snapshot(), before)
+
+    def test_boost_on_stores_the_live_limit_then_goes_to_100(self):
+        cases = [(framework_setup(90, chargeLimit=80), 90), (framework_setup(0, chargeLimit=65), 65),
+                 (framework_setup(0), 80), (lambda s: s.config(chargeLimit=65), 65), (lambda s: s.config(), 80)]
+        for setup, stored in cases:
+            with self.subTest(stored=stored), checked(setup, ["boost", "on"]) as (s, _):
+                cfg = s.read_config()
+                self.assertEqual((cfg["boost"], cfg["boostSavedLimit"]), (True, stored))
+
+    def test_boost_off_restores_the_saved_limit(self):
+        for keys, sent in (({"boostSavedLimit": 75}, 75), ({"boostSavedLimit": 0, "chargeLimit": 65}, 65), ({}, 80)):
+            with self.subTest(keys=keys), checked(framework_setup(100, boost=True, **keys), ["boost", "off"]) as (s, r):
+                self.assertFalse(s.read_config()["boost"])
+                self.assertIn(f"ops-priv charge-limit {sent}", r.calls_text)
+
+    def test_boost_spellings_round_trip(self):
+        for on, off in (("1", "0"), ("true", "false"), ("on", "off"), ("on", "x")):
+            with self.subTest(on=on, off=off), checked(framework_setup(90, chargeLimit=80), ["boost", on], ["boost", off]) as (s, _):
+                self.assertFalse(s.read_config()["boost"])
+
+    def test_failing_privilege_keeps_boost_saved_and_exits_1(self):
+        def setup(s):
+            s.stub("sudo", "charge-limit 100", 1)
+            framework_setup(90, chargeLimit=80)(s)
+        with checked(setup, ["boost", "on"]) as (s, r):
+            cfg = s.read_config()
+            self.assertEqual((r.code, r.stdout.strip(), cfg["boost"], cfg["boostSavedLimit"]), (1, "privilege required", True, 90))
+
+    def test_health_follows_its_spellings(self):
+        for arg in ("on", "off", "1", "true", "0", "x"):
+            with self.subTest(arg=arg), checked(battery_setup(BATTERY), ["health", arg]) as (_, r):
+                desired = "true" if arg in ("on", "1", "true") else "false"
+                self.assertIn(f"EnableChargeThreshold b {desired}", r.calls_text)
+
+    def test_health_updates_every_battery_and_reports_one_failure(self):
+        second = BATTERY.replace("BAT0", "BAT1")
+        for fail in (False, True):
+            with self.subTest(fail=fail), checked(battery_setup(BATTERY, second, fail=fail), ["health", "on"]) as (_, r):
+                self.assertEqual((r.calls_text.count("EnableChargeThreshold"), r.stdout.strip(), r.code),
+                                 (2, "Failed to update charge limits", 1) if fail else (2, "ok", 0))
+
+    def test_health_without_batteries(self):
+        with checked(lambda s: s.config(), ["health", "on"]) as (_, r):
+            self.assertEqual((r.code, r.stdout.strip()), (1, "Battery charge limits are not supported"))
+
+    def test_helper_install(self):
+        cases = [(lambda s: s.stub("pkexec", "helper-install", 0), 0, "ok"),
+                 (lambda s: s.stub("pkexec", "helper-install", 1, "denied\n"), 1, "denied"),
+                 (lambda s: None, 1, "helper install failed")]
+        for setup, code, out in cases:
+            with self.subTest(out=out), checked(setup, ["helper-install"]) as (s, r):
+                self.assertEqual((r.code, r.stdout.strip()), (code, out))
+                self.assertIn(f"pkexec {s.bin}/ops-priv helper-install", r.calls_text)
+
+
 class HarnessTests(unittest.TestCase):
     def test_harness_sees_a_changed_file(self):
         with Sandbox() as a, Sandbox() as b:
