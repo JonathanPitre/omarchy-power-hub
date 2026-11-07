@@ -17,6 +17,11 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Saving settings, profiles, Travel, Quick dim and Power Tweaks no longer start
   Python.
 
+### Removed
+
+- `battery-plus-action` and the unused `battery-plus-priv`. The panel's actions
+  now run in `bin/power-hub`.
+
 ## [0.0.54] - 2026-11-07
 
 ### Added
