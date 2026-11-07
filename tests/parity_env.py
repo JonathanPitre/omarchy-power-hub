@@ -149,7 +149,7 @@ class Sandbox:
             (self.bin / name).write_text(self._rewrite(name, (src / name).read_text()))
         (self.bin / "battery-plus-data").write_text(self._rewrite("battery-plus-data", (REPO / "tests/fixtures/battery-plus-data").read_text()))
         (self.bin / "battery-plus-data").chmod(0o755)
-        for name in ("ops-priv", "hid_wakeup.py"):
+        for name in ("ops-priv",):
             shutil.copy2(src / name, self.bin / name)
 
     def _rewrite(self, name, text):
@@ -288,7 +288,7 @@ class Sandbox:
     def install_helper(self, tamper=False):
         """Root-owned helper copies at the fake-root path; `tamper` makes ops-priv differ from the plugin's."""
         self.helper_dir.mkdir(parents=True, exist_ok=True)
-        for name in ("ops-priv", "hid_wakeup.py"):
+        for name in ("ops-priv",):
             shutil.copy2(self.bin / name, self.helper_dir / name)
         if tamper:
             with open(self.helper_dir / "ops-priv", "a") as f:

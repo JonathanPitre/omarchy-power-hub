@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 use std::fs;
 
-const HELPER_FILES: [&str; 2] = ["ops-priv", "hid_wakeup.py"];
+const HELPER_FILES: [&str; 1] = ["ops-priv"];
 
 fn secs(n: u64) -> Duration {
     Duration::from_secs(n)
