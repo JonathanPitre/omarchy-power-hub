@@ -2,7 +2,9 @@
 import contextlib
 import json
 import os
+import pathlib
 import re
+import signal
 import subprocess
 import sys
 import threading
@@ -10,7 +12,7 @@ import time
 import unittest
 
 sys.path.insert(0, os.path.dirname(__file__))
-from parity_env import Sandbox, assert_same, assert_same_files, both, build_rust  # noqa: E402
+from parity_env import DROPPED, Sandbox, assert_same, assert_same_files, both, build_rust  # noqa: E402
 
 
 def setUpModule():
@@ -1636,6 +1638,12 @@ class TravelParity(unittest.TestCase):
         self.check(after(travel_env(), tweaks_on("3\n", (False, False))), ["travel", "on"], ["travel", "off"])
         self.check(after(travel_env(), tweaks_on("0\n", (True, False))), ["travel", "on"], ["travel", "off"])
 
+    def test_tweak_that_cannot_be_turned_on_is_not_restored(self):
+        def pkexec_fails(s):
+            tweaks_on()(s)
+            s.stub("pkexec", "", 1, "denied")
+        self.check(after(travel_env(), pkexec_fails), ["travel", "on"], ["travel", "off"])
+
     def test_unreadable_profile_is_skipped(self):
         self.check(travel_env(rows=(), profile_get="echo profile unavailable; exit 1"), ["travel", "on"])
         self.check(travel_env(profile_get="echo profile unavailable; exit 1"), ["travel", "on"], ["travel", "off"])
@@ -1678,6 +1686,38 @@ class TravelParity(unittest.TestCase):
         deny_restore = 'if [ "$v" = power-saver ]; then echo $v; else echo "authorization denied"; false; fi'
         self.check(travel_env(profile_set=deny_restore), ["travel", "on"], ["travel", "off"])
         self.check(travel_env(profile_set=deny_restore, set_body=CAP_REFUSED), ["travel", "on"])
+
+    @unittest.skipIf(os.geteuid() == 0, "root ignores file modes")
+    def test_unwritable_tweaks_file_keeps_effects_owned(self):
+        def read_only(s):
+            tweaks_on()(s)
+            s.write(TWEAKS_FILE, "{}")
+            s._target(TWEAKS_FILE).chmod(0o400)
+        both(after(travel_env(), read_only), ["travel", "on"], ["travel", "off"], stdout=False, inspect=no_leftovers)
+        with Sandbox() as s:
+            after(travel_env(), read_only)(s)
+            r = s.rust("travel", "on")
+            self.assertEqual(r.code, 1)
+            self.assertTrue(r.stdout.startswith("Travel operation could not save its recovery state: "))
+            self.assertIn("tweak:effects", json.loads(s._target(TRAVEL_FILE).read_text())["pending"])
+
+    @unittest.skipIf(os.geteuid() == 0, "root ignores file modes")
+    def test_tweaks_file_that_turns_read_only_before_travel_off(self):
+        def lock_after_on(py, rs):
+            for s in (py, rs):
+                if s._target(TRAVEL_FILE).exists() and not getattr(s, "locked", False):
+                    s._target(TWEAKS_FILE).chmod(0o400)
+                    s.locked = True
+        both(after(travel_env(), tweaks_on()), ["travel", "on"], ["travel", "off"], stdout=False,
+             inspect=lambda py, rs: (no_leftovers(py, rs), lock_after_on(py, rs)))
+        with Sandbox() as s:
+            after(travel_env(), tweaks_on())(s)
+            s.rust("travel", "on")
+            s._target(TWEAKS_FILE).chmod(0o400)
+            r = s.rust("travel", "off")
+            point = json.loads(s._target(TRAVEL_FILE).read_text())
+            self.assertEqual((r.code, point["error"], "tweak:effects" in point["pending"]), (1, "", True))
+            self.assertTrue(r.stdout.startswith("Travel operation could not save its recovery state: "))
 
     def test_malformed_state_is_kept_as_it_is(self):
         for raw in ("{not json", "[1]", '{"on": "yes"}', json.dumps(travel_snapshot(source=[]))):
@@ -1771,6 +1811,120 @@ class TravelParity(unittest.TestCase):
         self.assertEqual(attempt(as_file, "Travel operation could not save its recovery state: "), (True, 1, [], []))
         if os.geteuid():
             self.assertEqual(attempt(read_only, "Could not save Travel restore point: "), (True, 1, [], []))
+
+
+WRAP = r'''#!/bin/bash
+B={base}
+if [[ "$*" == *--no-osd* || "$1" == set || "$0" == *pkexec ]]; then
+  n=$(( $(cat $B/cnt 2>/dev/null || echo 0) + 1 )); echo $n > $B/cnt
+  {{ echo "== $n $(basename $0) $*"; cat $B/run/omarchy-power-hub/travel.json 2>/dev/null; }} >> $B/trace
+  k=$(cat $B/kill 2>/dev/null)
+  if [ "$k" = "$n:before" ]; then kill -9 $PPID; exit 1; fi
+fi
+"$0.real" "$@"; rc=$?
+if [ -n "$n" ] && [ "$k" = "$n:after" ]; then kill -9 $PPID; fi
+exit $rc
+'''
+
+
+def watched(setup):
+    """`setup` with every mutating external call (brightness set, profile set, pkexec, eval) logging travel.json
+    to `trace` first, and killing the calling process at the call named in `kill` ("N:before" or "N:after")."""
+    def instrumented(s):
+        setup(s)
+        for tool in ("omarchy", "powerprofilesctl", "pkexec"):
+            stub = s.stubs / tool
+            stub.rename(s.stubs / (tool + ".real"))
+            stub.write_text(WRAP.format(base=s.base))
+            stub.chmod(0o755)
+        inner = s.hypr_on_eval
+
+        def on_eval(lua):
+            count = s.base / "cnt"
+            n = int(count.read_text()) + 1 if count.exists() else 1
+            count.write_text(str(n))
+            point = s.run / "omarchy-power-hub/travel.json"
+            with open(s.base / "trace", "a") as f:
+                f.write(f"== {n} eval {lua}\n" + (point.read_text() if point.exists() else ""))
+            kill = (s.base / "kill").read_text() if (s.base / "kill").exists() else ""
+            if kill == f"{n}:before":
+                kill_travel(s)
+                return
+            inner(lua)
+            if kill == f"{n}:after":
+                kill_travel(s)
+        s.hypr_on_eval = on_eval
+    return instrumented
+
+
+def kill_travel(s):
+    """SIGKILL this sandbox's ops.py or power-hub process, found by the sandbox root in its environment."""
+    mark = f"POWER_HUB_ROOT={s.root}".encode()
+    for proc in pathlib.Path("/proc").glob("[0-9]*"):
+        try:
+            argv = (proc / "cmdline").read_bytes().split(b"\0")
+            if mark in (proc / "environ").read_bytes().split(b"\0") and (argv[0].endswith(b"power-hub") or any(a.endswith(b"/ops.py") for a in argv[:2])):
+                os.kill(int(proc.name), signal.SIGKILL)
+        except OSError:
+            pass
+
+
+def trace_of(s):
+    path = s.base / "trace"
+    lines = path.read_text().replace(str(s.base), "<b>").splitlines() if path.exists() else []
+    return [json.dumps(json.loads(l)) if l.startswith("{") else l for l in lines]
+
+
+def facts(s):
+    point = s.run / "omarchy-power-hub/travel.json"
+    return (json.loads(point.read_text()).get("on") if point.exists() else None,
+            (s.base / "brightness.state").read_text().strip(), (s.base / "profile.state").read_text().strip())
+
+
+class TravelRecovery(unittest.TestCase):
+    """Python and Rust leave the same restore point at every mutating call, and recover the same after a SIGKILL."""
+    def run_steps(self, setup, steps, kill=None):
+        """Run `steps` in both; `kill` = (step index, "N:before"|"N:after"). Returns the Python sandbox's last call count."""
+        with Sandbox() as py, Sandbox() as rs:
+            for s in (py, rs):
+                watched(setup)(s)
+            for i, step in enumerate(steps):
+                for s in (py, rs):
+                    (s.base / "cnt").write_text("0")
+                    (s.base / "kill").write_text(kill[1] if kill and kill[0] == i else "")
+                a, b = py.settled(py.python(*step)), rs.settled(rs.rust(*step))
+                label = f"step {i} {step} kill={kill}"
+                for got in ((a.code, a.stdout, [c for c in a.calls if not c.startswith(DROPPED)], a.evals),):
+                    self.assertEqual(got, (b.code, b.stdout, [c for c in b.calls if not c.startswith(DROPPED)], b.evals), label)
+                assert_same_files(py, rs)
+            self.assertEqual(trace_of(py), trace_of(rs), f"restore point at each call, kill={kill}")
+            self.assertEqual(facts(py), facts(rs), f"kill={kill}")
+            return int((py.base / "cnt").read_text())
+
+    def test_restore_point_at_every_mutating_call(self):
+        on, off = ["travel", "on"], ["travel", "off"]
+        display_only = travel_snapshot(reduceCpu=False, profile=None, cpu={"turbo": None, "epp": []}, pending=["brightness"],
+                                       monitor=None, controls={**FROZEN, "refresh": {"available": False, "detail": "x"}})
+        for name, setup, steps in (
+                ("plain", after(travel_env(), tweaks_on()), [on, off]),
+                ("saver denied", travel_env(profile_set=SAVER_DENIED), [on]),
+                ("cap refused", travel_env(set_body=CAP_REFUSED), [on, off]),
+                ("mode fails, rollback works", travel_env(replies=("error: nope", "ok")), [on]),
+                ("mode fails, rollback fails", travel_env(replies=("error: nope",)), [on, off]),
+                ("travel off retried", travel_env(replies=("ok", "error: nope", "ok")), [on, off, off]),
+                ("display-only point", travel_env(names=("balanced",), travel=display_only), [off])):
+            with self.subTest(name):
+                self.run_steps(setup, steps)
+
+    def test_killed_travel_recovers_the_same(self):
+        setup = after(travel_env(), tweaks_on())
+        steps = [["travel", "on"], ["travel", "off"], ["travel", "off"]]
+        for step in (0, 1):
+            calls = self.run_steps(setup, steps[:step + 1])
+            for n in range(1, calls + 1):
+                for mode in ("before", "after"):
+                    with self.subTest(step=step, kill=f"{n}:{mode}"):
+                        self.run_steps(setup, steps, kill=(step, f"{n}:{mode}"))
 
 
 class HarnessTests(unittest.TestCase):

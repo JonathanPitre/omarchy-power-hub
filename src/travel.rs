@@ -377,7 +377,7 @@ fn apply_travel_tweaks(state: &mut Value, path: &Path) -> io::Result<String> {
         state["tweaks"].as_array_mut().into_iter().for_each(|t| t.push(json!(key)));
         state["pending"].as_array_mut().into_iter().for_each(|p| p.push(json!(token)));
         atomic_state(path, state)?;
-        if !set_tweak(key, true).is_empty() {
+        if !set_tweak(key, true)?.is_empty() {
             state["tweaks"].as_array_mut().into_iter().for_each(|t| t.retain(|k| k != key));
             drop_token(state, &token);
             atomic_state(path, state)?;
@@ -392,7 +392,7 @@ fn restore_travel_tweaks(state: &mut Value, path: &Path) -> io::Result<String> {
         if !has(state, &token) {
             continue;
         }
-        let err = set_tweak(key.as_str().unwrap_or_default(), false);
+        let err = set_tweak(key.as_str().unwrap_or_default(), false)?;
         if !err.is_empty() {
             return Ok(err);
         }

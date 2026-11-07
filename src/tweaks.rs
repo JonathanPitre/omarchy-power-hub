@@ -31,7 +31,7 @@ pub fn tweak_on(key: &str) -> Option<bool> {
     values.map(|v| !v.contains(&true))
 }
 
-fn set_effects(on: bool) -> String {
+fn set_effects(on: bool) -> io::Result<String> {
     let mut prefs = saved_prefs();
     if on && prefs.get("effectsBefore").is_none() {
         let before: Map<String, Value> = EFFECT_OPTIONS.iter().map(|(name, _)| ((*name).into(), json!(hypr_option(name)))).collect();
@@ -45,14 +45,13 @@ fn set_effects(on: bool) -> String {
             errors.push(if e.trim().is_empty() { format!("{name} could not be changed") } else { e.trim().into() });
         }
     }
-    match save_tweaks(&prefs) {
-        Ok(()) => errors.join(" "),
-        Err(e) => e.to_string(),
-    }
+    save_tweaks(&prefs)?;
+    Ok(errors.join(" "))
 }
 
-pub fn set_tweak(key: &str, on: bool) -> String {
-    if key == "effects" { set_effects(on) } else { privileged(&[key, if on { "on" } else { "off" }]) }
+/// The error to show, or an empty string. An Err is the tweaks file that could not be written.
+pub fn set_tweak(key: &str, on: bool) -> io::Result<String> {
+    if key == "effects" { set_effects(on) } else { Ok(privileged(&[key, if on { "on" } else { "off" }])) }
 }
 
 fn write_unit() -> io::Result<()> {
@@ -69,7 +68,10 @@ fn write_unit() -> io::Result<()> {
 }
 
 fn apply_unlocked(key: &str, on: bool, persist: bool) -> String {
-    let err = set_tweak(key, on);
+    let err = match set_tweak(key, on) {
+        Ok(err) => err,
+        Err(e) => e.to_string(),
+    };
     let mut prefs = saved_prefs();
     prefs[key] = json!(on);
     if persist {
