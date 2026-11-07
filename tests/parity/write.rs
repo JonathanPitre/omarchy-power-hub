@@ -192,6 +192,89 @@ mod settings_parity {
         assert_eq!(s.read_config()["ac"]["sleep"], 0);
     }
 
+    /// The old `test_idle_set.py` and `test_profiles.py` cases: its battery on, `WEEK` already in the shell file.
+    fn idle_setup() -> Settings {
+        let week = 7 * 24 * 3600;
+        let side = |saver, displays_off, lock, sleep, hibernate, profile| json!({"screensaver": saver, "displaysOff": displays_off, "lock": lock,
+            "sleep": sleep, "hibernateAfter": hibernate, "lid": "nothing", "profile": profile});
+        Settings {
+            shell: Some(json!({"idle": {"screensaver": week, "lock": 60}}).to_string()),
+            battery: true,
+            keys: json!({"ac": side(60, 300, 300, 0, 0, "performance"), "battery": side(0, 60, 60, 300, 60, "balanced")}),
+            ..Settings::default()
+        }
+    }
+
+    #[test]
+    fn test_timer_clicks_on_the_active_side_touch_nothing_else() {
+        let s = Sandbox::new();
+        idle_setup().setup(&s);
+        let before = read(&s, SHELL_FILE);
+        for (key, value) in [("displaysOff", "300"), ("sleep", "1800")] {
+            let r = s.rust(&["set", "battery", key, value]);
+            assert_eq!((r.code, r.stdout.as_str()), (0, "ok\n"), "{key}");
+            assert!(["sudo", "pkexec", "systemctl", "hyprctl"].iter().all(|tool| starting(&r, tool).is_empty()), "{:?}", r.calls);
+        }
+        assert_eq!(read(&s, SHELL_FILE), before);
+        assert_eq!((s.read_config()["battery"]["displaysOff"].clone(), s.read_config()["battery"]["sleep"].clone()), (json!(300), json!(1800)));
+    }
+
+    #[test]
+    fn test_clicks_on_the_inactive_side_apply_nothing() {
+        let s = Sandbox::new();
+        idle_setup().setup(&s);
+        let before = read(&s, SHELL_FILE);
+        for key in ["lock", "hibernateAfter"] {
+            let r = s.rust(&["set", "ac", key, "600"]);
+            assert_eq!(r.code, 0, "{key}");
+            assert!(["sudo", "pkexec", "systemctl"].iter().all(|tool| starting(&r, tool).is_empty()), "{:?}", r.calls);
+        }
+        assert_eq!(read(&s, SHELL_FILE), before);
+    }
+
+    #[test]
+    fn test_a_saver_the_displays_would_pre_empt_never_starts_and_returns_when_they_move() {
+        let s = Sandbox::new();
+        idle_setup().setup(&s);
+        let saver = |s: &Sandbox| parsed(&read(s, SHELL_FILE))["idle"]["screensaver"].clone();
+        for value in ["60", "300"] {
+            s.rust(&["set", "battery", "screensaver", value]);
+            assert_eq!(saver(&s), json!(7 * 24 * 3600), "{value}");
+        }
+        assert_eq!(j(&s.rust(&["config"]))["config"]["battery"]["screensaver"], 300);
+        s.rust(&["set", "battery", "displaysOff", "600"]);
+        assert_eq!(saver(&s), json!(300));
+        s.rust(&["set", "battery", "displaysOff", "0"]);
+        assert_eq!(saver(&s), json!(300));
+    }
+
+    #[test]
+    fn test_system_default_is_no_longer_a_lid_action() {
+        let s = Sandbox::new();
+        idle_setup().setup(&s);
+        let r = s.rust(&["set", "ac", "lid", "system-default"]);
+        assert_eq!((r.code, text(&r)), (1, "bad lid action"));
+    }
+
+    #[test]
+    fn test_legacy_profile_names_map_to_real_profiles() {
+        // (ac, battery) -> (ac, battery)
+        let cases = [(("auto", "saver"), ("balanced", "power-saver")), (("full", "balanced"), ("performance", "balanced")),
+                     (("power-saver", "performance"), ("power-saver", "performance")), (("auto", "auto"), ("balanced", "balanced"))];
+        for ((ac, battery), want) in cases {
+            let s = Sandbox::new();
+            s.profiles(PROFILES);
+            s.config(json!({"ac": {"profile": ac}, "battery": {"profile": battery}}));
+            let config = &j(&s.rust(&["config"]))["config"];
+            assert_eq!((config["ac"]["profile"].as_str().unwrap(), config["battery"]["profile"].as_str().unwrap()), want, "{ac} {battery}");
+        }
+        let s = Sandbox::new();
+        s.profiles(PROFILES);
+        s.config(json!({"ac": {"screensaver": 10}, "battery": {"profile": "auto"}}));
+        let config = &j(&s.rust(&["config"]))["config"];
+        assert_eq!((&config["ac"]["profile"], &config["battery"]["profile"]), (&json!("performance"), &json!("balanced")));
+    }
+
     #[test]
     fn test_lid_writes_one_block_and_reloads_once() {
         let step: &[&str] = &["set", "ac", "lid", "display-off"];

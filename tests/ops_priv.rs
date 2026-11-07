@@ -116,3 +116,14 @@ fn script_is_python_free_and_install_removes_the_old_file() {
     assert!(!SCRIPT.to_lowercase().contains("python"));
     assert!(SCRIPT.contains(r#"rm -f "$dir/hid_wakeup.py""#));
 }
+
+#[test]
+fn epp_cpu_rejects_unsafe_arguments_before_sysfs_access() {
+    let s = Sandbox::new("epp");
+    for args in [["../etc", "power"].as_slice(), &["1x", "power"], &["0", "performance", "extra"]] {
+        assert_eq!(s.run(&[&["epp-cpu"], args].concat()).status.code(), Some(2), "{args:?}");
+    }
+    let missing = s.run(&["epp-cpu", "999999", "power"]);
+    assert_eq!(missing.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&missing.stderr).contains("no cpu preference"));
+}

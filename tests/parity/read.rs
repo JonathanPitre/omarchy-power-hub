@@ -72,6 +72,31 @@ mod gpu_parity {
         let s = Sandbox::new();
         replay(&s, "GpuParity.test_no_gpu", &["gpu"], D);
     }
+
+    /// Expected values come from `bin/ops.py`'s `gpu_status` on the same trees (the old `test_gpu.py`).
+    #[test]
+    fn test_which_gpu_counts_and_whether_it_sleeps() {
+        let cases = [
+            ("active discrete", vec![("0000:c1:00.0", Pci { boot_vga: Some("1"), runtime: "suspended", ..Pci::default() }),
+                                     ("0000:c2:00.0", Pci { boot_vga: Some("0"), ..Pci::default() })], json!({"present": true, "asleep": false})),
+            ("nvidia boot gpu is skipped", vec![("0000:01:00.0", Pci { boot_vga: Some("1"), driver: Some("nvidia"), ..Pci::default() }),
+                                                ("0000:02:00.0", Pci { cls: "0x030200", driver: Some("nvidia"), runtime: "suspended", ..Pci::default() })],
+             json!({"present": true, "asleep": true})),
+            ("integrated only", vec![("0000:00:02.0", Pci { boot_vga: Some("1"), ..Pci::default() }),
+                                     ("0000:00:03.0", Pci { cls: "0x038000", driver: Some("amdgpu"), ..Pci::default() }),
+                                     ("0000:01:00.0", Pci { cls: "0x020000", boot_vga: Some("0"), ..Pci::default() })], json!({"present": false, "asleep": false})),
+            ("optimus 3d controller", vec![("0000:00:02.0", Pci { boot_vga: Some("1"), ..Pci::default() }),
+                                           ("0000:01:00.0", Pci { cls: "0x030200", driver: Some("nvidia"), runtime: "suspended", ..Pci::default() })],
+             json!({"present": true, "asleep": true})),
+        ];
+        for (label, devices, want) in cases {
+            let s = Sandbox::new();
+            for (addr, pci) in devices {
+                s.pci(addr, pci);
+            }
+            assert_eq!(j(&s.rust(&["gpu"])), want, "{label}");
+        }
+    }
 }
 
 mod config_parity {
@@ -186,6 +211,38 @@ mod power_source_parity {
         s.discharging(50);
         s.ucsi(USB, true, 20.0, 3.25);
         same(&s, "PowerSourceParity.test_discharging_below_limit_is_battery_side", 1, "battery", 0);
+    }
+
+    /// Expected values come from `bin/ops.py` on the same supplies (the old `test_power_source.py`).
+    #[test]
+    fn test_which_plan_applies_while_the_pack_discharges() {
+        let brick: &[(&str, f64, f64)] = &[("USBC000:003", 20.0, 5.0)];
+        let monitor: &[(&str, f64, f64)] = &[("USBC000:005", 12.0, 0.42)];
+        // (label, supplies, status, percent, framework, boost, ac verb, side, drain-to)
+        let cases = [
+            ("EC drains to the limit on a brick", brick, "Discharging", 98, true, false, "1", "ac", "80"),
+            ("not charging on a brick", brick, "Not charging", 98, true, false, "1", "ac", "0"),
+            ("discharging at the limit is the 800 mA fault", brick, "Discharging", 80, true, false, "1", "battery", "0"),
+            ("boost has no limit to drain to", brick, "Discharging", 98, true, true, "1", "battery", "0"),
+            ("other vendors keep the battery plan", brick, "Discharging", 98, false, false, "1", "battery", "0"),
+            ("a monitor feed above the limit", monitor, "Discharging", 98, true, false, "0", "battery", "0"),
+        ];
+        for (label, supplies, status, percent, framework, boost, ac, side, drain) in cases {
+            let s = Sandbox::new();
+            s.profiles(&["balanced"]);
+            if framework {
+                s.framework(true);
+            }
+            s.discharging(percent);
+            s.write("/sys/class/power_supply/BAT0/status", &format!("{status}\n"));
+            for (name, volts, amps) in supplies {
+                s.ucsi(name, true, *volts, *amps);
+            }
+            s.write(CONFIG_FILE, &json!({"chargeLimit": 80, "boost": boost}).to_string());
+            assert_eq!(text(&s.rust(&["ac"])), ac, "{label}");
+            assert_eq!(j(&s.rust(&["config"]))["side"], side, "{label}");
+            assert_eq!(text(&s.rust(&["drain-to"])), drain, "{label}");
+        }
     }
 }
 
@@ -514,6 +571,27 @@ mod status_parity {
         assert_eq!(status_of(&s, T)["travel"]["error"], TRAVEL_MALFORMED);
     }
 
+    /// Expected values come from `bin/ops.py` (`_valid_travel_snapshot`, `_epp_saving_supported`).
+    #[test]
+    fn test_a_tweak_the_plugin_does_not_know_is_malformed_even_when_pending_agrees() {
+        let point = |tweaks: Value, pending: Value| travel_snapshot(json!({"cpu": {"turbo": null, "epp": []}, "tweaks": tweaks, "pending": pending,
+            "monitor": null, "brightness": null, "profile": null, "controls": merged(frozen(), json!({"refresh": {"available": false, "detail": "none"}}))}));
+        for (tweaks, pending, error) in [(json!(["abm"]), json!(["tweak:abm"]), ""), (json!(["rm"]), json!(["tweak:rm"]), TRAVEL_MALFORMED),
+                                         (json!([]), json!(["tweak:abm"]), TRAVEL_MALFORMED)] {
+            let s = Sandbox::new();
+            s.write(TRAVEL_FILE, &point(tweaks.clone(), pending).to_string());
+            assert_eq!(j(&s.rust(&["status"]))["travel"]["error"], error, "{tweaks}");
+        }
+    }
+
+    #[test]
+    fn test_a_performance_only_epp_is_not_a_saving_capability() {
+        let s = Sandbox::new();
+        s.write(&format!("{CPU}/cpu0/cpufreq/energy_performance_preference"), "performance\n");
+        s.write(&format!("{CPU}/cpu0/cpufreq/energy_performance_available_preferences"), "performance\n");
+        assert_eq!(j(&s.rust(&["status"]))["travel"]["controls"]["epp"]["available"], false);
+    }
+
     #[test]
     fn test_unreadable_quick_dim_file() {
         let s = Sandbox::new();
@@ -650,6 +728,26 @@ mod status_parity {
         s.stub("busctl", "ChargeThresholdSettingsSupported", 0, "u 4\n");
         let charge = status_of(&s, T)["charge"].clone();
         assert_eq!((&charge["health"], &charge["policy"]), (&json!(false), &json!("firmware")));
+    }
+
+    /// Expected values come from `bin/ops.py`'s `charge_status` on the same replies (the old `test_charge.py`).
+    #[test]
+    fn test_upower_thresholds_unsupported_or_end_only() {
+        let charge = |supported: &str, enabled: &str| {
+            let s = Sandbox::new();
+            s.stub("upower", "-e", 0, UPOWER_LIST);
+            s.stub("busctl", "ChargeThresholdSupported", 0, supported);
+            s.stub("busctl", "ChargeThresholdEnabled", 0, enabled);
+            s.stub("busctl", "ChargeThresholdSettingsSupported", 0, "u 2\n");
+            s.stub("busctl", "ChargeEndThreshold", 0, "u 80\n");
+            j(&s.rust(&["status"]))["charge"].clone()
+        };
+        assert_eq!(charge("b false\n", "b false\n"), json!({
+            "kind": "none", "available": false, "reason": "no charge threshold", "limit": null, "tool": false, "health": null, "policy": null}));
+        for (enabled, health) in [("b false\n", false), ("b true\n", true)] {
+            assert_eq!(charge("b true\n", enabled), json!({
+                "kind": "upower", "available": true, "reason": "", "limit": null, "tool": false, "health": health, "policy": "80"}));
+        }
     }
 
     #[test]

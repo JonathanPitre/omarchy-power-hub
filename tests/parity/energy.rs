@@ -339,6 +339,36 @@ mod travel_parity {
         check("TravelParity.test_internal_output_only_is_changed_and_restored", &travel_env(), &[ON, OFF]);
     }
 
+    /// Expected values come from `bin/ops.py` (the old `test_energy_controls.py`).
+    #[test]
+    fn test_quick_dim_and_travel_keep_nested_restore_points_independent() {
+        let s = Sandbox::new();
+        travel_env().brightness(82).setup(&s);
+        let brightness = || fs::read_to_string(s.base.join("brightness.state")).unwrap().trim().to_string();
+        assert_eq!(s.rust(&["quick-dim", "on"]).code, 0);
+        assert_eq!(brightness(), "40");
+        assert_eq!(s.rust(ON).code, 0);
+        let refused = s.rust(&["quick-dim", "off"]);
+        assert_eq!((refused.code, refused.stdout.as_str()), (1, "Turn off Travel mode before changing Quick dim\n"));
+        assert_eq!(parsed(&read(&s, DIM_FILE))["on"], true);
+        assert_eq!(s.rust(OFF).code, 0);
+        assert_eq!(brightness(), "40");
+        assert_eq!(s.rust(&["quick-dim", "off"]).code, 0);
+        assert_eq!(brightness(), "82");
+    }
+
+    #[test]
+    fn test_travel_sets_power_saver_and_leaves_cpu_boost_alone() {
+        let s = Sandbox::new();
+        travel_env().setup(&s);
+        let boost = s.write("/sys/devices/system/cpu/cpufreq/boost", "1\n");
+        let profile = || fs::read_to_string(s.base.join("profile.state")).unwrap().trim().to_string();
+        assert_eq!(s.rust(ON).code, 0);
+        assert_eq!((profile().as_str(), fs::read_to_string(&boost).unwrap().as_str()), ("power-saver", "1\n"));
+        assert_eq!(s.rust(OFF).code, 0);
+        assert_eq!(fs::read_to_string(&boost).unwrap(), "1\n");
+    }
+
     #[test]
     fn test_already_dim_display_stays() {
         check("TravelParity.test_already_dim_display_stays", &travel_env().brightness(30), &[ON, OFF]);
