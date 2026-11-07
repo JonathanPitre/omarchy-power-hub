@@ -2607,12 +2607,27 @@ class LightsParity(unittest.TestCase):
                      self.ON, inspect=same_lights)
 
     def test_power_button_uses_tee_when_sysfs_is_root_only(self):
+        """The value piped to `sudo tee` is the only write route, so it is recorded and checked."""
+        def tee(s):
+            log = s.base / "tee.log"
+            s._stateful("sudo", f'''[ "$2" = tee ] || exit 1
+printf '[%s]' "$(/usr/bin/cat)" >> {log}''')
+
         def setup(s):
-            lights_setup(lambda s: qmk_keys(s, 40), lambda s: s.stub("sudo", "tee", 0, ""), led=("chromeos-auto", 80, 100))(s)
+            lights_setup(lambda s: qmk_keys(s, 40), tee, led=("chromeos-auto", 80, 100))(s)
             (s.root / LED / "brightness").chmod(0o444)
+        piped = lambda s: (s.base / "tee.log").read_text()  # noqa: E731
         both(setup, self.OFF,
              lambda s: self.assertIn(f"sudo -n tee {s.root}/{LED}/brightness", s.calls_log.read_text()),
-             self.ON, inspect=same_lights)
+             lambda s: self.assertEqual(piped(s), "[0]"),
+             self.ON,
+             lambda s: self.assertEqual(piped(s), "[0][80]"),
+             inspect=same_lights)
+
+    def test_laptop_16_with_only_framework_tool_and_no_led_invents_nothing(self):
+        both(lights_setup(lambda s: s._write_stub("framework_tool")), self.OFF,
+             lambda s: self.assertIsNone(kblight_saved(s)),
+             self.ON, lambda s: self.assertEqual(light_calls(s), []))
 
     def test_the_first_power_button_in_name_order_wins(self):
         def setup(s):
@@ -2627,12 +2642,15 @@ class LightsParity(unittest.TestCase):
              lambda s: self.assertEqual(light_calls(s), []))
 
     def test_machines_that_are_not_a_framework_laptop_are_left_alone(self):
+        saved = {"level": 40, "fp": {"requested": "auto", "brightness": 55}}
         for vendor, model in (("LENOVO", "Laptop 16"), ("Framework", "Desktop"), ("Framework", "Laptop 15")):
             with self.subTest(vendor=vendor, model=model):
-                both(lights_setup(lambda s: qmk_keys(s, 40), lambda s: s._write_stub("framework_tool"),
-                                  vendor=vendor, model=model, led=("chromeos-auto", 80, 100)),
-                     self.OFF, self.ON,
-                     lambda s: self.assertEqual((light_calls(s), led_file(s), kblight_saved(s)), ([], "80", None)))
+                def setup(s):
+                    lights_setup(lambda s: qmk_keys(s, 40), lambda s: s._write_stub("framework_tool"),
+                                 vendor=vendor, model=model, led=("chromeos-auto", 80, 100))(s)
+                    s.write(KBLIGHT_FILE, json.dumps(saved))
+                both(setup, self.OFF, self.ON,
+                     lambda s: self.assertEqual((light_calls(s), led_file(s), kblight_saved(s)), ([], "80", saved)))
 
     def test_vendor_matches_framework_in_any_case(self):
         both(lights_setup(lambda s: qmk_keys(s, 67), vendor="FRAMEWORK"), self.OFF,
