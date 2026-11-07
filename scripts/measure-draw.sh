@@ -15,12 +15,12 @@ hub=$HOME/.config/omarchy/plugins/omarchy-power-hub/bin/power-hub
 cfg=$HOME/.config/omarchy/omarchy-power-hub.json
 keys="screensaver displaysOff lock sleep hibernateAfter"
 restore=""
+trap 'eval "$restore"; omarchy toggle idle allow-idle >/dev/null 2>&1' EXIT
 for k in $keys; do
-  restore+="$hub set battery $k $(jq -r ".battery.$k // 0" "$cfg") >/dev/null; "
-  "$hub" set battery "$k" 0 >/dev/null
+  restore+="$(printf '%q' "$hub") set battery $k $(jq -r ".battery.$k // 0" "$cfg") >/dev/null; "
+  "$hub" set battery "$k" 0 >/dev/null || { echo "could not zero battery $k: stopping, restoring settings" >&2; exit 1; }
 done
 omarchy toggle idle stay-awake >/dev/null 2>&1
-trap "$restore omarchy toggle idle allow-idle >/dev/null 2>&1" EXIT
 
 echo "settling 45 s for the embedded controller's smoothed current" >&2
 sleep 45

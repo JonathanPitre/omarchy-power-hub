@@ -205,6 +205,9 @@ mod settings_parity {
         }
     }
 
+    /// Python stubbed which side is active; the binary asks UPower, and that read is its only call.
+    const ON_BATTERY_READ: &str = "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery";
+
     #[test]
     fn test_timer_clicks_on_the_active_side_touch_nothing_else() {
         let s = Sandbox::new();
@@ -213,7 +216,7 @@ mod settings_parity {
         for (key, value) in [("displaysOff", "300"), ("sleep", "1800")] {
             let r = s.rust(&["set", "battery", key, value]);
             assert_eq!((r.code, r.stdout.as_str()), (0, "ok\n"), "{key}");
-            assert!(["sudo", "pkexec", "systemctl", "hyprctl"].iter().all(|tool| starting(&r, tool).is_empty()), "{:?}", r.calls);
+            assert_eq!(r.calls, [ON_BATTERY_READ], "{key}");
         }
         assert_eq!(read(&s, SHELL_FILE), before);
         assert_eq!((s.read_config()["battery"]["displaysOff"].clone(), s.read_config()["battery"]["sleep"].clone()), (json!(300), json!(1800)));
@@ -227,7 +230,7 @@ mod settings_parity {
         for key in ["lock", "hibernateAfter"] {
             let r = s.rust(&["set", "ac", key, "600"]);
             assert_eq!(r.code, 0, "{key}");
-            assert!(["sudo", "pkexec", "systemctl"].iter().all(|tool| starting(&r, tool).is_empty()), "{:?}", r.calls);
+            assert_eq!(r.calls, [ON_BATTERY_READ], "{key}");
         }
         assert_eq!(read(&s, SHELL_FILE), before);
     }

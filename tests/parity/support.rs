@@ -337,7 +337,7 @@ if [ "$1" = eval ] && [[ "$out" == error* ]]; then exit 7; fi
         }
     }
 
-    fn supply(&self, name: &str) -> PathBuf {
+    pub fn supply(&self, name: &str) -> PathBuf {
         let dir = self.root.join("sys/class/power_supply").join(name);
         fs::create_dir_all(&dir).unwrap();
         dir

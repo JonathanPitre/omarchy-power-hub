@@ -323,6 +323,7 @@ fn changed_calls(r: &crate::support::Outcome) -> Vec<String> {
 }
 
 mod travel_parity {
+    use crate::write::starting;
     use super::*;
 
     const ON: &[&str] = &["travel", "on"];
@@ -365,7 +366,16 @@ mod travel_parity {
         let profile = || fs::read_to_string(s.base.join("profile.state")).unwrap().trim().to_string();
         assert_eq!(s.rust(ON).code, 0);
         assert_eq!((profile().as_str(), fs::read_to_string(&boost).unwrap().as_str()), ("power-saver", "1\n"));
-        assert_eq!(s.rust(OFF).code, 0);
+        // A power source change keeps Power saver while Travel is on.
+        fs::write(s.supply("BAT0").join("status"), "Charging\n").unwrap();
+        fs::write(s.base.join("profile.state"), "performance\n").unwrap();
+        s.rust(&["apply"]);
+        assert_eq!(profile(), "power-saver");
+        let off = s.rust(OFF);
+        assert_eq!(off.code, 0);
+        assert_eq!(profile(), "performance");
+        assert!(["sudo", "pkexec", "systemctl"].iter().all(|tool| starting(&off, tool).is_empty()), "{:?}", off.calls);
+        assert_eq!(starting(&off, "powerprofilesctl set"), ["powerprofilesctl set performance"]);
         assert_eq!(fs::read_to_string(&boost).unwrap(), "1\n");
     }
 
