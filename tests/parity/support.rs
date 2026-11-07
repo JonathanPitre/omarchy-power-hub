@@ -16,7 +16,7 @@ use std::sync::{Arc, LazyLock, Mutex, MutexGuard, Once, RwLock};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-const RUST_BIN: &str = env!("CARGO_BIN_EXE_power-hub");
+pub const RUST_BIN: &str = env!("CARGO_BIN_EXE_power-hub");
 const REPO: &str = env!("CARGO_MANIFEST_DIR");
 const LED: &str = "sys/class/leds/chromeos:white:power";
 const STUBBED: &[&str] = &["busctl", "iw", "systemctl", "sudo", "pkexec", "upower", "omarchy", "powerprofilesctl",
@@ -150,8 +150,13 @@ pub fn executable(path: &Path, text: &str) {
 
 /// Every process a test starts goes through here, for `FORK`.
 pub fn spawn(command: &mut Command) -> Child {
+    spawn_with(command, Stdio::piped())
+}
+
+/// `spawn` with another stdout, for a run whose output goes nowhere.
+pub fn spawn_with(command: &mut Command, stdout: Stdio) -> Child {
     let _spawning = FORK.read().unwrap_or_else(|e| e.into_inner());
-    command.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().unwrap()
+    command.stdout(stdout).stderr(Stdio::piped()).spawn().unwrap()
 }
 
 /// `subprocess.run` with the output captured.

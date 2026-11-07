@@ -11,24 +11,24 @@ use std::time::{Duration, SystemTime};
 
 /// What `assert_same(s.python(...), s.rust(...))` compared.
 const D: Replay = Replay::direct();
-const CONFIG_FILE: &str = Sandbox::CONFIG_PATH;
-const PROFILES: &[&str] = &["power-saver", "balanced", "performance"];
+pub(crate) const CONFIG_FILE: &str = Sandbox::CONFIG_PATH;
+pub(crate) const PROFILES: &[&str] = &["power-saver", "balanced", "performance"];
 const USB: &str = "USBC000:001";
 
-fn j(r: &Outcome) -> Value {
+pub(crate) fn j(r: &Outcome) -> Value {
     serde_json::from_str(&r.stdout).unwrap()
 }
 
-fn text(r: &Outcome) -> &str {
+pub(crate) fn text(r: &Outcome) -> &str {
     r.stdout.trim()
 }
 
-fn parsed(text: &str) -> Value {
+pub(crate) fn parsed(text: &str) -> Value {
     serde_json::from_str(text).unwrap()
 }
 
 /// `assertEqual` on parsed JSON: 91 equals 91.0.
-fn same(left: &Value, right: Value) {
+pub(crate) fn same(left: &Value, right: Value) {
     assert!(same_json(left, &right), "{left} != {right}");
 }
 
@@ -189,7 +189,7 @@ mod power_source_parity {
     }
 }
 
-const UPOWER_LIST: &str = "/org/freedesktop/UPower/devices/line_power_AC\n/org/freedesktop/UPower/devices/battery_BAT1\n/org/freedesktop/UPower/devices/DisplayDevice\n";
+pub(crate) const UPOWER_LIST: &str = "/org/freedesktop/UPower/devices/line_power_AC\n/org/freedesktop/UPower/devices/battery_BAT1\n/org/freedesktop/UPower/devices/DisplayDevice\n";
 
 mod charge_parity {
     use super::*;
@@ -352,37 +352,37 @@ mod charge_parity {
     }
 }
 
-const CPU: &str = "/sys/devices/system/cpu";
-const TRAVEL_FILE: &str = "run/omarchy-power-hub/travel.json";
-const DIM_FILE: &str = "run/omarchy-power-hub/quick-dim.json";
-const TWEAKS_FILE: &str = "home/.config/omarchy/power-hub-tweaks.json";
-const TRAVEL_MALFORMED: &str = "Travel restore point is malformed; restore ownership manually";
-const UNREADABLE: &str = "Saved settings are unreadable; restore ownership manually";
+pub(crate) const CPU: &str = "/sys/devices/system/cpu";
+pub(crate) const TRAVEL_FILE: &str = "run/omarchy-power-hub/travel.json";
+pub(crate) const DIM_FILE: &str = "run/omarchy-power-hub/quick-dim.json";
+pub(crate) const TWEAKS_FILE: &str = "home/.config/omarchy/power-hub-tweaks.json";
+pub(crate) const TRAVEL_MALFORMED: &str = "Travel restore point is malformed; restore ownership manually";
+pub(crate) const UNREADABLE: &str = "Saved settings are unreadable; restore ownership manually";
 
-fn laptop_row() -> Value {
+pub(crate) fn laptop_row() -> Value {
     json!({"name": "eDP-1", "width": 1920, "height": 1200, "refreshRate": 165.004, "transform": 0,
            "availableModes": ["1920x1200@165.00Hz", "1920x1200@59.94Hz", "1920x1200@48.00Hz", "1920x1080@60.00Hz"]})
 }
 
-fn snapshot_monitor() -> Value {
+pub(crate) fn snapshot_monitor() -> Value {
     json!({"output": "eDP-1", "name": "eDP-1", "width": 1920, "height": 1200, "x": 0, "y": 0,
            "refreshRate": 165.004, "scale": 1.25, "transform": 0})
 }
 
-fn frozen() -> Value {
+pub(crate) fn frozen() -> Value {
     json!({"profile": {"available": true, "detail": "Frozen profile"}, "turbo": {"available": true, "detail": "Frozen turbo"},
            "epp": {"available": true, "detail": "Frozen epp"}, "brightness": {"available": true, "detail": "Frozen brightness"},
            "refresh": {"available": false, "detail": "Laptop refresh capped at 59.94 Hz"}})
 }
 
 /// `{**base, **changes}`: a changed key keeps its place.
-fn merged(base: Value, changes: Value) -> Value {
+pub(crate) fn merged(base: Value, changes: Value) -> Value {
     let (Value::Object(mut base), Value::Object(changes)) = (base, changes) else { panic!("merged takes objects") };
     base.extend(changes);
     Value::Object(base)
 }
 
-fn travel_snapshot(changes: Value) -> Value {
+pub(crate) fn travel_snapshot(changes: Value) -> Value {
     merged(json!({"on": true, "complete": true, "reduceCpu": true, "source": "battery", "error": "",
                   "pending": ["profile", "turbo", "brightness", "refresh"], "profile": "balanced",
                   "cpu": {"turbo": true, "epp": []}, "brightness": {"monitor": "eDP-1", "before": 70},
@@ -395,7 +395,7 @@ fn status_of(s: &Sandbox, name: &str) -> Value {
     d
 }
 
-fn laptop(s: &Sandbox, brightness: &str) {
+pub(crate) fn laptop(s: &Sandbox, brightness: &str) {
     s.monitors(&[laptop_row()]);
     s.stub("omarchy", "brightness display --monitor eDP-1", 0, &format!("{brightness}\n"));
 }
