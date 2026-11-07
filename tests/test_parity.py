@@ -1321,6 +1321,15 @@ class TweakParity(unittest.TestCase):
                 self.assertEqual((s._target(UNIT_FILE).exists(), "systemctl --user enable --now omarchy-power-hub-tweaks.service" in r.calls_text),
                                  (spelling != "no",) * 2)
 
+    def test_eval_error_reply_is_reported_by_both(self):
+        def setup(s):
+            tweak_setup()(s)
+            s.eval_reply = "error: no such monitor"
+        tweak_both(setup, ["tweak", "effects", "on"])
+        with Sandbox() as s:
+            setup(s)
+            self.assertIn("error: no such monitor", s.rust("tweak", "effects", "on").stdout)
+
     def test_effects_on_saves_the_previous_values_and_sends_both_evals(self):
         for effects in ((True, True), (False, True)):
             with self.subTest(effects=effects), tweaked(tweak_setup(effects=effects), ["tweak", "effects", "on"]) as (s, r):

@@ -99,6 +99,8 @@ out = b""
 while chunk := s.recv(65536):
     out += chunk
 sys.stdout.write(out.decode())
+if args[:1] == ["eval"] and out.startswith(b"error"):
+    sys.exit(7)
 """
 
 
@@ -113,6 +115,7 @@ class Sandbox:
         self.path = f"{self.stubs}:/usr/bin:/bin"
         self.hypr = {}
         self.hypr_on_eval = None
+        self.eval_reply = "ok"
         self._evals = []
         self._requests = []
         self._rules = {}
@@ -182,7 +185,7 @@ class Sandbox:
                         self._evals.append(req[5:])
                         if self.hypr_on_eval:
                             self.hypr_on_eval(req[5:])
-                        reply = "ok"
+                        reply = self.eval_reply
                     else:
                         reply = self.hypr.get(req, "")
                     conn.sendall(reply.encode())

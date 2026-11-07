@@ -198,7 +198,7 @@ pub fn monitor_change(saved: &Value, refresh: &Value) -> String {
     if let Err(e) = hypr::eval_checked(&restore_lua(&spec)) {
         return Some(e.trim()).filter(|e| !e.is_empty()).unwrap_or("Monitor mode change failed").into();
     }
-    match hypr::monitors().iter().find(|m| m["name"] == saved["name"]) {
+    match hypr::monitors_within(Duration::from_secs(4)).iter().find(|m| m["name"] == saved["name"]) {
         None => "Saved laptop display is unavailable".into(),
         Some(actual) if mode_holds(saved, actual, refresh) => String::new(),
         Some(_) => "Laptop display mode could not be verified".into(),
