@@ -12,7 +12,7 @@ use std::os::unix::process::ExitStatusExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Output, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, LazyLock, Mutex, MutexGuard, RwLock};
+use std::sync::{Arc, LazyLock, Mutex, MutexGuard, Once, RwLock};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
@@ -25,13 +25,16 @@ const STUBBED: &[&str] = &["busctl", "iw", "systemctl", "sudo", "pkexec", "upowe
 pub const DROPPED: &[&str] = &["hyprctl", "busctl get-property net.hadess", "omarchy-powerprofiles-list"];
 
 unsafe extern "C" {
+    fn atexit(handler: extern "C" fn()) -> i32;
+    fn _exit(code: i32) -> !;
     fn shutdown(fd: i32, how: i32) -> i32;
+    fn umask(mask: u32) -> u32;
 }
 
 pub type Normalise = fn(&str, &str) -> String;
 pub type OnEval = Box<dyn FnMut(&mut Hypr, &str) + Send>;
 type Rules = HashMap<String, Vec<(String, i32, String)>>;
-type Cursors = HashMap<String, (Arc<Vec<Value>>, usize)>;
+pub type Cursors = HashMap<String, (Arc<Vec<Value>>, usize)>;
 
 /// How a step is compared. The default is what `both()` compares; `direct()` is what `assert_same` compares, plus files.
 #[derive(Clone, Copy)]
@@ -193,6 +196,7 @@ impl Sandbox {
     }
 
     fn build(hypr_up: bool) -> Self {
+        unsafe { umask(0o022) }; // goldens hold file modes, recorded under this mask
         let n = SANDBOXES.fetch_add(1, Ordering::Relaxed);
         let base = PathBuf::from(format!("/tmp/ph-{}-{n}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
@@ -672,9 +676,28 @@ pub fn golden_step(name: &str, index: usize) -> Value {
 }
 
 static CURSORS: LazyLock<Mutex<Cursors>> = LazyLock::new(Mutex::default);
+static AUDIT: Once = Once::new();
+
+/// Every golden a test started and did not finish, by name.
+pub fn stopped_short(cursors: &Cursors) -> Vec<String> {
+    let mut short: Vec<String> = cursors.iter().filter(|(_, (steps, next))| next < &steps.len())
+        .map(|(name, (steps, next))| format!("{name} stopped at step {next} of {}", steps.len())).collect();
+    short.sort();
+    short
+}
+
+/// Runs at exit: libtest has no hook after the last test, and a test that drops a replay would otherwise stay green.
+extern "C" fn audit_cursors() {
+    let short = stopped_short(&CURSORS.lock().unwrap_or_else(|e| e.into_inner()));
+    if !short.is_empty() {
+        eprintln!("goldens not fully replayed:\n  {}", short.join("\n  "));
+        unsafe { _exit(1) };
+    }
+}
 
 /// The next recorded step of `<Class>.<test>`, in call order across every sandbox of the test.
 fn next_step(name: &str) -> (Arc<Vec<Value>>, usize) {
+    AUDIT.call_once(|| assert_eq!(unsafe { atexit(audit_cursors) }, 0));
     let mut cursors = CURSORS.lock().unwrap_or_else(|e| e.into_inner());
     let entry = cursors.entry(name.to_string()).or_insert_with(|| (Arc::new(golden(name)), 0));
     entry.1 += 1;

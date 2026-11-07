@@ -142,6 +142,7 @@ if args[:1] == ["eval"] and out.startswith(b"error"):
 
 class Sandbox:
     def __init__(self, hypr_up=True):
+        os.umask(0o022)  # goldens hold file modes
         self.hypr_up = hypr_up
         self.base = pathlib.Path(tempfile.mkdtemp(prefix="ph-", dir="/tmp"))
         self.root, self.home, self.run, self.stubs, self.bin = (self.base / d for d in ("root", "home", "run", "stubs", "bin"))

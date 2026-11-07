@@ -1,10 +1,11 @@
 //! The read-only verbs, ported from `tests/test_parity.py` class by class under the same test names.
-use crate::support::{Outcome, Pci, Replay, Sandbox, assert_same_files, golden_step, replay, run, same_json, verify};
+use crate::support::{Cursors, Outcome, Pci, Replay, Sandbox, assert_same_files, golden_step, replay, run, same_json, stopped_short, verify};
 use serde_json::{Value, json};
 use std::fs;
 use std::os::unix::fs::{PermissionsExt, symlink};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::process::Command;
+use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime};
 
@@ -961,7 +962,9 @@ fn poll(s: &Sandbox, name: &str, args: &[&str], prev: Option<&str>, age: u64) ->
         seed_cursor(s, prev, age);
     }
     let r = replay(s, name, &[&["idle-wake-poll"], args].concat(), D);
-    (r, fs::read_to_string(s.target(IDLE_FILE)).unwrap())
+    let file = fs::read_to_string(s.target(IDLE_FILE)).unwrap();
+    assert_eq!(file, format!("{{\"cursor\": {}}}\n", parsed(&file)["cursor"]), "goldens hold the parsed file, not its bytes");
+    (r, file)
 }
 
 fn poll_says(s: &Sandbox, name: &str, args: &[&str], prev: &str) -> String {
@@ -1201,15 +1204,17 @@ mod sync_parity {
 mod harness_tests {
     use super::*;
 
-    fn fails(differ: impl FnOnce()) {
-        assert!(catch_unwind(AssertUnwindSafe(differ)).is_err(), "the harness missed a change");
+    fn fails(expected: &str, differ: impl FnOnce()) {
+        let panic = catch_unwind(AssertUnwindSafe(differ)).expect_err("the harness missed a change");
+        let message = panic.downcast_ref::<String>().map(String::as_str).or(panic.downcast_ref::<&str>().copied()).unwrap_or_default();
+        assert!(message.contains(expected), "failed for another reason: {message}");
     }
 
     #[test]
     fn test_harness_sees_a_changed_file() {
         let (a, b) = (Sandbox::new(), Sandbox::new());
         a.write(TWEAKS_FILE, "{}");
-        fails(|| assert_same_files(&a, &b, None));
+        fails("files differ", || assert_same_files(&a, &b, None));
     }
 
     #[test]
@@ -1229,7 +1234,7 @@ mod harness_tests {
             let (a, b) = (Sandbox::new(), Sandbox::new());
             a.write("home/s.json", left);
             b.write("home/s.json", right);
-            fails(|| assert_same_files(&a, &b, None));
+            fails("files differ", || assert_same_files(&a, &b, None));
         }
         let (a, b) = (Sandbox::new(), Sandbox::new());
         a.write("home/s.json", r#"{"a": 1}"#);
@@ -1242,7 +1247,7 @@ mod harness_tests {
         let (a, b) = (Sandbox::new(), Sandbox::new());
         symlink("x", a.home.join("l")).unwrap();
         symlink("y", b.home.join("l")).unwrap();
-        fails(|| assert_same_files(&a, &b, None));
+        fails("files differ", || assert_same_files(&a, &b, None));
     }
 
     #[test]
@@ -1250,7 +1255,7 @@ mod harness_tests {
         let (a, b) = (Sandbox::new(), Sandbox::new());
         a.write("home/u.service", "ExecStart=python\n");
         b.write("home/u.service", "ExecStart=rust\n");
-        fails(|| assert_same_files(&a, &b, None));
+        fails("files differ", || assert_same_files(&a, &b, None));
         assert_same_files(&a, &b, Some(|_, text| text.split('=').next().unwrap().to_string()));
     }
 
@@ -1268,7 +1273,7 @@ mod harness_tests {
     fn test_harness_both_fails_on_different_stdout() {
         let s = Sandbox::new();
         s.config(json!({}));
-        fails(|| { replay(&s, "HarnessTests.test_harness_both_fails_on_different_stdout", &["config"], Replay::default()); });
+        fails("stdout differs", || { replay(&s, "HarnessTests.test_harness_both_fails_on_different_stdout", &["config"], Replay::default()); });
     }
 
     #[test]
@@ -1337,6 +1342,37 @@ mod harness_tests {
         let (s, step, mut got) = recorded();
         got.evals.reverse();
         assert!(verify(&s, &step, &got, D).unwrap_err().contains("hyprland evals differ"));
+    }
+
+    #[test]
+    fn replay_fails_on_changed_calls() {
+        let (s, step, mut got) = recorded();
+        verify(&s, &step, &got, Replay::default()).unwrap();
+        got.calls.push("systemctl suspend".into());
+        assert!(verify(&s, &step, &got, Replay::default()).unwrap_err().contains("calls differ"));
+    }
+
+    #[test]
+    fn replay_fails_on_changed_requests() {
+        let (s, step, mut got) = recorded();
+        let opts = Replay { requests: true, ..D };
+        verify(&s, &step, &got, opts).unwrap();
+        got.requests.reverse();
+        assert!(verify(&s, &step, &got, opts).unwrap_err().contains("requests differ"));
+    }
+
+    #[test]
+    fn replay_fails_on_changed_side_state() {
+        let (s, step, got) = recorded();
+        s.write("/sys/class/leds/chromeos:white:power/brightness", "0\n");
+        assert!(verify(&s, &step, &got, D).unwrap_err().contains("side files differ"));
+    }
+
+    #[test]
+    fn replay_names_a_golden_that_stopped_short() {
+        let steps = Arc::new(vec![json!({}), json!({})]);
+        let cursors = Cursors::from([("A.test_done".to_string(), (steps.clone(), 2)), ("B.test_short".to_string(), (steps, 1))]);
+        assert_eq!(stopped_short(&cursors), ["B.test_short stopped at step 1 of 2"]);
     }
 
     #[test]
