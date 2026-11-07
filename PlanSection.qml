@@ -43,7 +43,6 @@ Column {
   property int edits: 0
   property bool reloadAgain: false
 
-  readonly property string ops: String(Qt.resolvedUrl("bin/ops.py")).replace(/^file:\/\//, "")
   readonly property string hub: String(Qt.resolvedUrl("bin/power-hub")).replace(/^file:\/\//, "")
   readonly property var sides: [
     { side: "ac", title: "PLUGGED IN", icon: "󰚥" },
@@ -114,7 +113,7 @@ Column {
       root.loadStatus()
       return
     }
-    act.command = ["python3", root.ops].concat(root.queue[0])
+    act.command = [root.hub].concat(root.queue[0])
     root.queue = root.queue.slice(1)
     act.energyStdout = ""
     act.energyStderr = ""
@@ -164,7 +163,7 @@ Column {
     stdout: StdioCollector { waitForEnd: true; onStreamFinished: act.energyStdout = text }
     stderr: StdioCollector { waitForEnd: true; onStreamFinished: act.energyStderr = text }
     onExited: function(exitCode) {
-      if (act.command[2] === "travel" || act.command[2] === "quick-dim") {
+      if (act.command[1] === "travel" || act.command[1] === "quick-dim") {
         root.energyPending = false
         root.energyError = exitCode === 0 ? "" : (act.energyStderr.trim() || act.energyStdout.trim() || "Energy setting could not be changed")
         root.energyChanged()

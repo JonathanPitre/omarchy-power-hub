@@ -21,6 +21,25 @@ class BackendSwitch(unittest.TestCase):
         self.assertIn('"battery-history"]', panel)
         self.assertNotIn('"python3", root.planOpsBin, "battery-history"', panel)
 
+    def test_only_stage_3_verbs_still_use_python(self):
+        plan = (ROOT / "PlanSection.qml").read_text()
+        self.assertNotIn("python3", plan)
+        self.assertNotIn("ops.py", plan)
+        stage3 = ('"displays"', '"recover-ucsi"', '"saver-past-inhibitor"', '"idle-lock"')
+        for line in (ROOT / "Service.qml").read_text().splitlines():
+            if '"python3"' in line:
+                self.assertTrue(any(v in line for v in stage3), line)
+
+    def test_energy_results_read_the_verb_from_the_new_position(self):
+        plan = (ROOT / "PlanSection.qml").read_text()
+        self.assertIn('act.command[1] === "travel" || act.command[1] === "quick-dim"', plan)
+        self.assertNotIn("act.command[2]", plan)
+
+    def test_apply_runs_when_the_helper_check_cannot_start(self):
+        service = (ROOT / "Service.qml").read_text()
+        self.assertIn("onRunningChanged: if (!running && !applyProc.running && !helperPkexec.running) applyProc.running = true", service)
+        self.assertNotIn("onExited: function(code)", service)
+
     def test_dark_displays_are_not_blanked_again(self):
         service = (ROOT / "Service.qml").read_text()
         self.assertIn('out === "blank" && root.displaysOff && root.displaysIdle', service)
@@ -30,7 +49,7 @@ class BackendSwitch(unittest.TestCase):
         svc = (ROOT / "PowerService.qml").read_text()
         self.assertIn('[root.binDir + "/power-hub", "data"]', svc)
         self.assertFalse((ROOT / "bin/battery-plus-data").exists())
-        self.assertIn('exec "$DIR/power-hub" data', (ROOT / "bin/battery-plus-action").read_text())
+        self.assertIn("data::collect()", (ROOT / "src/action.rs").read_text())
 
     def test_binary_is_executable_and_matches_checksum(self):
         hub = ROOT / "bin/power-hub"

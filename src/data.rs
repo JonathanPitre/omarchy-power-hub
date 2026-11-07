@@ -3,7 +3,6 @@ use crate::{config, exec, hypr, paths, power};
 use serde_json::{Map, Value, json};
 use std::fs;
 use std::io::Read;
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::Duration;
@@ -39,14 +38,6 @@ fn num(s: &str) -> f64 {
 /// `printf "%.<prec>f"` read back as a number.
 fn round(x: f64, prec: usize) -> f64 {
     format!("{x:.prec$}").parse().unwrap_or(0.0)
-}
-
-fn executable(p: &Path) -> bool {
-    fs::metadata(p).is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
-}
-
-fn on_path(tool: &str) -> bool {
-    std::env::var_os("PATH").is_some_and(|path| std::env::split_paths(&path).any(|d| executable(&d.join(tool))))
 }
 
 fn sorted_dir(p: PathBuf) -> Vec<PathBuf> {
@@ -148,7 +139,7 @@ fn tlp(ac: bool) -> Value {
             _ => {}
         }
     }
-    json!({"installed": on_path("tlp"), "active": exec::run(&["systemctl", "is-active", "--quiet", "tlp"], Duration::from_secs(2)).0 == 0,
+    json!({"installed": exec::on_path("tlp"), "active": exec::run(&["systemctl", "is-active", "--quiet", "tlp"], Duration::from_secs(2)).0 == 0,
            "mode": mode, "manual": manual})
 }
 
@@ -171,7 +162,7 @@ fn mostly_auto(dir: &str) -> bool {
     !controls.is_empty() && auto > controls.len() / 2
 }
 
-fn panel_power_savings() -> Option<bool> {
+pub fn panel_power_savings() -> Option<bool> {
     sorted_dir(paths::root("/sys/class/drm"))
         .into_iter()
         .map(|d| d.join("amdgpu/panel_power_savings"))
@@ -228,7 +219,7 @@ fn fields<'a>(line: &'a str, key: &str, signed: bool, dot: bool) -> Vec<&'a str>
 }
 
 fn sleep() -> Value {
-    let installed = executable(&paths::root("/usr/lib/systemd/system-sleep/battery-plus-sleep"));
+    let installed = exec::executable(&paths::root("/usr/lib/systemd/system-sleep/battery-plus-sleep"));
     let mut out = Map::new();
     if let Some(text) = fs::read(paths::root("/var/log/battery-plus-sleep.log")).ok().map(|b| String::from_utf8_lossy(&b).into_owned()) {
         let lines: Vec<&str> = text.strip_suffix('\n').unwrap_or(&text).split('\n').collect();
@@ -272,7 +263,7 @@ fn wifi_fix() -> Value {
             problem = attr("vendor").as_deref() == Some("0x14e4") && attr("device").as_deref() == Some("0x4488");
         }
     }
-    json!({"chipPresent": chip, "installed": executable(&paths::root("/usr/lib/systemd/system-sleep/battery-plus-wifi-suspend-fix")),
+    json!({"chipPresent": chip, "installed": exec::executable(&paths::root("/usr/lib/systemd/system-sleep/battery-plus-wifi-suspend-fix")),
            "problemSeen": problem, "failCount": fails})
 }
 

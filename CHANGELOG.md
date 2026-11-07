@@ -5,12 +5,22 @@ All notable changes to this project are documented in this file.
 The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.55] - 2026-11-07
 
 ### Added
 
 - Keyboard light off in daylight: an option to keep the keyboard light off when
   the displays wake at 100 lux or more, on Framework laptops with a light sensor.
+
+### Changed
+
+- Saving settings, profiles, Travel, Quick dim and Power Tweaks no longer start
+  Python.
+
+### Removed
+
+- `battery-plus-action` and the unused `battery-plus-priv`. The panel's actions
+  now run in `bin/power-hub`.
 
 ## [0.0.54] - 2026-11-07
 

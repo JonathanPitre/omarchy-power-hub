@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "omarchy-power-hub",
   "name": "Omarchy Power Hub",
-  "version": "0.0.54",
+  "version": "0.0.55",
   "author": "Jonathan Pitre",
   "license": "MIT",
   "description": "Theme-aware power panel with reversible Travel mode, Quick dim, optional CPU savings, battery controls, idle settings, and device status.",
