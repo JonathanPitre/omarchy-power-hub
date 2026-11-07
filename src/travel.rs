@@ -1,10 +1,14 @@
 use crate::config::truthy;
-use crate::monitor::{brightness_get, brightness_set, target_refresh, valid_monitor_snapshot};
+use crate::monitor::{brightness_get, brightness_set, monitor_change, monitor_snapshot, target_refresh, valid_monitor_snapshot};
 use crate::names::{laptop_monitor, safe_name, safe_name_v};
-use crate::state::{atomic_state, energy_lock, int_in, py_float, quick_dim_state, travel_state};
-use crate::{config, hypr, paths};
+use crate::settings::remember_travel_profiles;
+use crate::state::{atomic_state, energy_lock, int_in, py_float, quick_dim_state, travel_path, travel_state};
+use crate::tweaks::{set_tweak, tweak_on};
+use crate::{config, exec, hypr, paths, power};
 use serde_json::{Value, json};
 use std::collections::{BTreeSet, HashMap};
+use std::path::Path;
+use std::time::Duration;
 use std::{fs, io};
 
 /// Saving tweaks Travel turns on for its duration when they are off.
@@ -237,6 +241,341 @@ pub fn quick_dim(on: bool) -> io::Result<String> {
     if !on {
         atomic_state(&path, &json!({"on": false}))?;
     }
+    Ok(String::new())
+}
+
+const OLDER_VERSION: &str = "Travel restore point is from an older version; reboot to clear it";
+
+/// `listed_profiles`: the first word of each line `omarchy-powerprofiles-list` prints, None when it fails.
+fn listed_profiles() -> Option<Vec<String>> {
+    let (code, out) = exec::run(&["omarchy-powerprofiles-list"], Duration::from_secs(4));
+    (code == 0).then(|| out.lines().filter_map(|l| l.split_whitespace().next().map(String::from)).collect())
+}
+
+fn profile_ctl(args: &[&str]) -> (i32, String) {
+    exec::run(&[&["powerprofilesctl"], args].concat(), Duration::from_secs(4))
+}
+
+fn or_default(out: &str, fallback: &str) -> String {
+    Some(out.trim()).filter(|o| !o.is_empty()).unwrap_or(fallback).into()
+}
+
+fn has(state: &Value, token: &str) -> bool {
+    state["pending"].as_array().is_some_and(|p| p.iter().any(|t| t == token))
+}
+
+fn drop_token(state: &mut Value, token: &str) {
+    if let Some(p) = state["pending"].as_array_mut()
+        && let Some(i) = p.iter().position(|t| t == token)
+    {
+        p.remove(i);
+    }
+}
+
+/// Power saver alone is enough on amd_pstate: it already turns per-CPU boost off and sets EPP to
+/// power, so turbo and EPP are left alone (turning global boost off breaks power-profiles-daemon).
+/// Applies Power saver for `state`'s profile, saving progress first: the error to show, or an empty string.
+pub fn apply_cpu_overlay(state: &mut Value) -> io::Result<String> {
+    if truthy(&state["profile"]) && truthy(&state["controls"]["profile"]["available"]) {
+        remember_travel_profiles(None, Some("power-saver"))?;
+        let (code, out) = profile_ctl(&["set", "power-saver"]);
+        if code != 0 {
+            return Ok(or_default(&out, "Power saver could not be applied"));
+        }
+        atomic_state(&travel_path(), state)?;
+        let (code, out) = profile_ctl(&["get"]);
+        let got = out.trim();
+        if code != 0 || got != "power-saver" {
+            return Ok(if got.is_empty() { "Power saver could not be verified".into() } else { format!("Power saver was replaced by {got}") });
+        }
+    }
+    state["controls"]["epp"] = json!({"available": false, "detail": "No saving CPU preference supported"});
+    atomic_state(&travel_path(), state)?;
+    Ok(String::new())
+}
+
+/// Put the normal power profile back (the saved one on a rollback, else the active side's): the error to show, or an empty string.
+pub fn restore_cpu(state: &mut Value, path: &Path, rollback: bool, cfg: &Value) -> io::Result<String> {
+    let profiles = if truthy(&state["reduceCpu"]) { listed_profiles().unwrap_or_default() } else { vec![] };
+    let offered = |name: &&str| profiles.iter().any(|p| p == name);
+    let desired = if has(state, "profile") {
+        let wanted = if rollback { state["profile"].as_str() } else { cfg[power::active_side(cfg)]["profile"].as_str() };
+        match wanted.filter(offered) {
+            Some(name) => Some(name.to_string()),
+            None => return Ok("Saved normal power profile is unavailable".into()),
+        }
+    } else if !rollback && truthy(&state["reduceCpu"]) && !profiles.is_empty() {
+        cfg[power::active_side(cfg)]["profile"].as_str().filter(offered).map(String::from)
+    } else {
+        None
+    };
+    if let Some(desired) = desired {
+        atomic_state(path, state)?;
+        let (code, out) = profile_ctl(&["set", &desired]);
+        if code != 0 {
+            return Ok(or_default(&out, "Power profile restoration failed"));
+        }
+        remember_travel_profiles(Some(cfg), None)?;
+        let (code, out) = profile_ctl(&["get"]);
+        if code != 0 || out.trim() != desired {
+            return Ok("Power profile restoration could not be verified".into());
+        }
+        atomic_state(path, state)?;
+    }
+    Ok(String::new())
+}
+
+/// Put the refresh rate and brightness back, saving each step; an error leaves Travel on and incomplete.
+pub fn restore_travel_display(state: &mut Value, path: &Path) -> io::Result<String> {
+    let mut error = String::new();
+    if has(state, "refresh") {
+        error = monitor_change(&state["monitor"], &state["monitor"]["refreshRate"].clone());
+        if error.is_empty() {
+            drop_token(state, "refresh");
+            atomic_state(path, state)?;
+        }
+    }
+    if has(state, "brightness") {
+        let (monitor, before) = (state["brightness"]["monitor"].clone(), state["brightness"]["before"].clone());
+        if !safe_name_v(&monitor) || !int_in(&before, 0, 100) {
+            if error.is_empty() {
+                error = "Saved brightness restore point is invalid".into();
+            }
+        } else {
+            let err = brightness_set(&monitor, &before);
+            let actual = brightness_get(monitor.as_str(), &hypr::monitors());
+            if !err.is_empty() || actual.is_none_or(|a| (a - before.as_i64().unwrap_or_default()).abs() > 1) {
+                if error.is_empty() {
+                    error = if err.is_empty() { "Brightness restoration could not be verified".into() } else { err };
+                }
+            } else {
+                drop_token(state, "brightness");
+                atomic_state(path, state)?;
+            }
+        }
+    }
+    if !error.is_empty() {
+        state["on"] = json!(true);
+        state["complete"] = json!(false);
+        state["error"] = json!(error);
+        atomic_state(path, state)?;
+    } else if !truthy(&state["pending"]) {
+        atomic_state(path, &json!({"on": false, "complete": true, "reduceCpu": false, "pending": []}))?;
+    }
+    Ok(error)
+}
+
+/// Turn on the saving tweaks that are off, each recorded before it changes and dropped again when it fails.
+fn apply_travel_tweaks(state: &mut Value, path: &Path) -> io::Result<String> {
+    // A missing extra saving never fails Travel; only what was turned on is restored.
+    let targets: Vec<&str> = TRAVEL_TWEAKS.into_iter().filter(|k| tweak_on(k) == Some(false)).collect();
+    for key in targets {
+        let token = format!("tweak:{key}");
+        if !state["tweaks"].is_array() {
+            state["tweaks"] = json!([]);
+        }
+        state["tweaks"].as_array_mut().into_iter().for_each(|t| t.push(json!(key)));
+        state["pending"].as_array_mut().into_iter().for_each(|p| p.push(json!(token)));
+        atomic_state(path, state)?;
+        if !set_tweak(key, true).is_empty() {
+            state["tweaks"].as_array_mut().into_iter().for_each(|t| t.retain(|k| k != key));
+            drop_token(state, &token);
+            atomic_state(path, state)?;
+        }
+    }
+    Ok(String::new())
+}
+
+fn restore_travel_tweaks(state: &mut Value, path: &Path) -> io::Result<String> {
+    for key in state["tweaks"].as_array().cloned().unwrap_or_default() {
+        let token = format!("tweak:{}", key.as_str().unwrap_or_default());
+        if !has(state, &token) {
+            continue;
+        }
+        let err = set_tweak(key.as_str().unwrap_or_default(), false);
+        if !err.is_empty() {
+            return Ok(err);
+        }
+        drop_token(state, &token);
+        atomic_state(path, state)?;
+    }
+    Ok(String::new())
+}
+
+/// A failed attempt: Travel is off with the error when everything was put back, else on and incomplete.
+fn finish_rollback(saved: &mut Value, path: &Path, failure: String) -> io::Result<String> {
+    if failure.is_empty() {
+        atomic_state(path, &json!({"on": false, "complete": true, "reduceCpu": false, "pending": [], "error": saved["error"]}))?;
+    } else {
+        let error = format!("{}; restoration incomplete: {failure}", saved["error"].as_str().unwrap_or_default());
+        saved["on"] = json!(true);
+        saved["complete"] = json!(false);
+        saved["error"] = json!(error);
+        atomic_state(path, saved)?;
+    }
+    Ok(saved["error"].as_str().unwrap_or_default().into())
+}
+
+/// The first non-empty of two errors, as Python `a or b`.
+fn first(a: String, b: String) -> String {
+    if a.is_empty() { b } else { a }
+}
+
+fn display_failure(saved: &mut Value, path: &Path) -> String {
+    restore_travel_display(saved, path).unwrap_or_else(|e| format!("Could not save display restoration progress: {e}"))
+}
+
+fn cpu_failure(saved: &mut Value, path: &Path, cfg: &Value) -> String {
+    restore_cpu(saved, path, true, cfg).unwrap_or_else(|e| format!("Could not save CPU restoration progress: {e}"))
+}
+
+/// `travel on|off` under the energy lock: the error to show, or an empty string.
+/// An Err is a state file that could not be written, which the caller words.
+pub fn travel(on: bool) -> io::Result<String> {
+    let _lock = energy_lock()?;
+    let cfg = config::load();
+    let state = travel_state();
+    if truthy(&state["invalid"]) {
+        return Ok(state["error"].as_str().unwrap_or("Travel restore point is malformed").into());
+    }
+    if on == truthy(&state["on"]) {
+        return Ok(String::new());
+    }
+    if on { travel_on(&cfg, &travel_path()) } else { travel_off(state, &travel_path(), &cfg) }
+}
+
+fn travel_on(cfg: &Value, path: &Path) -> io::Result<String> {
+    let current = hypr::monitors();
+    let internal = laptop_monitor(&current);
+    let before = internal.as_deref().and_then(|n| brightness_get(Some(n), &current));
+    let want = internal.as_deref().map_or(Value::Null, Value::from);
+    let mon = current.iter().find(|m| m.is_object() && m["name"] == want);
+    let saved_mon = mon.and_then(|m| monitor_snapshot(m).ok());
+    let target = mon.filter(|_| saved_mon.is_some()).and_then(target_refresh);
+    let profiles = listed_profiles().unwrap_or_default();
+    let (code, out) = profile_ctl(&["get"]);
+    let mut profile = None;
+    if profiles.iter().any(|p| p == "power-saver") && code == 0 && !out.trim().is_empty() {
+        let (code, out) = profile_ctl(&["get"]);
+        profile = Some(out.trim().to_string()).filter(|p| code == 0 && profiles.contains(p));
+    }
+    let reduce_cpu = profile.is_some();
+    if before.is_none() && target.is_none() && !reduce_cpu {
+        return Ok("No supported battery-saving controls".into());
+    }
+    let current_refresh = mon.and_then(|m| py_float(&m["refreshRate"]));
+    let refresh_available = target.is_some() || current_refresh.is_some_and(|c| c <= 60.0);
+    let refresh_detail = match (target, current_refresh) {
+        (Some(t), _) => format!("Laptop refresh capped at {} Hz", fmt_g(t)),
+        (None, Some(c)) if refresh_available => format!("Laptop refresh is {} Hz (already at or below 60 Hz)", fmt_g(c)),
+        _ => "No supported mode at or below 60 Hz".into(),
+    };
+    let controls = json!({
+        "profile": {"available": reduce_cpu, "detail": "Power saver"},
+        "turbo": {"available": false, "detail": "CPU turbo off"},
+        "epp": {"available": false, "detail": "Energy-saving CPU preference"},
+        "brightness": {"available": before.is_some(), "detail": if before.is_some() { "Laptop brightness capped at 40%" } else { "Brightness cannot be read" }},
+        "refresh": {"available": refresh_available, "detail": refresh_detail},
+    });
+    let pending: Vec<&str> = [(before.is_some(), "brightness"), (target.is_some(), "refresh"), (reduce_cpu, "profile")]
+        .into_iter()
+        .filter_map(|(present, token)| present.then_some(token))
+        .collect();
+    let mut saved = json!({
+        "on": true, "complete": false, "reduceCpu": reduce_cpu,
+        "source": power::active_side(cfg), "profile": profile,
+        "brightness": before.map(|b| json!({"monitor": internal, "before": b})),
+        "monitor": saved_mon,
+        "cpu": {"turbo": null, "epp": []},
+        "pending": pending, "controls": controls, "error": "",
+    });
+    // The restore point is on disk before anything changes: a failure from here on can always be undone.
+    if let Err(e) = atomic_state(path, &saved) {
+        return Ok(format!("Could not save Travel restore point: {e}"));
+    }
+    if reduce_cpu {
+        let err = apply_cpu_overlay(&mut saved).unwrap_or_else(|e| format!("Could not save CPU restore progress: {e}"));
+        if !err.is_empty() {
+            saved["error"] = json!(err);
+            let restore_error = cpu_failure(&mut saved, path, cfg);
+            let display_error = display_failure(&mut saved, path);
+            return finish_rollback(&mut saved, path, first(restore_error, display_error));
+        }
+    }
+    let mut err = String::new();
+    if let (Some(name), Some(before)) = (internal.as_deref(), before) {
+        let cap = before.min(40);
+        err = brightness_set(&json!(name), &json!(cap));
+        let actual = brightness_get(Some(name), &hypr::monitors());
+        if err.is_empty() && actual.is_none_or(|a| (a - cap).abs() > 1) {
+            err = "Brightness cap could not be verified".into();
+        }
+    }
+    if let (true, Some(t), Some(m)) = (err.is_empty(), target, &saved_mon) {
+        err = monitor_change(m, &json!(t));
+    }
+    if !err.is_empty() {
+        saved["error"] = json!(err);
+        let restore_error = display_failure(&mut saved, path);
+        let cpu_error = if reduce_cpu { cpu_failure(&mut saved, path, cfg) } else { String::new() };
+        return finish_rollback(&mut saved, path, first(restore_error, cpu_error));
+    }
+    saved["on"] = json!(true);
+    saved["complete"] = json!(true);
+    atomic_state(path, &saved)?;
+    apply_travel_tweaks(&mut saved, path)
+}
+
+/// Whether the restore point predates the current format; those live in /run, so a reboot clears them.
+fn older_version(state: &Value) -> bool {
+    state.get("complete").is_none()
+        || state.get("monitors").is_some()
+        || !state["cpu"]["turbo"].is_null()
+        || state["cpu"]["epp"].as_array().is_some_and(|e| !e.is_empty())
+}
+
+fn travel_off(mut state: Value, path: &Path, cfg: &Value) -> io::Result<String> {
+    if older_version(&state) {
+        return Ok(OLDER_VERSION.into());
+    }
+    state["error"] = json!("");
+    state["complete"] = json!(false);
+    atomic_state(path, &state)?;
+    let mut err = if truthy(&state["reduceCpu"]) { restore_cpu(&mut state, path, false, cfg)? } else { String::new() };
+    if err.is_empty() {
+        err = restore_travel_tweaks(&mut state, path)?;
+    }
+    let stop = |state: &mut Value, err: String| -> io::Result<String> {
+        state["error"] = json!(err);
+        state["complete"] = json!(false);
+        atomic_state(path, state)?;
+        Ok(err)
+    };
+    if !err.is_empty() {
+        return stop(&mut state, err);
+    }
+    if has(&state, "refresh") {
+        let err = monitor_change(&state["monitor"], &state["monitor"]["refreshRate"].clone());
+        if !err.is_empty() {
+            return stop(&mut state, err);
+        }
+        drop_token(&mut state, "refresh");
+        atomic_state(path, &state)?;
+    }
+    if has(&state, "brightness") {
+        let (monitor, before) = (state["brightness"]["monitor"].clone(), state["brightness"]["before"].clone());
+        if !safe_name_v(&monitor) || !int_in(&before, 0, 100) {
+            return stop(&mut state, "Saved brightness restore point is invalid".into());
+        }
+        let err = brightness_set(&monitor, &before);
+        let actual = brightness_get(monitor.as_str(), &hypr::monitors());
+        if !err.is_empty() || actual.is_none_or(|a| (a - before.as_i64().unwrap_or_default()).abs() > 1) {
+            return stop(&mut state, first(err, "Brightness restoration could not be verified".into()));
+        }
+        drop_token(&mut state, "brightness");
+        atomic_state(path, &state)?;
+    }
+    atomic_state(path, &json!({"on": false, "complete": true, "reduceCpu": false, "pending": [], "error": state["error"]}))?;
     Ok(String::new())
 }
 

@@ -64,6 +64,13 @@ fn main() {
                 std::process::exit(2);
             }
         },
+        Some("travel") => match args.get(1).map(String::as_str).filter(|a| args.len() == 2 && matches!(*a, "on" | "off")) {
+            Some(arg) => report(travel::travel(arg == "on").unwrap_or_else(|e| format!("Travel operation could not save its recovery state: {e}"))),
+            None => {
+                out("usage: travel on|off");
+                std::process::exit(2);
+            }
+        },
         Some("apply-tweaks") => report(tweaks::apply_saved_tweaks()),
         Some("unpin") if args.len() >= 2 => report(tweaks::unpin(&args[1])),
         Some("daylight") if args.len() >= 2 => report(tweaks::daylight(args[1] == "on")),
@@ -79,7 +86,7 @@ fn main() {
             std::process::exit(code);
         }
         _ => {
-            eprintln!("usage: power-hub status|data|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|set|profile|charge|boost|health|quick-dim|tweak|apply-tweaks|unpin|daylight|cpu|helper-install|boost-check|idle-wake-poll|displays sync");
+            eprintln!("usage: power-hub status|data|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|set|profile|charge|boost|health|quick-dim|travel|tweak|apply-tweaks|unpin|daylight|cpu|helper-install|boost-check|idle-wake-poll|displays sync");
             std::process::exit(2);
         }
     }

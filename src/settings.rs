@@ -62,7 +62,6 @@ pub fn remember_profile(side: &str, name: &str) -> io::Result<()> {
 
 /// Omarchy's battery service reapplies the remembered profile on every power-source change, so Travel
 /// holds both files at power-saver and restore writes the normal profiles back.
-#[allow(dead_code)] // wired by travel
 pub fn remember_travel_profiles(cfg: Option<&Value>, held: Option<&str>) -> io::Result<()> {
     for side in ["ac", "battery"] {
         if let Some(name) = held.map(String::from).or_else(|| cfg?.get(side).map(|s| canonical_profile(s["profile"].as_str().unwrap_or_default(), side))) {

@@ -1522,6 +1522,257 @@ class QuickDimParity(unittest.TestCase):
             self.assertEqual(attempt(read_only, "Could not save brightness restore point: "), (True, 1, []))
 
 
+PANEL = {**LAPTOP, "x": 0, "y": 0, "scale": 1.25, "description": "BOE NE160"}
+PROFILES = ("power-saver", "balanced", "performance")
+OLDER = "Travel restore point is from an older version; reboot to clear it"
+SAVER_DENIED = 'if [ "$v" = power-saver ]; then echo "authorization denied"; false; else echo $v; fi'
+CAP_REFUSED = 'if [ "${v%\\%}" = 40 ]; then echo boom; false; else echo ${v%\\%}; fi'
+
+
+def panel(**changes):
+    return {**PANEL, **changes}
+
+
+def follow_modes(s):
+    """Hyprland applies a mode change: the laptop row reports the refresh the eval asked for."""
+    def on_eval(lua):
+        m = re.search(r'mode = "\d+x\d+@([\d.]+)"', lua)
+        if m:
+            rows = json.loads(s.hypr["j/monitors"])
+            for row in rows:
+                if row["name"].startswith("eDP"):
+                    row["refreshRate"] = float(m.group(1))
+            s.hypr["j/monitors"] = json.dumps(rows)
+    return on_eval
+
+
+def eval_replies(*replies):
+    """The Hyprland reply to each eval in turn, the last one repeating."""
+    def setup(s):
+        pending = iter(replies)
+        mode = follow_modes(s)
+
+        def on_eval(lua):
+            s.eval_reply = next(pending, replies[-1])
+            mode(lua)
+        s.hypr_on_eval = on_eval
+    return setup
+
+
+def travel_env(brightness=80, profile="performance", names=PROFILES, rows=(PANEL,), travel=None,
+               set_body="echo ${v%\\%}", profile_set="echo $v", profile_get="cat", replies=("ok",), cfg=None):
+    """A laptop on battery; `set_body` and `profile_set` are bash (or a function of the sandbox) run for each set."""
+    def setup(s):
+        s.profiles(list(names))
+        s.config(**(cfg if cfg is not None else {"ac": {"profile": "performance"}}))
+        s.discharging()
+        dim_setup(brightness, travel=travel, monitors=tuple(dict(r) for r in rows),
+                  set_body=set_body(s) if callable(set_body) else set_body)(s)
+        state = s.base / "profile.state"
+        state.write_text(f"{profile}\n")
+        body = profile_set(s) if callable(profile_set) else profile_set
+        s._stateful("powerprofilesctl", f'''case "$1" in
+  get) {"cat " + str(state) if profile_get == "cat" else profile_get};;
+  set) v=$2; out=$({body}) || {{ echo "$out"; exit 1; }}; echo "$out" > {state};;
+  *) exit 1;;
+esac''')
+        eval_replies(*replies)(s)
+    return setup
+
+
+def tweaks_on(abm="0\n", effects=(True, True)):
+    def setup(s):
+        tweak_setup(effects=effects)(s)
+        s.write("/sys/class/drm/card1-eDP-1/amdgpu/panel_power_savings", abm)
+    return setup
+
+
+def no_leftovers(py, rs):
+    """Snapshots skip *.tmp, so a temp file left behind by a failed write is only visible here."""
+    for s in (py, rs):
+        left = [p.name for p in s.run.rglob("*.tmp")]
+        assert not left, f"temp files left behind: {left}"
+
+
+MALFORMED_PENDING_BASE = {
+    "on": True, "complete": False, "reduceCpu": True, "source": "battery", "profile": None, "brightness": None,
+    "monitor": None, "cpu": {"turbo": None, "epp": []}, "error": "",
+    "controls": {key: {"available": False, "detail": "Unavailable"} for key in ("profile", "turbo", "epp", "brightness", "refresh")}}
+
+
+class TravelParity(unittest.TestCase):
+    def check(self, setup, *steps):
+        both(setup, *steps, inspect=no_leftovers)
+
+    def test_internal_output_only_is_changed_and_restored(self):
+        self.check(travel_env(), ["travel", "on"], ["travel", "off"])
+
+    def test_already_dim_display_stays(self):
+        self.check(travel_env(brightness=30), ["travel", "on"], ["travel", "off"])
+
+    def test_refresh_needs_the_same_resolution_and_never_rises(self):
+        other_sizes = ["1920x1200@165.00Hz", "1920x1080@60.00Hz", "2560x1600@50.00Hz"]
+        rotated = ["1920x1200@165.00Hz", "1200x1920@30.00Hz", "1920x1200@59.94Hz"]
+        for rows in ((panel(availableModes=other_sizes),), (panel(transform=1, availableModes=rotated),),
+                     (panel(refreshRate=50.0, availableModes=["1920x1200@50.00Hz"]),),
+                     (panel(refreshRate=60.0, availableModes=["1920x1200@48.00Hz"]),),
+                     (panel(transform=9),)):
+            with self.subTest(row=rows[0]):
+                self.check(travel_env(rows=rows), ["travel", "on"], ["travel", "off"])
+
+    def test_omarchys_remembered_profiles_are_held_then_restored(self):
+        cfg = {"ac": {"profile": "performance"}, "battery": {"profile": "balanced"}}
+        self.check(travel_env(cfg=cfg), ["travel", "on"], ["travel", "off"])
+        with Sandbox() as s:
+            travel_env(cfg=cfg)(s)
+            s.rust("travel", "on")
+            held = [(s.home / ".local/state/omarchy/powerprofiles" / side).read_text() for side in ("ac", "battery")]
+            self.assertEqual(held, ["power-saver\n"] * 2)
+
+    def test_abm_and_effects_are_applied_then_restored(self):
+        self.check(after(travel_env(), tweaks_on()), ["travel", "on"], ["travel", "off"])
+
+    def test_tweaks_it_did_not_turn_on_stay(self):
+        self.check(after(travel_env(), tweaks_on("3\n", (False, False))), ["travel", "on"], ["travel", "off"])
+        self.check(after(travel_env(), tweaks_on("0\n", (True, False))), ["travel", "on"], ["travel", "off"])
+
+    def test_unreadable_profile_is_skipped(self):
+        self.check(travel_env(rows=(), profile_get="echo profile unavailable; exit 1"), ["travel", "on"])
+        self.check(travel_env(profile_get="echo profile unavailable; exit 1"), ["travel", "on"], ["travel", "off"])
+
+    def test_without_a_power_saver_profile_only_the_display_changes(self):
+        self.check(travel_env(names=("balanced", "performance")), ["travel", "on"], ["travel", "off"])
+        self.check(travel_env(names=("balanced", "performance"), rows=()), ["travel", "on"])
+
+    def test_no_controls(self):
+        self.check(travel_env(rows=(), names=("balanced",)), ["travel", "on"])
+        with Sandbox() as s:
+            travel_env(rows=(), names=("balanced",))(s)
+            self.assertEqual(s.rust("travel", "on").stdout, "No supported battery-saving controls\n")
+
+    def test_failing_power_saver_rolls_back_to_off_with_the_error(self):
+        self.check(travel_env(profile_set=SAVER_DENIED), ["travel", "on"])
+        self.check(travel_env(profile_set=SAVER_DENIED, rows=()), ["travel", "on"])
+
+    def test_brightness_failing_after_the_profile_rolls_both_back(self):
+        self.check(travel_env(set_body=CAP_REFUSED), ["travel", "on"], ["travel", "off"])
+
+    def test_brightness_that_misses_the_cap_is_unverified(self):
+        self.check(travel_env(set_body="echo $((${v%\\%}+2))"), ["travel", "on"])
+
+    def test_monitor_change_failing_rolls_back(self):
+        self.check(travel_env(replies=("error: nope", "ok")), ["travel", "on"])
+        self.check(travel_env(replies=("error: nope",)), ["travel", "on"], ["travel", "off"])
+
+    def test_monitor_change_failing_on_a_travel_off_retry(self):
+        self.check(travel_env(replies=("ok", "error: nope", "ok")), ["travel", "on"], ["travel", "off"], ["travel", "off"])
+
+    def test_failed_restore_stays_incomplete_then_retries(self):
+        def counted(s):
+            n = s.base / "sets"
+            return (f'n=$(cat {n} 2>/dev/null || echo 0); echo $((n+1)) > {n}; '
+                    'if [ $n = 1 ]; then echo restore failed; false; else echo ${v%\\%}; fi')
+        self.check(travel_env(set_body=counted), ["travel", "on"], ["travel", "off"], ["travel", "off"])
+
+    def test_restore_that_cannot_set_the_profile_stays_incomplete(self):
+        deny_restore = 'if [ "$v" = power-saver ]; then echo $v; else echo "authorization denied"; false; fi'
+        self.check(travel_env(profile_set=deny_restore), ["travel", "on"], ["travel", "off"])
+        self.check(travel_env(profile_set=deny_restore, set_body=CAP_REFUSED), ["travel", "on"])
+
+    def test_malformed_state_is_kept_as_it_is(self):
+        for raw in ("{not json", "[1]", '{"on": "yes"}', json.dumps(travel_snapshot(source=[]))):
+            with self.subTest(raw=raw):
+                self.check(travel_env(travel=raw), ["travel", "on"], ["travel", "off"])
+
+    def test_malformed_pending_tokens_are_kept_as_they_are(self):
+        for pending in (["epp:0"], ["refresh"], ["unknown"]):
+            with self.subTest(pending=pending):
+                self.check(travel_env(travel={**MALFORMED_PENDING_BASE, "pending": pending}), ["travel", "off"])
+        for changes in ({"source": []}, {"cpu": {"turbo": None, "epp": [{"cpu": 0, "before": [], "target": None}]}}):
+            self.check(travel_env(travel={**MALFORMED_PENDING_BASE, **changes, "pending": []}), ["travel", "off"])
+        self.check(travel_env(travel={**MALFORMED_PENDING_BASE, "complete": True, "reduceCpu": False, "pending": [],
+                                      "brightness": {"monitor": "eDP-1", "before": 80}}), ["travel", "off"])
+
+    def test_a_point_with_nothing_pending_but_the_profile_restores_it(self):
+        self.check(travel_env(travel={**MALFORMED_PENDING_BASE, "pending": []}, profile="power-saver"), ["travel", "off"])
+
+    def test_display_only_source_transition(self):
+        point = travel_snapshot(reduceCpu=False, profile=None, cpu={"turbo": None, "epp": []}, pending=["brightness"],
+                                monitor=None, controls={**FROZEN, "refresh": {"available": False, "detail": "x"}})
+        self.check(travel_env(names=("balanced",), travel=point), ["travel", "off"])
+
+    def test_already_on_and_already_off_write_nothing(self):
+        self.check(travel_env(travel=travel_snapshot()), ["travel", "on"])
+        self.check(travel_env(), ["travel", "off"])
+
+    def test_bad_arguments(self):
+        for argv in (["travel"], ["travel", "maybe"], ["travel", "on", "nonsense"], ["travel", "off", "--reduce-cpu"]):
+            with self.subTest(argv=argv):
+                self.check(travel_env(), argv)
+        with Sandbox() as s:
+            r = s.rust("travel", "maybe")
+            self.assertEqual((r.stdout, r.code), ("usage: travel on|off\n", 2))
+
+    def test_older_restore_points_ask_for_a_reboot(self):
+        legacy = {"on": True, "brightness": 80, "monitors": [{"name": "eDP-1", "width": 1920, "height": 1080, "refresh": 165,
+                                                                "x": 0, "y": 0, "scale": 1}]}
+        epp = travel_snapshot(cpu={"turbo": None, "epp": [{"cpu": 0, "before": "power", "target": None}]},
+                              pending=["profile", "epp:0", "brightness", "refresh"])
+        for point in (legacy, travel_snapshot(), epp):
+            with self.subTest(point=point), Sandbox() as s:
+                travel_env(travel=point)(s)
+                before = s.snapshot()
+                r = s.rust("travel", "off")
+                self.assertEqual((r.stdout, r.code, s.snapshot()), (OLDER + "\n", 1, before))
+                self.assertEqual([c for c in r.calls if "--no-osd" in c or " set " in c], [])
+                self.assertEqual(r.evals, [])
+
+    def test_restore_point_exists_before_the_first_change(self):
+        with Sandbox() as s:
+            seen = {}
+
+            def probe(name):
+                return lambda t: f'[ -e {s.base}/{name} ] || cp {s.run}/omarchy-power-hub/travel.json {s.base}/{name}; ' + t
+            travel_env(set_body=lambda s_: probe("seen-brightness")("echo ${v%\\%}"),
+                       profile_set=lambda s_: probe("seen-profile")("echo $v"))(s)
+            mode = s.hypr_on_eval
+
+            def on_eval(lua):
+                seen.setdefault("eval", json.loads((s.run / "omarchy-power-hub/travel.json").read_text()))
+                mode(lua)
+            s.hypr_on_eval = on_eval
+            self.assertEqual(s.rust("travel", "on").code, 0)
+            seen["brightness"] = json.loads((s.base / "seen-brightness").read_text())
+            seen["profile"] = json.loads((s.base / "seen-profile").read_text())
+            self.assertEqual({k: (v["on"], v["complete"]) for k, v in seen.items()}, {k: (True, False) for k in ("eval", "brightness", "profile")})
+
+    def test_unwritable_run_dir_changes_nothing(self):
+        def attempt(prepare, prefix):
+            with Sandbox() as s:
+                travel_env()(s)
+                run = s._target("run/omarchy-power-hub")
+                prepare(run)
+                try:
+                    r = s.rust("travel", "on")
+                finally:
+                    if run.is_dir():
+                        run.chmod(0o700)
+                return r.stdout.startswith(prefix), r.code, [c for c in r.calls if "--no-osd" in c or " set " in c], r.evals
+
+        def as_file(run):
+            run.parent.mkdir(parents=True, exist_ok=True)
+            run.write_text("")
+
+        def read_only(run):
+            run.mkdir(parents=True)
+            (run / "energy-controls.lock").write_text("")
+            run.chmod(0o500)
+
+        self.assertEqual(attempt(as_file, "Travel operation could not save its recovery state: "), (True, 1, [], []))
+        if os.geteuid():
+            self.assertEqual(attempt(read_only, "Could not save Travel restore point: "), (True, 1, [], []))
+
+
 class HarnessTests(unittest.TestCase):
     def test_harness_sees_a_changed_file(self):
         with Sandbox() as a, Sandbox() as b:

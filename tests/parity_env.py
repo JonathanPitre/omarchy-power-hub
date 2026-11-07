@@ -64,9 +64,10 @@ def assert_same_files(a, b, normalise=None):
 DROPPED = ("hyprctl", "busctl get-property net.hadess", "omarchy-powerprofiles-list")
 
 
-def both(setup, *steps, drop=DROPPED, normalise=None, stdout=True):
+def both(setup, *steps, drop=DROPPED, normalise=None, stdout=True, inspect=None):
     """Run each step through python in one sandbox and rust in another; after every step the exit codes, evals,
-    files and recorded calls must match. A step is an argv, or a (python_argv, rust_argv) pair."""
+    files and recorded calls must match, then `inspect(py, rs)` sees both sandboxes.
+    A step is an argv, or a (python_argv, rust_argv) pair."""
     with Sandbox() as py, Sandbox() as rs:
         for s in (py, rs):
             setup(s)
@@ -77,6 +78,8 @@ def both(setup, *steps, drop=DROPPED, normalise=None, stdout=True):
             assert_same_files(py, rs, normalise)
             _case.assertEqual(*(
                 [c for c in r.calls if not c.startswith(drop)] for r in (a, b)), "calls differ")
+            if inspect:
+                inspect(py, rs)
     return py, rs
 
 

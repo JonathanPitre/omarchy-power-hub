@@ -23,7 +23,6 @@ fn hypr_option(name: &str) -> Option<bool> {
 }
 
 /// Live state of a saving tweak, or None when this machine cannot do it.
-#[allow(dead_code)] // wired by Travel
 pub fn tweak_on(key: &str) -> Option<bool> {
     if key == "abm" {
         return panel_power_savings();

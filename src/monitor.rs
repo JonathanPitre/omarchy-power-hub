@@ -149,7 +149,6 @@ pub fn brightness_set(monitor: &Value, value: &Value) -> String {
 }
 
 /// `display_power.selector`: a description Hyprland rules can match, else the name.
-#[allow(dead_code)] // wired by Travel
 fn selector(mon: &Value) -> Value {
     let desc = py_str(&or_default(&mon["description"], json!("")));
     if matches_set(&desc, |c| c.is_ascii_alphanumeric() || matches!(c, ' ' | '.' | '_' | '(' | ')' | '+' | '-')) {
@@ -159,7 +158,6 @@ fn selector(mon: &Value) -> Value {
 }
 
 /// What Travel saves to put a monitor back: `display_power.snapshot` with its transform, sides swapped when rotated.
-#[allow(dead_code)] // wired by Travel
 pub fn monitor_snapshot(mon: &Value) -> Result<Value, String> {
     let transform = mon.get("transform").unwrap_or(&json!(0)).clone();
     let field = |k: &str, d: i64| or_default(&mon[k], d.into());
@@ -175,7 +173,6 @@ pub fn monitor_snapshot(mon: &Value) -> Result<Value, String> {
 }
 
 /// Whether the monitor now runs at the saved size and `refresh` (within 0.1 Hz); anything unreadable is a no.
-#[allow(dead_code)] // wired by Travel
 fn mode_holds(saved: &Value, actual: &Value, refresh: &Value) -> bool {
     let (mut width, mut height) = (saved["width"].as_i64(), saved["height"].as_i64());
     if matches!(saved.get("transform").and_then(Value::as_i64), Some(1 | 3 | 5 | 7)) {
@@ -188,7 +185,6 @@ fn mode_holds(saved: &Value, actual: &Value, refresh: &Value) -> bool {
 }
 
 /// Put the saved monitor back at `refresh` and check it took: the error to show, or an empty string.
-#[allow(dead_code)] // wired by Travel
 pub fn monitor_change(saved: &Value, refresh: &Value) -> String {
     if !valid_monitor_snapshot(saved) {
         return "Saved monitor restore point is invalid".into();
