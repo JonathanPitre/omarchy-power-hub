@@ -1412,6 +1412,107 @@ class TweakParity(unittest.TestCase):
             self.assertEqual((r.code, json.loads(s._target(TWEAKS_FILE).read_text())), (0, {"wifi": True}))
 
 
+def dim_setup(start=80, state=None, travel=None, monitors=(LAPTOP,), set_body="echo ${v%\\%}"):
+    """Brightness `start`; a set runs `set_body` with `v` the requested value and stores what it prints."""
+    def setup(s):
+        s.monitors(*monitors)
+        state_file = s.base / "brightness.state"
+        state_file.write_text(f"{start}\n")
+        s._stateful("omarchy", f'''case "$*" in
+  *--no-osd*) v="${{@: -1}}"; out=$({set_body}) || {{ echo "$out"; exit 1; }}; echo "$out" > {state_file};;
+  *"brightness display --monitor"*) cat {state_file};;
+  *) exit 1;;
+esac''')
+        for path, value in ((DIM_FILE, state), (TRAVEL_FILE, travel)):
+            if value is not None:
+                s.write(path, value if isinstance(value, str) else json.dumps(value))
+    return setup
+
+
+DIM_ON = {"on": True, "monitor": "eDP-1", "brightness": 70, "error": ""}
+FAIL = "echo boom; false"
+
+
+def read_stub(code, out):
+    return lambda s: s.stub("omarchy", "brightness display --monitor", code, out)
+
+
+def after(*setups):
+    return lambda s: [f(s) for f in setups]
+
+
+class QuickDimParity(unittest.TestCase):
+    def test_on_caps_at_40_and_off_restores(self):
+        for start in (80, 30, 40, 0):
+            with self.subTest(start=start):
+                both(dim_setup(start), ["quick-dim", "on"], ["quick-dim", "off"])
+
+    def test_already_on_or_off_changes_nothing(self):
+        both(dim_setup(40, state=DIM_ON), ["quick-dim", "on"])
+        both(dim_setup(80), ["quick-dim", "off"])
+
+    def test_refused_while_travel_is_on(self):
+        both(dim_setup(80, travel=travel_snapshot()), ["quick-dim", "on"], ["quick-dim", "off"])
+
+    def test_no_laptop_display(self):
+        for monitors in (({"name": "DP-1"},), ()):
+            both(dim_setup(80, monitors=monitors), ["quick-dim", "on"])
+
+    def test_unreadable_brightness(self):
+        for code, out in ((1, ""), (0, "abc\n"), (0, "101\n"), (0, "")):
+            with self.subTest(code=code, out=out):
+                both(after(dim_setup(80), read_stub(code, out)), ["quick-dim", "on"])
+
+    def test_failing_set_keeps_the_restore_point_with_the_error(self):
+        both(dim_setup(80, set_body=FAIL), ["quick-dim", "on"], ["quick-dim", "off"])
+        both(dim_setup(70, state=DIM_ON, set_body=FAIL), ["quick-dim", "off"])
+
+    def test_set_that_misses_by_two_is_an_error_and_by_one_is_fine(self):
+        both(dim_setup(80, set_body="echo $((${v%\\%}+2))"), ["quick-dim", "on"])
+        both(dim_setup(80, set_body="echo $((${v%\\%}+1))"), ["quick-dim", "on"])
+        both(dim_setup(40, state=DIM_ON, set_body="echo 10"), ["quick-dim", "off"])
+
+    def test_invalid_saved_state_is_shown_and_kept(self):
+        for state in ('{"on": "yes"}', '{"on": true}', '{"on": true, "monitor": "e DP", "brightness": 5}',
+                      '{"on": true, "monitor": "eDP-1", "brightness": 101}', "[1]", "{"):
+            with self.subTest(state=state):
+                both(dim_setup(80, state=state), ["quick-dim", "on"], ["quick-dim", "off"])
+
+    def test_usage(self):
+        for argv in (["quick-dim"], ["quick-dim", "maybe"], ["quick-dim", "on", "x"]):
+            with self.subTest(argv=argv):
+                both(dim_setup(80), argv)
+        with Sandbox() as s:
+            r = s.rust("quick-dim", "maybe")
+            self.assertEqual((r.stdout, r.code), ("usage: quick-dim on|off\n", 2))
+
+    def test_unwritable_run_dir_never_dims(self):
+        def attempt(prepare, prefix):
+            with Sandbox() as s:
+                dim_setup(80)(s)
+                run = s._target("run/omarchy-power-hub")
+                prepare(run)
+                try:
+                    r = s.rust("quick-dim", "on")
+                finally:
+                    if run.is_dir():
+                        run.chmod(0o700)
+                return r.stdout.startswith(prefix), r.code, [c for c in r.calls if "--no-osd" in c]
+
+        def as_file(run):
+            run.parent.mkdir(parents=True, exist_ok=True)
+            run.write_text("")
+
+        def read_only(run):
+            run.mkdir(parents=True)
+            (run / "energy-controls.lock").write_text("")
+            run.chmod(0o500)
+
+        self.assertEqual(attempt(as_file, "Quick dim could not save its recovery state: "), (True, 1, []))
+        if os.geteuid():  # root ignores directory modes; Python words this case on its own
+            self.assertEqual(attempt(read_only, "Could not save brightness restore point: "), (True, 1, []))
+
+
 class HarnessTests(unittest.TestCase):
     def test_harness_sees_a_changed_file(self):
         with Sandbox() as a, Sandbox() as b:
@@ -1478,11 +1579,12 @@ class HarnessTests(unittest.TestCase):
             subprocess.run(["hyprctl", "eval", "X"], env=s._env(), check=True)
             self.assertEqual(json.loads(s.hypr["j/monitors"]), [{"name": "X"}])
 
-    @unittest.skip("passes once Task 5 adds quick-dim")
     def test_rust_waits_for_the_energy_lock_python_holds(self):
-        with Sandbox() as s:
-            with s.hold_flock("run/omarchy-power-hub/energy-controls.lock"):
-                p = s.rust_start("quick-dim", "off")
-                time.sleep(0.2)
-                self.assertIsNone(p.poll())
-            self.assertEqual(p.wait(timeout=5), 0)
+        for argv in (["quick-dim", "off"], ["tweak", "turbo", "on"], ["cpu", "turbo", "on"]):
+            with self.subTest(argv=argv), Sandbox() as s:
+                s.config()
+                with s.hold_flock("run/omarchy-power-hub/energy-controls.lock"):
+                    p = s.rust_start(*argv)
+                    time.sleep(0.2)
+                    self.assertIsNone(p.poll())
+                p.communicate(timeout=5)

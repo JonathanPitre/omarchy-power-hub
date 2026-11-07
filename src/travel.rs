@@ -1,12 +1,11 @@
 use crate::config::truthy;
-use crate::names::{laptop_monitor, safe_name, safe_name_v, safe_output};
-use crate::state::{int_in, is_int, py_float, py_int, quick_dim_state, travel_state};
-use crate::{config, exec, paths};
+use crate::monitor::{brightness_get, brightness_set, target_refresh, valid_monitor_snapshot};
+use crate::names::{laptop_monitor, safe_name, safe_name_v};
+use crate::state::{atomic_state, energy_lock, int_in, py_float, quick_dim_state, travel_state};
+use crate::{config, hypr, paths};
 use serde_json::{Value, json};
 use std::collections::{BTreeSet, HashMap};
-
-use std::time::Duration;
-use std::fs;
+use std::{fs, io};
 
 /// Saving tweaks Travel turns on for its duration when they are off.
 const TRAVEL_TWEAKS: [&str; 2] = ["abm", "effects"];
@@ -41,31 +40,8 @@ impl BrightnessCache {
         if !monitors.iter().any(|m| m["name"] == *monitor) {
             return None;
         }
-        *self.0.entry(name.to_string()).or_insert_with(|| {
-            let (code, out) = exec::run(&["omarchy", "brightness", "display", "--monitor", name], Duration::from_secs(4));
-            let text = out.trim();
-            if code != 0 || text.is_empty() || text.len() > 3 || !text.bytes().all(|b| b.is_ascii_digit()) {
-                return None;
-            }
-            text.parse().ok().filter(|v| (0..=100).contains(v))
-        })
+        *self.0.entry(name.to_string()).or_insert_with(|| brightness_get(Some(name), monitors))
     }
-}
-
-fn valid_monitor_snapshot(saved: &Value) -> bool {
-    if !saved.is_object() || !safe_output(&saved["output"]) || !safe_name_v(&saved["name"]) {
-        return false;
-    }
-    if !["width", "height", "x", "y"].iter().all(|k| is_int(&saved[k])) || saved["width"].as_i64() <= Some(0) || saved["height"].as_i64() <= Some(0) {
-        return false;
-    }
-    let zero = json!(0);
-    if !int_in(saved.get("transform").unwrap_or(&zero), 0, 7) {
-        return false;
-    }
-    [("refreshRate", 1000.0), ("scale", 10.0)]
-        .iter()
-        .all(|(k, high)| saved[k].is_number() && saved[k].as_f64().is_some_and(|v| 0.0 < v && v <= *high))
 }
 
 pub fn valid_travel_snapshot(s: &Value) -> bool {
@@ -154,40 +130,6 @@ pub fn valid_travel_snapshot(s: &Value) -> bool {
     true
 }
 
-/// `(\d+)x(\d+)@([\d.]+)(?:Hz)?`, fullmatch on the stripped mode string.
-fn parse_mode(mode: &str) -> Option<(i64, i64, f64)> {
-    let (w, rest) = mode.trim().split_once('x')?;
-    let (h, rest) = rest.split_once('@')?;
-    let digits = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
-    let end = rest.find(|c: char| !(c.is_ascii_digit() || c == '.')).unwrap_or(rest.len());
-    let (rate, tail) = rest.split_at(end);
-    if !digits(w) || !digits(h) || rate.is_empty() || !matches!(tail, "" | "Hz") {
-        return None;
-    }
-    Some((w.parse().ok()?, h.parse().ok()?, rate.parse().ok()?))
-}
-
-/// The best mode at or below 60 Hz at the panel's size, when it now runs faster.
-fn target_refresh(mon: &Value) -> Option<f64> {
-    let current = py_float(&mon["refreshRate"])?;
-    let (mut width, mut height) = (py_int(&mon["width"])?, py_int(&mon["height"])?);
-    let zero = json!(0);
-    let transform = mon.get("transform").unwrap_or(&zero);
-    if current <= 60.0 || !int_in(transform, 0, 7) {
-        return None;
-    }
-    if matches!(transform.as_i64(), Some(1 | 3 | 5 | 7)) {
-        (width, height) = (height, width);
-    }
-    mon["availableModes"]
-        .as_array()?
-        .iter()
-        .filter_map(|m| parse_mode(m.as_str()?))
-        .filter(|&(w, h, rate)| w == width && h == height && 0.0 < rate && rate <= 60.0)
-        .map(|(_, _, rate)| rate)
-        .reduce(f64::max)
-}
-
 fn cpu_available(profiles: &mut config::Profiles) -> (bool, bool, bool) {
     let cpu = paths::root("/sys/devices/system/cpu");
     let turbo = ["intel_pstate/no_turbo", "cpufreq/boost"].iter().map(|p| cpu.join(p)).find(|p| p.exists()).is_some_and(|p| {
@@ -256,6 +198,48 @@ pub fn travel_status(monitors: &[Value], brightness: &mut BrightnessCache, profi
     })
 }
 
+/// `quick-dim on|off` under the energy lock: the error to show, or an empty string.
+/// An Err is a state file that could not be written, which the caller words.
+pub fn quick_dim(on: bool) -> io::Result<String> {
+    let _lock = energy_lock()?;
+    if truthy(&travel_state()["on"]) {
+        return Ok("Turn off Travel mode before changing Quick dim".into());
+    }
+    let path = paths::plugin_run_dir().join("quick-dim.json");
+    let mut state = quick_dim_state();
+    if truthy(&state["invalid"]) {
+        return Ok(state["error"].as_str().unwrap_or("Quick dim restore point is malformed").into());
+    }
+    if state["on"].as_bool() == Some(on) {
+        return Ok(String::new());
+    }
+    let (monitor, target, mut saved) = if on {
+        let screens = hypr::monitors();
+        let Some(monitor) = laptop_monitor(&screens) else { return Ok("Laptop display is unavailable".into()) };
+        let Some(before) = brightness_get(Some(&monitor), &screens) else { return Ok("Laptop brightness cannot be read".into()) };
+        let saved = json!({"on": true, "monitor": monitor, "brightness": before, "error": ""});
+        if let Err(e) = atomic_state(&path, &saved) {
+            return Ok(format!("Could not save brightness restore point: {e}"));
+        }
+        (monitor, before.min(40), saved)
+    } else {
+        let before = state["brightness"].as_i64().unwrap_or_default();
+        (state["monitor"].as_str().unwrap_or_default().to_string(), before, std::mem::take(&mut state))
+    };
+    let err = brightness_set(&json!(monitor), &json!(target));
+    let actual = brightness_get(Some(&monitor), &hypr::monitors());
+    if !err.is_empty() || actual.is_none_or(|a| (a - target).abs() > 1) {
+        let reason = if !err.is_empty() { err } else if on { "Brightness did not reach the requested level".into() } else { "Brightness restoration could not be verified".into() };
+        saved["error"] = json!(reason);
+        atomic_state(&path, &saved)?;
+        return Ok(reason);
+    }
+    if !on {
+        atomic_state(&path, &json!({"on": false}))?;
+    }
+    Ok(String::new())
+}
+
 pub fn quick_dim_status(monitors: &[Value], brightness: &mut BrightnessCache) -> Value {
     let state = quick_dim_state();
     let monitor = if truthy(&state["on"]) { state["monitor"].clone() } else { laptop_monitor(monitors).map_or(Value::Null, Value::from) };
@@ -268,6 +252,7 @@ pub fn quick_dim_status(monitors: &[Value], brightness: &mut BrightnessCache) ->
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::names::safe_output;
 
     #[test]
     fn fmt_g_matches_python() {
@@ -292,21 +277,6 @@ mod tests {
     fn outputs_are_names_or_safe_descriptions() {
         assert!([json!("eDP-1"), json!("desc:BOE NE160 (1)+x.y-z")].iter().all(safe_output));
         assert!([json!(""), json!(null), json!("desc:"), json!("desc:a;b"), json!("a b"), json!(false)].iter().all(|v| !safe_output(v)));
-    }
-
-    #[test]
-    fn modes_need_size_at_and_a_rate() {
-        assert_eq!(parse_mode(" 1920x1200@60.00Hz "), Some((1920, 1200, 60.0)));
-        assert_eq!(parse_mode("1280x720@59.94"), Some((1280, 720, 59.94)));
-        assert!(["1920x1200", "x1@2", "1x2@", "1x2@Hz", "1x2@3Hzz", "1x2@..", "ax2@3", "1x2@3 Hz"].iter().all(|m| parse_mode(m).is_none()));
-    }
-
-    #[test]
-    fn target_is_the_fastest_mode_up_to_60_at_the_panel_size() {
-        let mon = |r: Value, t: Value| json!({"refreshRate": r, "width": 1920, "height": 1200, "transform": t, "availableModes": ["1920x1200@165.00Hz", "1920x1200@48.00Hz", "1920x1200@59.94Hz", "1200x1920@30.00Hz", "1920x1080@60.00Hz"]});
-        assert_eq!(target_refresh(&mon(json!(165.0), json!(0))), Some(59.94));
-        assert_eq!(target_refresh(&mon(json!(165.0), json!(1))), Some(30.0));
-        assert_eq!([target_refresh(&mon(json!(60.0), json!(0))), target_refresh(&mon(json!(165.0), json!(8))), target_refresh(&mon(json!(null), json!(0)))], [None; 3]);
     }
 
     #[test]

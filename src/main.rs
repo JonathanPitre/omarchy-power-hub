@@ -4,6 +4,7 @@ mod data;
 mod exec;
 mod hypr;
 mod idle;
+mod monitor;
 mod names;
 mod paths;
 mod power;
@@ -56,6 +57,13 @@ fn main() {
         Some("boost") if args.len() >= 2 => report(charge::boost(on(&args[1]))),
         Some("health") if args.len() >= 2 => report(charge::set_health(on(&args[1]))),
         Some("tweak") if args.len() >= 3 => report(tweaks::apply_tweak(&args[1], on(&args[2]), args.get(3).is_some_and(|a| matches!(a.as_str(), "1" | "persist" | "pin")))),
+        Some("quick-dim") => match args.get(1).map(String::as_str).filter(|a| args.len() == 2 && matches!(*a, "on" | "off")) {
+            Some(arg) => report(travel::quick_dim(arg == "on").unwrap_or_else(|e| format!("Quick dim could not save its recovery state: {e}"))),
+            None => {
+                out("usage: quick-dim on|off");
+                std::process::exit(2);
+            }
+        },
         Some("apply-tweaks") => report(tweaks::apply_saved_tweaks()),
         Some("unpin") if args.len() >= 2 => report(tweaks::unpin(&args[1])),
         Some("daylight") if args.len() >= 2 => report(tweaks::daylight(args[1] == "on")),
@@ -71,7 +79,7 @@ fn main() {
             std::process::exit(code);
         }
         _ => {
-            eprintln!("usage: power-hub status|data|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|set|profile|charge|boost|health|tweak|apply-tweaks|unpin|daylight|cpu|helper-install|boost-check|idle-wake-poll|displays sync");
+            eprintln!("usage: power-hub status|data|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|set|profile|charge|boost|health|quick-dim|tweak|apply-tweaks|unpin|daylight|cpu|helper-install|boost-check|idle-wake-poll|displays sync");
             std::process::exit(2);
         }
     }

@@ -57,7 +57,6 @@ pub fn read_energy(path: &Path, default: Value) -> Value {
 }
 
 /// Write `value` and its newline to a 0600 temp file, fsync it, then rename it over `path`.
-#[allow(dead_code)] // wired by the write verbs
 pub fn atomic_state(path: &Path, value: &Value) -> io::Result<()> {
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir)?;
