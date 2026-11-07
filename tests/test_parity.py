@@ -945,9 +945,6 @@ class SyncParity(unittest.TestCase):
             self.assertEqual(s._evals, ['hl.monitor({ output = "DP-1", disabled = false })'])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 SHELL_FILE = "home/.config/omarchy/shell.json"
 BINDINGS_FILE = "home/.config/hypr/bindings.lua"
@@ -1338,6 +1335,13 @@ class ActionParity(unittest.TestCase):
             for argv in (["action", "wifi", "on"], ["action", "nonsense"], ["action", "epp", ""]):
                 out = s.rust(*argv)
                 self.assertEqual((out.code, "battery" in json.loads(out.stdout)), (0, True), argv)
+
+    def test_install_buttons_print_nothing(self):
+        with Sandbox() as s:
+            s.config()
+            for verb in ("install", "install-wifi-fix"):
+                out = s.rust("action", verb)
+                self.assertEqual((out.code, out.stdout), (0, ""), verb)
 
     def test_terminal_action_quotes_the_path(self):
         with Sandbox() as s:
@@ -2231,3 +2235,7 @@ class HarnessTests(unittest.TestCase):
                     time.sleep(0.2)
                     self.assertIsNone(p.poll())
                 p.communicate(timeout=5)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -18,6 +18,7 @@ pub fn run(args: &[String]) -> Option<Value> {
             install_sleep_tracking();
             return None;
         }
+        "install" | "install-wifi-fix" => return None,
         _ => String::new(),
     };
     Some(data::collect())

@@ -40,7 +40,7 @@ Item {
   }
 
   // Panel edits land here within ~a second instead of on the 30 s poll. The
-  // debounce skips the truncated file between ops.py's truncate and write.
+  // debounce skips the truncated file between the config's truncate and write.
   FileView {
     path: Quickshell.env("HOME") + "/.config/omarchy/omarchy-power-hub.json"
     watchChanges: true

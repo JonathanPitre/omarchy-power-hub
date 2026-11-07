@@ -343,7 +343,7 @@ pub fn restore_travel_display(state: &mut Value, path: &Path) -> io::Result<Stri
             }
         } else {
             let err = brightness_set(&monitor, &before);
-            let actual = brightness_get(monitor.as_str(), &hypr::monitors());
+            let actual = brightness_get(monitor.as_str(), &hypr::monitors_within(Duration::from_secs(4)));
             if !err.is_empty() || actual.is_none_or(|a| (a - before.as_i64().unwrap_or_default()).abs() > 1) {
                 if error.is_empty() {
                     error = if err.is_empty() { "Brightness restoration could not be verified".into() } else { err };
@@ -506,7 +506,7 @@ fn travel_on(cfg: &Value, path: &Path) -> io::Result<String> {
     if let (Some(name), Some(before)) = (internal.as_deref(), before) {
         let cap = before.min(40);
         err = brightness_set(&json!(name), &json!(cap));
-        let actual = brightness_get(Some(name), &hypr::monitors());
+        let actual = brightness_get(Some(name), &hypr::monitors_within(Duration::from_secs(4)));
         if err.is_empty() && actual.is_none_or(|a| (a - cap).abs() > 1) {
             err = "Brightness cap could not be verified".into();
         }
@@ -568,7 +568,7 @@ fn travel_off(mut state: Value, path: &Path, cfg: &Value) -> io::Result<String> 
             return stop(&mut state, "Saved brightness restore point is invalid".into());
         }
         let err = brightness_set(&monitor, &before);
-        let actual = brightness_get(monitor.as_str(), &hypr::monitors());
+        let actual = brightness_get(monitor.as_str(), &hypr::monitors_within(Duration::from_secs(4)));
         if !err.is_empty() || actual.is_none_or(|a| (a - before.as_i64().unwrap_or_default()).abs() > 1) {
             return stop(&mut state, first(err, "Brightness restoration could not be verified".into()));
         }

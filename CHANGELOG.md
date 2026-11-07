@@ -7,15 +7,15 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [0.0.55] - 2026-11-07
 
-### Changed
-
-- Saving settings, profiles, Travel, Quick dim and Power Tweaks no longer start
-  Python.
-
 ### Added
 
 - Keyboard light off in daylight: an option to keep the keyboard light off when
   the displays wake at 100 lux or more, on Framework laptops with a light sensor.
+
+### Changed
+
+- Saving settings, profiles, Travel, Quick dim and Power Tweaks no longer start
+  Python.
 
 ## [0.0.54] - 2026-11-07
 

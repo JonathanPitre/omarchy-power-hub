@@ -141,7 +141,7 @@ pub fn brightness_set(monitor: &Value, value: &Value) -> String {
     let (Some(name), true) = (monitor.as_str().filter(|_| safe_name_v(monitor)), int_in(value, 0, 100)) else {
         return "Invalid display brightness target".into();
     };
-    if !hypr::monitors().iter().any(|m| m["name"] == *monitor) {
+    if !hypr::monitors_within(Duration::from_secs(4)).iter().any(|m| m["name"] == *monitor) {
         return "Display is no longer connected".into();
     }
     let (code, out) = exec::run(&["omarchy", "brightness", "display", "--no-osd", "--monitor", name, &format!("{value}%")], Duration::from_secs(4));
