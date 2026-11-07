@@ -249,24 +249,6 @@ fn sleep() -> Value {
     Value::Object(out)
 }
 
-/// BCM4377b suspend failure (errno -5 at that device), the only one the Wi-Fi fix addresses.
-fn wifi_fix() -> Value {
-    let pci = paths::root("/sys/bus/pci/devices");
-    let chip = sorted_dir(pci.clone()).iter().any(|d| cat(d.join("modalias")).is_some_and(|m| m.contains("v000014E4d00004488")));
-    let stats = paths::root("/sys/power/suspend_stats");
-    let fails = cat(stats.join("fail")).map_or(0, |s| int(&s));
-    let mut problem = false;
-    if fails > 0 && fs::File::open(stats.join("last_failed_dev")).is_ok() {
-        let dev = cat(stats.join("last_failed_dev")).unwrap_or_default();
-        if !dev.is_empty() && cat(stats.join("last_failed_errno")).as_deref() == Some("-5") {
-            let attr = |n: &str| cat(pci.join(&dev).join(n));
-            problem = attr("vendor").as_deref() == Some("0x14e4") && attr("device").as_deref() == Some("0x4488");
-        }
-    }
-    json!({"chipPresent": chip, "installed": exec::executable(&paths::root("/usr/lib/systemd/system-sleep/battery-plus-wifi-suspend-fix")),
-           "problemSeen": problem, "failCount": fails})
-}
-
 pub fn collect() -> Value {
     let b = battery();
     let ac = !power::on_battery();
@@ -289,6 +271,5 @@ pub fn collect() -> Value {
         "tlp": tlp(ac),
         "tweaks": tweaks(),
         "sleep": sleep(),
-        "wifiFix": wifi_fix(),
     })
 }

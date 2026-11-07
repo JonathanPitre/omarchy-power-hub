@@ -241,30 +241,6 @@ function sleepSummary(s) {
   };
 }
 
-// ---------- Wi-Fi suspend-fix detector (extras/wifi-suspend-fix) ---------
-// Shown only when the exact BCM4377b PM-timeout bug has actually been
-// observed on this machine (see src/data.rs), not just when the
-// chip is present.
-function showWifiFixBanner(w) {
-  return false;
-}
-
-var WIFI_FIX_INFO = {
-  title: "Wi-Fi suspend bug detected",
-  help: "Known issue on the Intel MacBook Air 9,1 (T2): leaving the brcmfmac "
-      + "driver bound during suspend times out its PCI power-management call "
-      + "(errno -5), which aborts suspend and can crash-loop it continuously — "
-      + "draining the battery in hours instead of days. The fix unloads the "
-      + "driver before suspend and reloads it after resume, and stops the card "
-      + "being armed as a wakeup source."
-};
-
-function wifiFixBlurb(w) {
-  var n = (w && w.failCount) || 0;
-  return "Suspend has failed " + n + " time" + (n === 1 ? "" : "s")
-       + " at this Wi-Fi adapter.";
-}
-
 // Device-power-saving rows: what each toggle does, plus the tradeoff to weigh
 // before turning it on. `blurb` shows under the label; `help` opens on the (i).
 var TWEAK_INFO = [

@@ -18,8 +18,7 @@ Item {
     rapl:   { available: false, package: 0, core: 0, gpu: 0 },
     tlp:    { installed: false, active: false, mode: "unknown", manual: false },
     tweaks: { wifi: false, usb: false, pcie: false, audio: false, abm: false, effects: false },
-    sleep:  { installed: false },
-    wifiFix: { chipPresent: false, installed: false, problemSeen: false, failCount: 0 }
+    sleep:  { installed: false }
   })
 
   property bool busy: actionProc.running
@@ -31,7 +30,6 @@ Item {
   readonly property var tlp: snapshot.tlp
   readonly property var tweaks: snapshot.tweaks
   readonly property var sleep: snapshot.sleep
-  readonly property var wifiFix: snapshot.wifiFix
 
   signal updated()
 

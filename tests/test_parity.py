@@ -292,7 +292,9 @@ def travel_snapshot(**changes):
 def status_of(s):
     py, rs = s.python("status"), s.rust("status")
     assert_same(py, rs)
-    return json.loads(rs.stdout)
+    d = json.loads(rs.stdout)
+    assert "wifiFix" not in d, "rust data carries the removed wifiFix key"
+    return d
 
 
 def laptop(s, brightness=55):
@@ -691,24 +693,6 @@ class DataParity(unittest.TestCase):
             self.assertEqual(data_of(s)["sleep"], {"installed": False})
             s.write("/var/log/battery-plus-sleep.log", "\n\n")
             self.assertEqual(data_of(s)["sleep"], {"installed": False})
-
-    def test_wifi_suspend_problem_detected(self):
-        with Sandbox() as s:
-            s.write("/sys/bus/pci/devices/0000:03:00.0/modalias", "pci:v000014E4d00004488sv00001028sd00000001bc02sc80i00\n")
-            s.write("/sys/bus/pci/devices/0000:03:00.0/vendor", "0x14e4\n")
-            s.write("/sys/bus/pci/devices/0000:03:00.0/device", "0x4488\n")
-            s.write("/sys/power/suspend_stats/fail", "2\n")
-            s.write("/sys/power/suspend_stats/last_failed_dev", "0000:03:00.0\n")
-            s.write("/sys/power/suspend_stats/last_failed_errno", "-5\n")
-            self.assertEqual(data_of(s)["wifiFix"], {"chipPresent": True, "installed": False, "problemSeen": True, "failCount": 2})
-            s.write("/sys/power/suspend_stats/last_failed_errno", "-22\n")
-            self.assertEqual(data_of(s)["wifiFix"]["problemSeen"], False)
-            s.write("/sys/power/suspend_stats/last_failed_errno", "-5\n")
-            s.write("/sys/bus/pci/devices/0000:03:00.0/device", "0x4377\n")
-            self.assertEqual(data_of(s)["wifiFix"]["problemSeen"], False)
-            p = s.write("/usr/lib/systemd/system-sleep/battery-plus-wifi-suspend-fix", "#!/bin/sh\n")
-            p.chmod(0o755)
-            self.assertTrue(data_of(s)["wifiFix"]["installed"])
 
     def test_rapl_readable(self):
         with Sandbox() as s:
@@ -1350,12 +1334,12 @@ class ActionParity(unittest.TestCase):
                 out = s.rust(*argv)
                 self.assertEqual((out.code, "battery" in json.loads(out.stdout)), (0, True), argv)
 
-    def test_install_buttons_print_nothing(self):
+    def test_removed_install_verbs_are_unknown_verbs(self):
         with Sandbox() as s:
             s.config()
             for verb in ("install", "install-wifi-fix"):
                 out = s.rust("action", verb)
-                self.assertEqual((out.code, out.stdout), (0, ""), verb)
+                self.assertEqual((out.code, "battery" in json.loads(out.stdout)), (0, True), verb)
 
     def test_terminal_action_quotes_the_path(self):
         with Sandbox() as s:

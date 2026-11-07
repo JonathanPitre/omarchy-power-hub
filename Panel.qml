@@ -63,7 +63,6 @@ Panel {
   readonly property var tlp: service.tlp
   readonly property var tweaks: service.tweaks
   readonly property var sleepData: service.sleep
-  readonly property var wifiFix: service.wifiFix
   property bool historyOpen: false
   readonly property color healthColor: Model.healthTier(b.health) === "replace" ? root.urgent
     : Model.healthTier(b.health) === "worn" ? planSection.yellow : root.fg
@@ -376,50 +375,6 @@ Panel {
             }
           }
 
-          // ---------- Wi-Fi suspend-fix banner (only when actually seen) ----------
-          BorderSurface {
-            visible: Model.showWifiFixBanner(root.wifiFix)
-            width: parent.width
-            implicitHeight: wifiFixCol.implicitHeight + Style.space(24)
-            color: Style.normalFillFor(root.fg, root.urgent)
-            borderSpec: Border.controlSpec("normal", root.fg, root.urgent)
-            radius: Style.cornerRadius
-
-            Column {
-              id: wifiFixCol
-              anchors.left: parent.left
-              anchors.right: parent.right
-              anchors.verticalCenter: parent.verticalCenter
-              anchors.margins: Style.space(12)
-              spacing: Style.space(8)
-
-              Text {
-                width: parent.width
-                text: Model.WIFI_FIX_INFO.title
-                color: root.fg
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.subtitle
-                font.bold: true
-              }
-              Text {
-                width: parent.width
-                text: Model.wifiFixBlurb(root.wifiFix) + " " + Model.WIFI_FIX_INFO.help
-                color: root.dim
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.bodySmall
-                wrapMode: Text.WordWrap
-              }
-              AccentButton {
-                text: "Install Wi-Fi suspend fix"
-                bordered: true
-                focusable: true
-                foreground: root.fg
-                fontFamily: root.fontFamily
-                onClicked: { service.openTerminal("install-wifi-fix"); root.close() }
-              }
-            }
-          }
-
           // ---------- Live power (only while energy is flowing) ----------
           StatRow {
             visible: value !== ""
@@ -687,50 +642,6 @@ Panel {
               }
             }
 
-          }
-
-          // ---------- Tuning (needs TLP) ----------
-          BorderSurface {
-            visible: false
-            width: parent.width
-            implicitHeight: installCol.implicitHeight + Style.space(24)
-            color: Style.normalFillFor(root.fg, Commons.Color.accent)
-            borderSpec: Border.controlSpec("normal", root.fg, Commons.Color.accent)
-            radius: Style.cornerRadius
-
-            Column {
-              id: installCol
-              anchors.left: parent.left
-              anchors.right: parent.right
-              anchors.verticalCenter: parent.verticalCenter
-              anchors.margins: Style.space(12)
-              spacing: Style.space(8)
-
-              Text {
-                width: parent.width
-                text: "Power tuning isn’t set up yet"
-                color: root.fg
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.subtitle
-                font.bold: true
-              }
-              Text {
-                width: parent.width
-                text: "Install TLP + the MacBook tunables to control power modes, Wi-Fi and PCIe power saving from here."
-                color: root.dim
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.bodySmall
-                wrapMode: Text.WordWrap
-              }
-              AccentButton {
-                text: "Install power tuning"
-                bordered: true
-                focusable: true
-                foreground: root.fg
-                fontFamily: root.fontFamily
-                onClicked: { service.openTerminal("install"); root.close() }
-              }
-            }
           }
 
           Column {

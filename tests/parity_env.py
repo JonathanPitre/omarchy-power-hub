@@ -434,7 +434,9 @@ esac''')
         return self._exec([sys.executable, str(self.bin / "ops.py"), *argv])
 
     def bash_data(self):
-        return self._exec(["bash", str(self.bin / "battery-plus-data")])
+        """The fixture still emits the removed wifiFix key until it goes; drop it here, on this side only."""
+        r = self._exec(["bash", str(self.bin / "battery-plus-data")])
+        return replace(r, stdout=json.dumps({k: v for k, v in json.loads(r.stdout).items() if k != "wifiFix"}))
 
     def rust(self, *argv):
         return self._exec([str(RUST_BIN), *argv])

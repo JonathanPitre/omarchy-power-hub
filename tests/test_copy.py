@@ -113,6 +113,15 @@ class PowerPanelCleanupTests(unittest.TestCase):
         self.assertNotIn("property var history:", svc)
         self.assertNotIn("historyMax", svc)
 
+    def test_removed_install_cards_leave_no_trace(self):
+        names = ("Install Wi-Fi suspend fix", "Install power tuning", "wifiFix", "WIFI_FIX_INFO", "showWifiFixBanner", "install-wifi-fix")
+        for f in ("Panel.qml", "Model.js", "PowerService.qml", "src/data.rs", "src/action.rs"):
+            text = (ROOT / f).read_text()
+            for name in names:
+                self.assertNotIn(name, text, f"{name} in {f}")
+        for f in ("battery-dashboard", "battery-common.sh"):
+            self.assertFalse((ROOT / "extras" / f).exists(), f)
+
 
 if __name__ == "__main__":
     unittest.main()
