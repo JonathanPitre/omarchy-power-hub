@@ -63,6 +63,31 @@ pub fn cursor() -> String {
     request("cursorpos").unwrap_or_default().trim().to_string()
 }
 
+/// How long a display write may take to reply: Hyprland applies mode and power changes slowly.
+#[allow(dead_code)] // consumed by the display, lid and light paths in the next tasks
+pub const WRITE_WAIT: Duration = Duration::from_secs(4);
+
+#[allow(dead_code)] // consumed by the display, lid and light paths in the next tasks
+fn write_at(path: &Path, verb: &str, lua: &str) -> Option<String> {
+    request_at(path, &format!("{verb} {lua}"), WRITE_WAIT)
+}
+
+/// `eval` that waits `WRITE_WAIT` for the reply.
+#[allow(dead_code)] // consumed by the display, lid and light paths in the next tasks
+pub fn eval_slow(lua: &str) {
+    if let Some(p) = socket_path() {
+        write_at(&p, "eval", lua);
+    }
+}
+
+/// `hyprctl dispatch <lua>` over the socket, waiting `WRITE_WAIT`.
+#[allow(dead_code)] // consumed by the display, lid and light paths in the next tasks
+pub fn dispatch(lua: &str) {
+    if let Some(p) = socket_path() {
+        write_at(&p, "dispatch", lua);
+    }
+}
+
 pub fn eval(lua: &str) {
     request(&format!("eval {lua}"));
 }
@@ -99,6 +124,26 @@ mod tests {
         assert_eq!(request_at(&path, "eval x", Duration::from_secs(8)).as_deref(), Some("ok"));
         handle.join().ok();
         let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn a_reply_after_3_s_reaches_a_write() {
+        for verb in ["eval", "dispatch"] {
+            let path = std::env::temp_dir().join(format!("ph-write-{verb}-{}.sock", std::process::id()));
+            let _ = fs::remove_file(&path);
+            let server = std::os::unix::net::UnixListener::bind(&path).unwrap();
+            let handle = std::thread::spawn(move || {
+                let (mut conn, _) = server.accept().unwrap();
+                let mut buf = [0; 64];
+                let n = conn.read(&mut buf).unwrap();
+                std::thread::sleep(Duration::from_secs(3));
+                conn.write_all(b"ok").unwrap();
+                String::from_utf8_lossy(&buf[..n]).into_owned()
+            });
+            assert_eq!(write_at(&path, verb, "x").as_deref(), Some("ok"));
+            assert_eq!(handle.join().unwrap(), format!("{verb} x"));
+            let _ = fs::remove_file(&path);
+        }
     }
 
     #[test]

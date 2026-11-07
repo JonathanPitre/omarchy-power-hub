@@ -19,6 +19,18 @@ def setUpModule():
     build_rust()
 
 
+class SandboxFixtures(unittest.TestCase):
+    def test_light_fixtures_land_under_root(self):
+        with Sandbox() as sb:
+            sb.dmi("Framework", "Laptop 16")
+            sb.power_led("none", 0, 100)
+            sb.light_sensor(40, scale=0.5)
+            read = lambda p: (sb.root / p).read_text()  # noqa: E731
+            self.assertEqual(read("sys/class/dmi/id/product_name"), "Laptop 16\n")
+            self.assertEqual(read("sys/class/leds/chromeos:white:power/max_brightness"), "100\n")
+            self.assertEqual(read("sys/bus/iio/devices/iio:device0/in_illuminance_scale"), "0.5\n")
+
+
 class GpuParity(unittest.TestCase):
     def test_suspended_discrete_gpu(self):
         with Sandbox() as s:

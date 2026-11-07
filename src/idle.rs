@@ -1,10 +1,10 @@
 use crate::config::truthy;
-use crate::monitor::{or_default, py_str, restore_lua};
-use crate::names::{matches_set, safe_name_v, safe_output};
+use crate::display::{awake, partly_lit};
+use crate::monitor::py_str;
+use crate::names::matches_set;
 use crate::{hypr, paths};
-use serde_json::{Map, Value};
-use std::fs::{self, OpenOptions};
-use std::path::Path;
+use serde_json::Value;
+use std::fs;
 use std::time::{Duration, SystemTime};
 
 /// A cursor older than this is from the last blank and would read as motion.
@@ -46,18 +46,6 @@ fn cursor_prev(cursor: &str) -> Option<Value> {
     prev
 }
 
-/// `display_power.awake`: some monitor is enabled and every enabled one is lit.
-fn awake(monitors: &[Value]) -> bool {
-    let mut enabled = monitors.iter().filter(|m| !truthy(&m["disabled"])).peekable();
-    enabled.peek().is_some() && enabled.all(|m| truthy(&m["dpmsStatus"]))
-}
-
-/// `display_power.partly_lit`: enabled monitors are a mix of lit and dark.
-fn partly_lit(monitors: &[Value]) -> bool {
-    let lit = |want: bool| monitors.iter().any(|m| !truthy(&m["disabled"]) && truthy(&m["dpmsStatus"]) == want);
-    lit(true) && lit(false)
-}
-
 fn device_names(devices: &Value, key: &str, keep: impl Fn(&str) -> bool) -> Vec<String> {
     devices[key]
         .as_array()
@@ -92,51 +80,20 @@ pub fn poll(blanked: bool) -> String {
     } else {
         "hold"
     };
-    let enabled = result == "wake" || lid_open || !blanked;
-    set_enabled(&device_names(&devices, "mice", |_| true), enabled);
+    set_inputs(&devices, result == "wake" || lid_open || !blanked);
+    result.into()
+}
+
+/// Enable or disable every mouse and every keyboard that is not a lid, power or video-bus switch.
+pub fn set_inputs(devices: &Value, enabled: bool) {
+    set_enabled(&device_names(devices, "mice", |_| true), enabled);
     set_enabled(
-        &device_names(&devices, "keyboards", |n| {
+        &device_names(devices, "keyboards", |n| {
             let n = n.strip_suffix('\n').unwrap_or(n);
             !(n.contains("video-bus") || n.contains("gpio-keys") || n == "power-button")
         }),
         enabled,
     );
-    result.into()
-}
-
-fn restore(state: &Value) {
-    for spec in state["disabled"].as_array().into_iter().flatten() {
-        let spec = match spec {
-            Value::Object(_) => spec.clone(),
-            other => Value::Object(Map::from_iter([("name".into(), other.clone())])),
-        };
-        if safe_name_v(&spec["name"]) && safe_output(&or_default(&spec["output"], spec["name"].clone())) {
-            hypr::eval(&restore_lua(&spec));
-        }
-    }
-}
-
-/// `displays sync` under the display-state lock: put parked heads back once every other one is lit.
-/// None when the lock cannot be taken, as Python's `state_lock` raises: nothing is printed or touched.
-pub fn sync() -> Option<String> {
-    let dir = paths::plugin_run_dir();
-    fs::create_dir_all(&dir).ok()?;
-    let lock = OpenOptions::new().write(true).create(true).truncate(true).open(dir.join("display-off.lock")).ok()?;
-    lock.lock().ok()?;
-    Some(sync_locked(&dir.join("display-off.json")))
-}
-
-fn sync_locked(state_path: &Path) -> String {
-    let state = fs::read_to_string(state_path).ok().and_then(|t| serde_json::from_str::<Value>(&t).ok()).unwrap_or_default();
-    if !truthy(&state["disabled"]) {
-        return "idle".into();
-    }
-    if !awake(&hypr::monitors()) {
-        return "waiting".into();
-    }
-    restore(&state);
-    let _ = fs::write(state_path, "{\"disabled\": []}\n");
-    "restored".into()
 }
 
 #[cfg(test)]

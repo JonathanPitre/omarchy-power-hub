@@ -2,6 +2,7 @@ mod action;
 mod charge;
 mod config;
 mod data;
+mod display;
 mod exec;
 mod hypr;
 mod idle;
@@ -49,7 +50,7 @@ fn main() {
         Some("led-sudo-needed") => out(system::led_sudo_needed()),
         Some("battery-history") => out(system::battery_history()),
         Some("idle-wake-poll") => out(idle::poll(matches!(args.get(1).map(String::as_str), Some("blanked" | "off")))),
-        Some("displays" | "dpms") if args.get(1).map(String::as_str) == Some("sync") => match idle::sync() {
+        Some("displays" | "dpms") if args.get(1).map(String::as_str) == Some("sync") => match display::sync() {
             Some(result) => out(result),
             None => std::process::exit(1),
         },

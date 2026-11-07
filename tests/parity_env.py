@@ -371,6 +371,22 @@ esac''')
         row = lambda d: d if isinstance(d, dict) else {"name": d}  # noqa: E731
         self.hypr["j/devices"] = json.dumps({"mice": [row(d) for d in mice], "keyboards": [row(d) for d in keyboards]})
 
+    def dmi(self, vendor, product):
+        self.write("/sys/class/dmi/id/sys_vendor", f"{vendor}\n")
+        self.write("/sys/class/dmi/id/product_name", f"{product}\n")
+
+    def power_led(self, trigger, brightness, max_brightness):
+        led = "/sys/class/leds/chromeos:white:power"
+        self.write(f"{led}/trigger", f"none [{trigger}] timer\n")
+        self.write(f"{led}/brightness", f"{brightness}\n")
+        self.write(f"{led}/max_brightness", f"{max_brightness}\n")
+
+    def light_sensor(self, raw, scale=None):
+        dev = "/sys/bus/iio/devices/iio:device0"
+        self.write(f"{dev}/in_illuminance_raw", f"{raw}\n")
+        if scale is not None:
+            self.write(f"{dev}/in_illuminance_scale", f"{scale}\n")
+
     @contextlib.contextmanager
     def hold_flock(self, path):
         p = self._target(path)

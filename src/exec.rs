@@ -1,4 +1,4 @@
-use std::io::Read;
+use std::io::{Read, Write};
 use std::process::{Command, Stdio};
 use std::sync::mpsc::{self, Receiver};
 use std::thread;
@@ -18,12 +18,22 @@ fn drain<R: Read + Send + 'static>(r: Option<R>) -> Receiver<Vec<u8>> {
 
 /// Runs `args`, returning (exit code, stdout then stderr). Spawn failure or timeout gives (1, error text).
 pub fn run(args: &[&str], timeout: Duration) -> (i32, String) {
+    run_with(args, None, timeout)
+}
+
+/// `run` with `input` written to the child's stdin, which is then closed.
+#[allow(dead_code)] // consumed by the display, lid and light paths in the next tasks
+pub fn run_input(args: &[&str], input: &str, timeout: Duration) -> (i32, String) {
+    run_with(args, Some(input), timeout)
+}
+
+fn run_with(args: &[&str], input: Option<&str>, timeout: Duration) -> (i32, String) {
     let Some((prog, rest)) = args.split_first() else {
         return (1, "empty command".into());
     };
     let mut child = match Command::new(prog)
         .args(rest)
-        .stdin(Stdio::null())
+        .stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -31,6 +41,13 @@ pub fn run(args: &[&str], timeout: Duration) -> (i32, String) {
         Ok(c) => c,
         Err(e) => return (1, e.to_string()),
     };
+    if let (Some(mut stdin), Some(input)) = (child.stdin.take(), input) {
+        let input = input.to_owned();
+        // Off-thread so a child that never reads cannot stall past the deadline; dropping `stdin` sends EOF.
+        thread::spawn(move || {
+            let _ = stdin.write_all(input.as_bytes());
+        });
+    }
     let out = drain(child.stdout.take());
     let err = drain(child.stderr.take());
     let deadline = Instant::now() + timeout;
@@ -73,6 +90,11 @@ mod tests {
     fn captures_both_streams_and_code() {
         let (code, out) = run(&["sh", "-c", "echo a; echo b >&2; exit 3"], Duration::from_secs(2));
         assert_eq!((code, out.as_str()), (3, "a\nb\n"));
+    }
+
+    #[test]
+    fn input_reaches_the_child() {
+        assert_eq!(run_input(&["cat"], "x", Duration::from_secs(2)), (0, "x".into()));
     }
 
     #[test]

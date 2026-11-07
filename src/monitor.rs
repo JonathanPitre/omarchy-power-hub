@@ -152,7 +152,7 @@ pub fn brightness_set(monitor: &Value, value: &Value) -> String {
 }
 
 /// `display_power.selector`: a description Hyprland rules can match, else the name.
-fn selector(mon: &Value) -> Value {
+pub fn selector(mon: &Value) -> Value {
     let desc = py_str(&or_default(&mon["description"], json!("")));
     if matches_set(&desc, |c| c.is_ascii_alphanumeric() || matches!(c, ' ' | '.' | '_' | '(' | ')' | '+' | '-')) {
         return json!(format!("desc:{desc}"));
