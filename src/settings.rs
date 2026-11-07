@@ -204,7 +204,7 @@ pub fn apply_active() -> io::Result<String> {
     if owned {
         if !truthy(&state["complete"]) {
             err = state["error"].as_str().filter(|e| !e.is_empty()).unwrap_or("Travel mode restoration is incomplete").into();
-        } else {
+        } else if !travel::older_version(&state) {
             if !truthy(&state["controls"]["profile"]["available"]) {
                 let normal = canonical_profile(src["profile"].as_str().unwrap_or_default(), side);
                 if travel::listed_profiles().unwrap_or_default().contains(&normal) {

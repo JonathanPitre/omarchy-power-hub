@@ -527,7 +527,7 @@ fn travel_on(cfg: &Value, path: &Path) -> io::Result<String> {
 }
 
 /// Whether the restore point predates the current format; those live in /run, so a reboot clears them.
-fn older_version(state: &Value) -> bool {
+pub fn older_version(state: &Value) -> bool {
     state.get("complete").is_none()
         || state.get("monitors").is_some()
         || !state["cpu"]["turbo"].is_null()

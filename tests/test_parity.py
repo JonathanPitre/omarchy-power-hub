@@ -2079,20 +2079,25 @@ class ApplyParity(unittest.TestCase):
             self.assertEqual((a.code, b.code), (1, 1))
             self.assertFalse([c for c in b.calls if "hid-wakeup" in c or "pkexec" in c])
 
-    def test_older_restore_points_do_not_break_apply_or_travel_off(self):
-        legacy = {"on": True, "brightness": 80, "monitors": [{"name": "eDP-1", "width": 1920, "height": 1080, "refresh": 165,
-                                                                "x": 0, "y": 0, "scale": 1}]}
+    def test_older_restore_points_are_left_alone_by_apply(self):
+        monitors = [{"name": "eDP-1", "width": 1920, "height": 1080, "refresh": 165, "x": 0, "y": 0, "scale": 1}]
         epp = travel_snapshot(cpu={"turbo": None, "epp": [{"cpu": 0, "before": "power", "target": None}]},
                               pending=["profile", "epp:0", "brightness", "refresh"])
-        for point in (legacy, travel_snapshot(), epp):
+        points = ({"on": True, "brightness": 80, "monitors": monitors},
+                  {"on": True, "monitors": [], "complete": True, "controls": []},
+                  travel_snapshot(), epp)
+        for point in points:
             with self.subTest(point=point), Sandbox() as s:
                 apply_env(travel=point)(s)
+                remembered = s._target("home/.local/state/omarchy/powerprofiles")
+                files = lambda: (s._target(TRAVEL_FILE).read_text(),  # noqa: E731
+                                 {p.name: p.read_text() for p in remembered.glob("*")} if remembered.exists() else {})
+                before = files()
                 for verb in ("apply-profile", "apply"):
                     r = s.rust(verb)
-                    self.assertIn(r.code, (0, 1))
-                saved = json.loads(s._target(TRAVEL_FILE).read_text())
-                for key in ("profile", "cpu", "monitors", "brightness"):
-                    self.assertEqual(saved.get(key), point.get(key))
+                    self.assertIn(r.code, (0, 1), verb)
+                    self.assertFalse([c for c in r.calls if "powerprofilesctl set" in c], verb)
+                    self.assertEqual(files(), before, verb)
                 r = s.rust("travel", "off")
                 self.assertEqual((r.stdout, r.code), (OLDER + "\n", 1))
 
