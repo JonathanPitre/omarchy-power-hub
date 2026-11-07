@@ -218,7 +218,7 @@ pub fn quick_dim(on: bool) -> io::Result<String> {
         return Ok(String::new());
     }
     let (monitor, target, mut saved) = if on {
-        let screens = hypr::monitors();
+        let screens = hypr::monitors_within(Duration::from_secs(4));
         let Some(monitor) = laptop_monitor(&screens) else { return Ok("Laptop display is unavailable".into()) };
         let Some(before) = brightness_get(Some(&monitor), &screens) else { return Ok("Laptop brightness cannot be read".into()) };
         let saved = json!({"on": true, "monitor": monitor, "brightness": before, "error": ""});
@@ -231,7 +231,7 @@ pub fn quick_dim(on: bool) -> io::Result<String> {
         (state["monitor"].as_str().unwrap_or_default().to_string(), before, std::mem::take(&mut state))
     };
     let err = brightness_set(&json!(monitor), &json!(target));
-    let actual = brightness_get(Some(&monitor), &hypr::monitors());
+    let actual = brightness_get(Some(&monitor), &hypr::monitors_within(Duration::from_secs(4)));
     if !err.is_empty() || actual.is_none_or(|a| (a - target).abs() > 1) {
         let reason = if !err.is_empty() { err } else if on { "Brightness did not reach the requested level".into() } else { "Brightness restoration could not be verified".into() };
         saved["error"] = json!(reason);
@@ -445,7 +445,7 @@ pub fn travel(on: bool) -> io::Result<String> {
 }
 
 fn travel_on(cfg: &Value, path: &Path) -> io::Result<String> {
-    let current = hypr::monitors();
+    let current = hypr::monitors_within(Duration::from_secs(4));
     let internal = laptop_monitor(&current);
     let before = internal.as_deref().and_then(|n| brightness_get(Some(n), &current));
     let want = internal.as_deref().map_or(Value::Null, Value::from);
