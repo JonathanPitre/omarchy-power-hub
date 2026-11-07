@@ -1640,7 +1640,7 @@ class TravelParity(unittest.TestCase):
 
     def test_tweak_that_cannot_be_turned_on_is_not_restored(self):
         def pkexec_fails(s):
-            tweaks_on()(s)
+            tweaks_on("0\n", (False, False))(s)  # abm is the only target, so nothing is saved after it is dropped
             s.stub("pkexec", "", 1, "denied")
         self.check(after(travel_env(), pkexec_fails), ["travel", "on"], ["travel", "off"])
 
@@ -1894,8 +1894,8 @@ class TravelRecovery(unittest.TestCase):
                     (s.base / "kill").write_text(kill[1] if kill and kill[0] == i else "")
                 a, b = py.settled(py.python(*step)), rs.settled(rs.rust(*step))
                 label = f"step {i} {step} kill={kill}"
-                for got in ((a.code, a.stdout, [c for c in a.calls if not c.startswith(DROPPED)], a.evals),):
-                    self.assertEqual(got, (b.code, b.stdout, [c for c in b.calls if not c.startswith(DROPPED)], b.evals), label)
+                seen = lambda r: (r.code, r.stdout, [c for c in r.calls if not c.startswith(DROPPED)], r.evals)  # noqa: E731
+                self.assertEqual(seen(a), seen(b), label)
                 assert_same_files(py, rs)
             self.assertEqual(trace_of(py), trace_of(rs), f"restore point at each call, kill={kill}")
             self.assertEqual(facts(py), facts(rs), f"kill={kill}")
