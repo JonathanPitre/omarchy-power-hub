@@ -60,7 +60,6 @@ Panel {
   // the power reads low and the time estimate hours long. Hold the estimate back.
   property bool estimating: false
   Timer { id: settleTimer; interval: 30000; onTriggered: root.estimating = false }
-  readonly property var tlp: service.tlp
   readonly property var tweaks: service.tweaks
   readonly property var sleepData: service.sleep
   property bool historyOpen: false
@@ -642,36 +641,6 @@ Panel {
               }
             }
 
-          }
-
-          Column {
-            visible: false
-            width: parent.width
-            spacing: Style.space(10)
-
-            PanelSeparator { foreground: root.fg }
-            PanelSectionHeader { text: "POWER MODE"; foreground: root.fg; fontFamily: root.fontFamily }
-
-            Segmented {
-              width: parent.width
-              options: [
-                { value: "auto",  label: "Auto" },
-                { value: "saver", label: "Saver" },
-                { value: "full",  label: "Full power" }
-              ]
-              value: Model.activeMode(root.tlp)
-              onPicked: function(v) { service.act("mode", v) }
-            }
-            Text {
-              width: parent.width
-              text: root.tlp.active
-                ? "Auto follows the AC adapter · currently on " + (root.tlp.mode === "battery" ? "battery profile" : "AC profile")
-                : "tlp.service is not running"
-              color: root.dim
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.caption
-              wrapMode: Text.WordWrap
-            }
           }
 
           // ---------- Footer ----------

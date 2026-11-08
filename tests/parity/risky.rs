@@ -853,7 +853,7 @@ mod lid_parity {
             default_lid("display-off")(s);
         };
         const T: &str = "LidParity.test_close_with_display_off_darkens_the_lights_and_open_brings_them_back";
-        // Opening onto lit displays still restores the lights, which Python left off.
+        // Opening onto lit displays still restores the lights.
         for (i, monitors) in [lit("eDP-1"), dark("eDP-1")].into_iter().enumerate() {
             let s = Sandbox::new();
             setup(&s);
@@ -1108,16 +1108,18 @@ mod update_from_python {
 
     #[test]
     fn test_a_failed_apply_still_rewrites_a_lid_block_that_names_python() {
-        let s = Sandbox::new();
-        old_install(true)(&s);
-        chmod(&s.target(SHELL_FILE), 0o444);
-        let r = s.rust(&["apply"]);
-        let bindings = read(&s, BINDINGS_FILE);
-        assert_eq!(r.code, 1);
-        assert!(!bindings.contains("python3"));
-        assert_eq!(bindings.matches(LID_BEGIN).count(), 1);
-        assert!(bindings.contains(&format!("{}/power-hub lid-closed", s.bin.display())));
-        assert!(bindings.contains(&format!("{}/power-hub lid-opened", s.bin.display())));
+        for verb in ["apply", "apply-profile"] {
+            let s = Sandbox::new();
+            old_install(true)(&s);
+            chmod(&s.target(SHELL_FILE), 0o444);
+            let r = s.rust(&[verb]);
+            let bindings = read(&s, BINDINGS_FILE);
+            assert_eq!(r.code, 1, "{verb}");
+            assert!(!bindings.contains("python3"), "{verb}");
+            assert_eq!(bindings.matches(LID_BEGIN).count(), 1, "{verb}");
+            assert!(bindings.contains(&format!("{}/power-hub lid-closed", s.bin.display())), "{verb}");
+            assert!(bindings.contains(&format!("{}/power-hub lid-opened", s.bin.display())), "{verb}");
+        }
     }
 
     #[test]

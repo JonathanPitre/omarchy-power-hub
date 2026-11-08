@@ -1,10 +1,9 @@
 [
  {
   "code": 0,
-  "stdout": "{\"battery\": {\"present\": false, \"percent\": 0, \"status\": \"Unknown\", \"watts\": 0.0, \"health\": 0, \"whFull\": 0.0, \"whDesign\": 0.0, \"cycles\": 0, \"minutes\": 0, \"acOnline\": 1, \"fraction\": 0.0, \"drainTo\": 0}, \"rapl\": {\"available\": false, \"package\": 0, \"core\": 0, \"gpu\": 0}, \"tlp\": {\"installed\": false, \"active\": false, \"mode\": \"ac\", \"manual\": false}, \"tweaks\": {\"wifi\": false, \"usb\": false, \"pcie\": false, \"audio\": false, \"abm\": false, \"abmAvailable\": false, \"effects\": false, \"daylight\": false, \"daylightAvailable\": false}, \"sleep\": {\"lastAt\": \"2026-11-07T10:00:00+00:00\", \"lastDurationSec\": 606, \"lastPreCap\": 74, \"lastPostCap\": 73, \"lastWatts\": 4.1, \"lastPctPerHour\": -0.6, \"samples\": 7, \"avgWatts\": 2.86, \"avgPctPerHour\": -1.16, \"installed\": true}}",
+  "stdout": "{\"battery\": {\"present\": false, \"percent\": 0, \"status\": \"Unknown\", \"watts\": 0.0, \"health\": 0, \"whFull\": 0.0, \"whDesign\": 0.0, \"cycles\": 0, \"minutes\": 0, \"acOnline\": 1, \"fraction\": 0.0, \"drainTo\": 0}, \"rapl\": {\"available\": false, \"package\": 0, \"core\": 0, \"gpu\": 0}, \"tweaks\": {\"wifi\": false, \"usb\": false, \"pcie\": false, \"audio\": false, \"abm\": false, \"abmAvailable\": false, \"effects\": false, \"daylight\": false, \"daylightAvailable\": false}, \"sleep\": {\"lastAt\": \"2026-11-07T10:00:00+00:00\", \"lastDurationSec\": 606, \"lastPreCap\": 74, \"lastPostCap\": 73, \"lastWatts\": 4.1, \"lastPctPerHour\": -0.6, \"samples\": 7, \"avgWatts\": 2.86, \"avgPctPerHour\": -1.16, \"installed\": true}}",
   "calls": [
-   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
-   "systemctl is-active --quiet tlp"
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery"
   ],
   "evals": [],
   "requests": [

@@ -15,7 +15,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Removed
 
-- The two hidden install cards and `battery-dashboard`.
+- The two hidden install cards, the hidden power mode switch and `battery-dashboard`.
+- The TLP check on every panel refresh, which only the hidden switch used.
 - All Python files and their tests.
 
 ## [0.0.57] - 2026-11-09

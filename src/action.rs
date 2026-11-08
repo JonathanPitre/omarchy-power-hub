@@ -1,4 +1,4 @@
-use crate::{config, data, on, paths, power, settings, tweaks};
+use crate::{data, on, paths, tweaks};
 use serde_json::Value;
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -8,7 +8,6 @@ use std::process::{Command, Stdio};
 pub fn run(args: &[String]) -> Option<Value> {
     let arg = |i: usize| args.get(i).map_or("", String::as_str);
     let _ = match arg(0) {
-        "mode" => settings::set_key(power::active_side(&config::load()), "profile", arg(1)),
         verb @ ("turbo" | "epp") => tweaks::cpu(verb, arg(1)),
         verb @ ("wifi" | "usb" | "pcie" | "audio" | "abm" | "effects") => tweaks::apply_tweak(verb, on(arg(1)), false),
         "daylight" => tweaks::daylight(arg(1) == "on"),

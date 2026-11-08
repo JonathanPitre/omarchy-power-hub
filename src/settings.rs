@@ -192,8 +192,15 @@ pub fn set_key(side: &str, key: &str, value: &str) -> String {
 }
 
 /// Apply the active side's profile, idle, hibernate delay and lid action under the energy lock.
-/// An unwritable file is an `Err`, which ends the verb with exit 1.
+/// An unwritable file is an `Err`, which ends the verb with exit 1. The lid binding is still rewritten
+/// then, so a binding left by an older version never outlives the backend it names.
 pub fn apply_active() -> io::Result<String> {
+    apply_side().inspect_err(|_| {
+        let _ = write_lid_block();
+    })
+}
+
+fn apply_side() -> io::Result<String> {
     let _lock = energy_lock()?;
     let cfg = config::load();
     let mut state = travel_state();
@@ -233,14 +240,11 @@ pub fn apply_active() -> io::Result<String> {
 /// `apply`: the active side, then the pinned tweaks (after the lock is released), then the HID wakeup when the lid is open.
 pub fn apply() -> String {
     let active = apply_active();
-    // A failed apply must not leave a unit or a lid binding that still names the old backend.
+    // A failed apply must not leave a unit that names an older version's backend either.
     tweaks::refresh_unit();
     let active = match active {
         Ok(e) => e,
-        Err(e) => {
-            let _ = write_lid_block();
-            return e.to_string();
-        }
+        Err(e) => return e.to_string(),
     };
     let mut err = format!("{active} {}", tweaks::apply_saved_tweaks()).trim().to_string();
     if idle::lid_is_open(&idle::lid_text()) {

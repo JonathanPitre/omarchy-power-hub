@@ -123,26 +123,6 @@ fn rapl() -> Option<[f64; 3]> {
     Some(watts)
 }
 
-fn tlp(ac: bool) -> Value {
-    let mut mode = if let Some(pwr) = cat(paths::root("/run/tlp/last_pwr")) {
-        if pwr.split_whitespace().next() == Some("1") { "battery" } else { "ac" }
-    } else if ac {
-        "ac"
-    } else {
-        "battery"
-    };
-    let mut manual = false;
-    if let Some(m) = cat(paths::root("/run/tlp/manual_mode")) {
-        match m.split_whitespace().next() {
-            Some("0") => (manual, mode) = (true, "ac"),
-            Some("1" | "2") => (manual, mode) = (true, "battery"),
-            _ => {}
-        }
-    }
-    json!({"installed": exec::on_path("tlp"), "active": exec::run(&["systemctl", "is-active", "--quiet", "tlp"], Duration::from_secs(2)).0 == 0,
-           "mode": mode, "manual": manual})
-}
-
 fn wifi_power_save() -> bool {
     let Some(dev) = sorted_dir(paths::root("/sys/class/net")).into_iter().find_map(|p| {
         let n = p.file_name()?.to_string_lossy().into_owned();
@@ -268,7 +248,6 @@ pub fn collect() -> Value {
                     "whFull": round(full / 1e6, 1), "whDesign": round(b.design as f64 / 1e6, 1), "cycles": b.cycles, "minutes": minutes,
                     "acOnline": u8::from(ac), "fraction": round(b.percent as f64 / 100.0, 3), "drainTo": drain_to},
         "rapl": {"available": rapl.is_some(), "package": package, "core": core, "gpu": gpu},
-        "tlp": tlp(ac),
         "tweaks": tweaks(),
         "sleep": sleep(),
     })

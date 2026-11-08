@@ -107,9 +107,8 @@ both controls need to own the display restore state.
 
 ## 🛠️ System power controls
 
-Power-saving controls depend on available hardware and system services. TLP
-and supported MacBook tunables provide additional power modes and device
-controls. The panel can also manage device powersave settings without TLP.
+Power-saving controls depend on available hardware. The panel manages device
+powersave settings itself, without TLP.
 Power plans use Power saver, Balanced, or Performance where supported. New
 plugged-in plans default to Performance; new battery plans default to
 Balanced.

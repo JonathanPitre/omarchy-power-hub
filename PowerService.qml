@@ -16,7 +16,6 @@ Item {
     battery: { present: false, percent: 0, status: "Unknown", watts: 0, health: 0,
                whFull: 0, whDesign: 0, cycles: 0, minutes: 0, acOnline: 0, fraction: 0 },
     rapl:   { available: false, package: 0, core: 0, gpu: 0 },
-    tlp:    { installed: false, active: false, mode: "unknown", manual: false },
     tweaks: { wifi: false, usb: false, pcie: false, audio: false, abm: false, effects: false },
     sleep:  { installed: false }
   })
@@ -27,7 +26,6 @@ Item {
 
   readonly property var battery: snapshot.battery
   readonly property var rapl: snapshot.rapl
-  readonly property var tlp: snapshot.tlp
   readonly property var tweaks: snapshot.tweaks
   readonly property var sleep: snapshot.sleep
 

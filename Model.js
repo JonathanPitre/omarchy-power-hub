@@ -91,13 +91,6 @@ function chargeLimitLabel(c, boosting) {
   return p ? p.split("-").pop() + "%" : "On";
 }
 
-// Which segmented power mode is active.
-function activeMode(tlp) {
-  if (!tlp || !tlp.installed || !tlp.active) return "";
-  if (!tlp.manual) return "auto";
-  return tlp.mode === "battery" ? "saver" : "full";
-}
-
 function raplLabel(rapl) {
   if (!rapl || !rapl.available) return "";
   var parts = ["CPU " + Number(rapl.package).toFixed(1) + " W"];

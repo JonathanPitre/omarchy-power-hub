@@ -890,30 +890,13 @@ mod data_parity {
     }
 
     #[test]
-    fn test_tlp_manual_and_last_pwr() {
-        const T: &str = "DataParity.test_tlp_manual_and_last_pwr";
+    fn test_data_has_no_tlp_and_never_asks_systemd() {
         let s = Sandbox::new();
         s.write_stub("tlp");
         s.stub("systemctl", "is-active", 0, "");
-        s.write("/run/tlp/last_pwr", "1 1700000000\n");
-        assert_eq!(data_of(&s, T)["tlp"], json!({"installed": true, "active": true, "mode": "battery", "manual": false}));
-        s.write("/run/tlp/manual_mode", "0\n");
-        assert_eq!(data_of(&s, T)["tlp"], json!({"installed": true, "active": true, "mode": "ac", "manual": true}));
-        s.write("/run/tlp/manual_mode", "2\n");
-        s.write("/run/tlp/last_pwr", "0 1\n");
-        assert_eq!(data_of(&s, T)["tlp"]["mode"], "battery");
-        s.write("/run/tlp/manual_mode", "");
-        assert_eq!(data_of(&s, T)["tlp"], json!({"installed": true, "active": true, "mode": "ac", "manual": false}));
-    }
-
-    #[test]
-    fn test_tlp_mode_falls_back_to_the_adapter() {
-        const T: &str = "DataParity.test_tlp_mode_falls_back_to_the_adapter";
-        let s = Sandbox::new();
-        s.stub("busctl", "OnBattery", 0, "b true\n");
-        assert_eq!(data_of(&s, T)["tlp"], json!({"installed": false, "active": false, "mode": "battery", "manual": false}));
-        s.stub("busctl", "OnBattery", 0, "b false\n");
-        assert_eq!(data_of(&s, T)["tlp"]["mode"], "ac");
+        let r = s.rust(&["data"]);
+        assert!(j(&r).get("tlp").is_none(), "data still carries tlp");
+        assert!(!r.calls.iter().any(|c| c.starts_with("systemctl")), "{:?}", r.calls);
     }
 
     #[test]

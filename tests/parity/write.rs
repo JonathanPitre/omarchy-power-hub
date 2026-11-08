@@ -9,9 +9,9 @@ use std::process::Command;
 use std::thread;
 use std::time::Duration;
 
-/// What `assert_same` compares, plus files.
+/// Output, exit code, evals and files.
 pub(crate) const D: Replay = Replay::direct();
-/// What `both()` compares.
+/// The direct comparison plus the ordered tool calls.
 pub(crate) const BOTH: Replay = Replay { calls: true, ..Replay::direct() };
 /// An uncaught error ends the verb with exit 1 and the message on stdout; the recorded run printed a traceback on stderr, so only the exit code is compared.
 const UNCAUGHT: Replay = Replay { stdout: false, ..BOTH };
@@ -42,7 +42,7 @@ impl<F: Fn(&Sandbox)> Setup for F {
     }
 }
 
-/// `re.sub(r"ExecStart=.*", "ExecStart=<masked>", text)`.
+/// Masks everything after `ExecStart=` on each line, since the binary path differs per sandbox.
 pub(crate) fn mask_exec(_path: &str, text: &str) -> String {
     text.split_inclusive('\n').map(|line| match line.find("ExecStart=") {
         Some(at) => format!("{}ExecStart=<masked>{}", &line[..at], if line.ends_with('\n') { "\n" } else { "" }),
@@ -711,8 +711,8 @@ impl Setup for Tweaks {
 mod action_parity {
     use super::*;
 
-    const ROWS: [&[&str]; 7] = [
-        &["action", "mode", "saver"], &["action", "turbo", "off"], &["action", "epp", "power"], &["action", "wifi", "on"],
+    const ROWS: [&[&str]; 6] = [
+        &["action", "turbo", "off"], &["action", "epp", "power"], &["action", "wifi", "on"],
         &["action", "persist", "wifi", "on"], &["action", "unpersist", "wifi"], &["action", "daylight", "on"],
     ];
 
@@ -743,9 +743,11 @@ mod action_parity {
     fn test_removed_install_verbs_are_unknown_verbs() {
         let s = Sandbox::new();
         s.config(json!({}));
-        for verb in ["install", "install-wifi-fix"] {
-            let out = s.rust(&["action", verb]);
+        let before = s.snapshot(None);
+        for verb in ["install", "install-wifi-fix", "mode"] {
+            let out = s.rust(&["action", verb, "saver"]);
             assert_eq!((out.code, j(&out).get("battery").is_some()), (0, true), "{verb}");
+            assert_eq!(s.snapshot(None), before, "{verb} changed a file");
         }
     }
 
@@ -1102,8 +1104,9 @@ mod apply_parity {
         let dir = s.target(TRAVEL_FILE).parent().unwrap().to_path_buf();
         chmod(&dir, 0o555);
         let _restore = Restore(dir);
-        let r = replay(&s, "ApplyParity.test_unwritable_run_dir_ends_the_verb_with_nothing_to_record", &["apply-profile"], UNCAUGHT);
+        let r = replay(&s, "ApplyParity.test_unwritable_run_dir_ends_the_verb_with_nothing_to_record", &["apply-profile"], Replay { normalise: Some(without_bindings), ..UNCAUGHT });
         assert_eq!(r.code, 1);
+        assert!(read(&s, BINDINGS_FILE).contains(&format!("{}/power-hub lid-closed", s.bin.display())));
     }
 
     #[test]
