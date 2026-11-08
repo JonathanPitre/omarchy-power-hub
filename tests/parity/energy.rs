@@ -358,6 +358,23 @@ mod travel_parity {
         assert_eq!(brightness(), "82");
     }
 
+    /// Hyprland answers eval at once and changes the mode about 0.7 s later.
+    #[test]
+    fn test_waits_for_the_mode_hyprland_applies_after_replying() {
+        let s = Sandbox::new();
+        travel_env().setup(&s);
+        let handle = s.hypr_handle();
+        s.hypr().on_eval = Some(Box::new(move |_, lua| {
+            let (handle, lua) = (handle.clone(), lua.to_string());
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(750));
+                follow_modes(&mut handle.lock().unwrap(), &lua);
+            });
+        }));
+        let run = s.rust(ON);
+        assert_eq!((run.code, run.stdout.as_str()), (0, "ok\n"));
+    }
+
     #[test]
     fn test_travel_sets_power_saver_and_leaves_cpu_boost_alone() {
         let s = Sandbox::new();

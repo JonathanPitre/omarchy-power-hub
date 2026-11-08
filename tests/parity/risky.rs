@@ -853,18 +853,16 @@ mod lid_parity {
             default_lid("display-off")(s);
         };
         const T: &str = "LidParity.test_close_with_display_off_darkens_the_lights_and_open_brings_them_back";
-        let s = Sandbox::new();
-        setup(&s);
-        let go = |argv: &[&str]| {
-            replay(&s, T, argv, LID);
-        };
-        go(&["lid-closed"]);
-        assert_eq!((keys_level(&s), kblight_saved(&s)), (0, Some(json!({"level": 67}))));
-        go(&["lid-opened"]);
-        assert_eq!((keys_level(&s), kblight_saved(&s)), (0, Some(json!({"level": 67}))));
-        s.monitors(&[dark("eDP-1")]);
-        go(&["lid-opened"]);
-        assert_eq!((keys_level(&s), kblight_saved(&s)), (67, None));
+        // Opening onto lit displays still restores the lights, which Python left off.
+        for (i, monitors) in [lit("eDP-1"), dark("eDP-1")].into_iter().enumerate() {
+            let s = Sandbox::new();
+            setup(&s);
+            if i == 0 { replay(&s, T, &["lid-closed"], LID); } else { s.rust(&["lid-closed"]); }
+            assert_eq!((keys_level(&s), kblight_saved(&s)), (0, Some(json!({"level": 67}))));
+            s.monitors(&[monitors]);
+            s.rust(&["lid-opened"]);
+            assert_eq!((keys_level(&s), kblight_saved(&s)), (67, None));
+        }
     }
 
     #[test]

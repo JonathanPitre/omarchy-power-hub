@@ -278,6 +278,11 @@ if [ "$1" = eval ] && [[ "$out" == error* ]]; then exit 7; fi
     }
 
     /// `s.hypr[request] = reply`.
+    /// For changes the fake Hyprland makes after it has replied.
+    pub fn hypr_handle(&self) -> Arc<Mutex<Hypr>> {
+        self.hypr.clone()
+    }
+
     pub fn reply(&self, request: &str, reply: &str) {
         self.hypr().replies.insert(request.into(), reply.into());
     }
