@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.57] - 2026-11-09
+
+### Changed
+
+- Split the two reasons a hybrid laptop's discrete GPU stays awake in the
+  hybrid note. A monitor on the graphics module's own output keeps the card
+  scanning out, so **Awake** is correct no matter what the browser does. Add
+  the connector check that tells the cases apart, record that PR #15293 exits 0
+  on this machine while docked, and confirm the local `radeonsi` + `mesa`
+  override restores playback with hardware acceleration on once the systemd
+  user environment is refreshed, not just Hyprland's.
+
 ## [0.0.56] - 2026-11-09
 
 ### Changed

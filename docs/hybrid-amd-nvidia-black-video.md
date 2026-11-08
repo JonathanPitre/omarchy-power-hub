@@ -1,6 +1,6 @@
 # Hybrid AMD + NVIDIA: black browser video, discrete GPU stays awake
 
-On a laptop whose display is wired to an AMD iGPU, Omarchy 4.5 can still treat the NVIDIA card as the display GPU. Hyprland then exports NVIDIA's VA-API and GLX drivers for the whole session. Chromium and Brave paint a black video rectangle, and the discrete GPU leaves runtime suspend, so the pack pays for a card that is not driving the panel.
+On a laptop whose display is wired to an AMD iGPU, Omarchy 4.5 can still treat the NVIDIA card as the display GPU. Hyprland then exports NVIDIA's VA-API and GLX drivers for the whole session. Chromium and Brave paint a black video rectangle, and the discrete GPU leaves runtime suspend when nothing else is holding it, so the pack can pay for a card that is not driving the panel.
 
 Omarchy Power Hub only reports that suspend state. It does not set these variables, and turning its power tweaks off does not clear them.
 
@@ -9,7 +9,7 @@ Omarchy Power Hub only reports that suspend state. It does not set these variabl
 - YouTube, X, and other `<video>` pages load. Audio can keep going. The picture stays black while hardware acceleration is on.
 - `brave://gpu` can still say video decode is hardware accelerated. That line means the browser found a decoder. It does not mean the frames were shown.
 - Turning **Use graphics acceleration when available** off makes the same video play. The browser is then on the software path.
-- The Power Hub GPU row says **Awake** while nothing in the panel is asking the discrete GPU to wake. `power-hub gpu` reports `"asleep": false`.
+- The Power Hub GPU row says **Awake** and `power-hub gpu` reports `"asleep": false`. When nothing is plugged into the NVIDIA card that names an extra client. When a monitor is on its own output, it is the expected answer, as [the docked case](#why-the-power-draw-changes) explains.
 - A one-off Brave launch with `--ozone-platform=x11` can show the video again, on either render node. That session can still log a failed GBM buffer import and a GPU process restart, then keep playing. X11 restores the picture. It does not remove the NVIDIA environment variables, so the discrete GPU can stay awake.
 
 This was checked on a Framework Laptop 16, Omarchy 4.5.0-3, kernel `7.2.11-arch1-1`, Mesa 26.2.5, `nvidia-open` 615.78.08, `libva-nvidia-driver` 0.0.18, Brave 157.1.99.55.
@@ -49,6 +49,8 @@ The iGPU is already `active` because it owns the panel. The NVIDIA card can runt
 
 `LIBVA_DRIVER_NAME=nvidia` sends VA-API clients at the NVIDIA decoder. Opening that device moves `runtime_status` to `active` and holds it there for the whole playback, including paused tabs that keep a decoder. `__GLX_VENDOR_LIBRARY_NAME=nvidia` can do the same for GL, not only for video. The panel then reads **Awake**, and the battery curve includes the discrete GPU's active idle on top of the iGPU. Frames also have to be copied back to the GPU that is actually scanning out.
 
+That reasoning only holds when nothing is driving a display from the NVIDIA card. A monitor plugged into the graphics module's own output is scanned out by the discrete GPU, and a GPU scanning out cannot runtime-suspend. On this laptop `card1-DP-2` and `card1-DP-3` under `0000:c2:00.0` read `connected` while a portable monitor sits on that port, so **Awake** is the correct answer whether or not a browser holds the decoder. The black video and the awake card are then two separate facts: the browser still gets the wrong VA-API driver, and the card is awake because a panel is on it. Run the connector check below before attributing the power draw to video.
+
 There is no watt figure for this laptop in this note. The earlier Power Hub poll benchmark stayed asleep across its own 5-second GPU reads, because those reads use sysfs and do not touch PCI config space. `lspci` does, and that alone resumes a suspended NVIDIA device. An **Awake** row while the panel is only polling is some other client. A browser or `mpv` using the NVIDIA VA-API driver is one of them. [Issue #14285](https://github.com/omacom/omarchy/issues/14285) reports that `mpv` still wakes a runtime-suspended NVIDIA card on hybrid laptops after #11690.
 
 Power Hub's Wi-Fi, PCIe, USB, audio, panel, and effects tweaks were all off while the video was black, and the PCIe saving switch was pinned off. Travel mode does not change GPU mode. None of those controls write `LIBVA_DRIVER_NAME`.
@@ -75,6 +77,14 @@ done
 
 The AMD iGPU should be the device with no `boot_vga` file. The NVIDIA device should show `boot_vga=0`. If `omarchy-hw-nvidia-display` still exits 0, the session is in the bad branch.
 
+```bash
+for s in /sys/class/drm/card*-*/status; do
+  echo "$(basename "$(dirname "$s")") $(< "$s")"
+done
+```
+
+A `connected` node on the NVIDIA card's `card*` directory means the discrete GPU is scanning out and cannot suspend, whatever the browser is doing. The VA-API reading of an **Awake** row only holds when every NVIDIA connector reads `disconnected`.
+
 From a terminal Hyprland started:
 
 ```bash
@@ -87,15 +97,31 @@ tr '\0' '\n' < /proc/$$/environ | grep -E '^(LIBVA_DRIVER_NAME|NVD_BACKEND|__GLX
 
 The change that lets the discrete GPU sleep is to stop pointing VA-API and GLX at NVIDIA while the iGPU owns the panel. The open pull request that picks the display from the connected monitor, and uses `boot_vga` only as a fallback, is [PR #13659](https://github.com/omacom/omarchy/pull/13659). [Issue #13785](https://github.com/omacom/omarchy/issues/13785) described the black Wayland video and was closed when #11690 merged. #15148 is the hole that fix left for this iGPU.
 
-Do not edit `/usr/share/omarchy`. Package updates replace it. Hyprland loads `~/.config/hypr/hyprland.lua` after the Omarchy defaults, so a later `hl.env` replaces the value for processes started after the next login:
+[PR #15293](https://github.com/omacom/omarchy/pull/15293) is the newer attempt at the same detector. It was run against this machine and does not fix it while docked: it counts a connected connector on either GPU, and with `card1-DP-2` and `card1-DP-3` live both GPUs claim a display, so it exits 0 and keeps the NVIDIA environment. It returns exit 1 only once every NVIDIA connector is disconnected. Its review thread prefers #13659 and #9483, which decide by a connected built-in panel and therefore keep the environment off in both states. #15293 also carries an unrelated menu change, and all three edit `bin/omarchy-hw-nvidia-display`, which lives under `/usr/share/omarchy`.
+
+Do not edit `/usr/share/omarchy`. Package updates replace it. Hyprland loads `~/.config/hypr/hyprland.lua` after the Omarchy defaults, so a later `hl.env` replaces the value for processes started afterwards:
 
 ```lua
 hl.env("LIBVA_DRIVER_NAME", "radeonsi")
+hl.env("__GLX_VENDOR_LIBRARY_NAME", "mesa")
 ```
 
-`radeonsi` is the Mesa VA-API driver installed on this machine (`/usr/lib/dri/radeonsi_drv_video.so`). That is the AMD counterpart of the `LIBVA_DRIVER_NAME=iHD` override people used on Intel hybrid laptops ([issue #8215](https://github.com/omacom/omarchy/issues/8215)). Log out and back in, then confirm the variable and play one video. The picture should return with decode on the iGPU, and the NVIDIA `runtime_status` should be able to return to `suspended` once nothing else has the card open. This override was not re-run as a playback test here. The tests that were run are the ones above: software rendering, and X11 on each render node.
+`radeonsi` is the Mesa VA-API driver installed on this machine (`/usr/lib/dri/radeonsi_drv_video.so`). That is the AMD counterpart of the `LIBVA_DRIVER_NAME=iHD` override people used on Intel hybrid laptops ([issue #8215](https://github.com/omacom/omarchy/issues/8215)). Both lines are applied on this machine.
 
-`__GLX_VENDOR_LIBRARY_NAME=nvidia` is a separate wake path for GL clients. If video is fine and the card stays `active` with no NVIDIA process, that variable is the next one to stop exporting.
+A reload alone does not reach a browser started from the launcher. `hl.env` changes Hyprland's own environment, while the launcher starts apps through the systemd user session, and that copy is taken once at login by `dbus-update-activation-environment --all`. Until it runs again, Brave keeps `LIBVA_DRIVER_NAME=nvidia` even though Hyprland's own children report `radeonsi`. Log out and back in, or refresh it from a shell that has the new values:
+
+```bash
+env LIBVA_DRIVER_NAME=radeonsi __GLX_VENDOR_LIBRARY_NAME=mesa \
+  dbus-update-activation-environment --systemd \
+  LIBVA_DRIVER_NAME __GLX_VENDOR_LIBRARY_NAME
+systemctl --user show-environment | grep -E 'LIBVA|GLX'
+```
+
+Then quit every Brave process (`pkill -x brave`) and launch it again. With hardware acceleration on, YouTube and X play with a picture. In the GPU process, `nvidia_drv_video.so` is no longer mapped, `/dev/dri/renderD129` is the only DRM node open, and `NVD_BACKEND=direct` stays set without an effect.
+
+`__GLX_VENDOR_LIBRARY_NAME=mesa` stops GL clients from opening the NVIDIA card, which is a separate wake path from video.
+
+The NVIDIA `runtime_status` only returns to `suspended` once no monitor is on the card's own output. With a display attached there, decode on the Radeon removes the browser as a client but the card still scans out.
 
 Two workarounds restore a picture and leave the bad environment in place:
 
