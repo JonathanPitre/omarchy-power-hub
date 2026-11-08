@@ -51,7 +51,7 @@ pub fn py_str(v: &Value) -> String {
     }
 }
 
-/// `spec.get(key) or default`: the default for any falsy value.
+/// The value, or the default when the value is falsy.
 pub fn or_default(v: &Value, default: Value) -> Value {
     if truthy(v) { v.clone() } else { default }
 }
@@ -151,7 +151,7 @@ pub fn brightness_set(monitor: &Value, value: &Value) -> String {
     if code == 0 { String::new() } else { Some(out.trim()).filter(|o| !o.is_empty()).unwrap_or("Brightness command failed").into() }
 }
 
-/// `display_power.selector`: a description Hyprland rules can match, else the name.
+/// A description Hyprland rules can match, else the name.
 pub fn selector(mon: &Value) -> Value {
     let desc = py_str(&or_default(&mon["description"], json!("")));
     if matches_set(&desc, |c| c.is_ascii_alphanumeric() || matches!(c, ' ' | '.' | '_' | '(' | ')' | '+' | '-')) {
@@ -160,7 +160,7 @@ pub fn selector(mon: &Value) -> Value {
     mon["name"].clone()
 }
 
-/// What Travel saves to put a monitor back: `display_power.snapshot` with its transform, sides swapped when rotated.
+/// What Travel saves to put a monitor back: the display snapshot with its transform, sides swapped when rotated.
 pub fn monitor_snapshot(mon: &Value) -> Result<Value, String> {
     let transform = mon.get("transform").unwrap_or(&json!(0)).clone();
     let field = |k: &str, d: i64| or_default(&mon[k], d.into());

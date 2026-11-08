@@ -72,7 +72,7 @@ fn write_unit() -> io::Result<()> {
     Ok(())
 }
 
-/// Point an existing unit at this binary, as an update from the Python backend leaves it naming ops.py.
+/// Point an existing unit at this binary, as an update from an older version leaves it naming the removed ops.py.
 /// Never creates a unit or enables one: a missing unit means no tweak was ever pinned.
 pub fn refresh_unit() {
     let path = unit_dir().join(UNIT);

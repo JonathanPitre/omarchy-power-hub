@@ -36,7 +36,7 @@ pub type OnEval = Box<dyn FnMut(&mut Hypr, &str) + Send>;
 type Rules = HashMap<String, Vec<(String, i32, String)>>;
 pub type Cursors = HashMap<String, (Arc<Vec<Value>>, usize)>;
 
-/// How a step is compared. The default is what `both()` compares; `direct()` is what `assert_same` compares, plus files.
+/// How a step is compared. `direct()` compares output, exit code, evals and files; the default adds the ordered tool calls.
 #[derive(Clone, Copy)]
 pub struct Replay {
     pub drop: &'static [&'static str],
@@ -463,7 +463,7 @@ if [ "$1" = eval ] && [[ "$out" == error* ]]; then exit 7; fi
         }
     }
 
-    /// State `both()` leaves out that other tests compare: stateful stub files, the power LED, new Travel trace lines.
+    /// State the file snapshot leaves out that some tests compare: stateful stub files, the power LED, new Travel trace lines.
     pub fn side(&self) -> Map<String, Value> {
         let mut out = Map::new();
         let leds = fs::read_dir(self.root.join(LED)).into_iter().flatten().flatten().map(|e| e.path());
@@ -610,7 +610,7 @@ fn trace_line(line: &str) -> String {
     if line.starts_with('{') { canonical(line) } else { line.to_string() }
 }
 
-/// The snapshot comparison `both()` runs after every step.
+/// The file snapshot comparison run after every step.
 pub fn assert_same_files(a: &Sandbox, b: &Sandbox, normalise: Option<Normalise>) {
     assert_eq!(a.snapshot(normalise), b.snapshot(normalise), "files differ");
 }
@@ -625,7 +625,7 @@ pub fn same_json(a: &Value, b: &Value) -> bool {
     }
 }
 
-/// Like `assert_same`: parsed when both sides are JSON, the text otherwise.
+/// Parsed when both sides are JSON, the text otherwise.
 fn same_stdout(a: &str, b: &str) -> bool {
     match (serde_json::from_str(a), serde_json::from_str(b)) {
         (Ok(x), Ok(y)) => same_json(&x, &y),

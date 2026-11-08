@@ -64,7 +64,7 @@ pub fn privileged(args: &[&str]) -> String {
     }
 }
 
-/// `re.search(r"Maximum\D*(\d{1,3})", out)`: the first "Maximum" decides, as no digit after it means none anywhere later.
+/// Up to three digits after the first "Maximum" and any non-digits; that first one decides, so no digit after it means none.
 fn parse_max(out: &str) -> Option<i64> {
     let rest = &out[out.find("Maximum")? + "Maximum".len()..];
     let digits = rest.trim_start_matches(|c: char| !c.is_ascii_digit());
@@ -273,7 +273,7 @@ pub fn maybe_reapply(cfg: &Value, ch: Value) -> Value {
     next
 }
 
-/// `re.search(r"percentage:\s+(\d+)", out)`; saturates instead of overflowing.
+/// The digits after "percentage:" and some whitespace; saturates instead of overflowing.
 fn percentage(out: &str) -> Option<u64> {
     out.match_indices("percentage:").find_map(|(i, m)| {
         let rest = &out[i + m.len()..];

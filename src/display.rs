@@ -7,24 +7,24 @@ use serde_json::{Map, Value, json};
 use std::fs::{self, OpenOptions};
 use std::path::{Path, PathBuf};
 
-/// `display_power.awake`: some monitor is enabled and every enabled one is lit.
+/// Some monitor is enabled and every enabled one is lit.
 pub fn awake(monitors: &[Value]) -> bool {
     let mut enabled = monitors.iter().filter(|m| !truthy(&m["disabled"])).peekable();
     enabled.peek().is_some() && enabled.all(|m| truthy(&m["dpmsStatus"]))
 }
 
-/// `display_power.partly_lit`: enabled monitors are a mix of lit and dark.
+/// Enabled monitors are a mix of lit and dark.
 pub fn partly_lit(monitors: &[Value]) -> bool {
     let lit = |want: bool| monitors.iter().any(|m| !truthy(&m["disabled"]) && truthy(&m["dpmsStatus"]) == want);
     lit(true) && lit(false)
 }
 
-/// `display_power.blanked`: some enabled monitor is dark.
+/// Some enabled monitor is dark.
 pub fn blanked(monitors: &[Value]) -> bool {
     monitors.iter().any(|m| !truthy(&m["disabled"]) && !truthy(&m["dpmsStatus"]))
 }
 
-/// `display_power.load_state`, hardened: always an object whose `disabled` is an array.
+/// The display-off state, hardened: always an object whose `disabled` is an array.
 pub fn load_state(path: &Path) -> Value {
     let mut state = fs::read_to_string(path).ok().and_then(|t| serde_json::from_str::<Value>(&t).ok()).filter(Value::is_object).unwrap_or_else(|| json!({}));
     if !state["disabled"].is_array() {
@@ -83,7 +83,7 @@ fn droppers_path() -> PathBuf {
     paths::state_dir().join("omarchy-power-hub/bus-droppers.json")
 }
 
-/// `display_power.load_droppers`: the description strings in the file, nothing when it is not a list.
+/// The remembered dropper descriptions: the strings in the file, nothing when it is not a list.
 pub fn droppers(path: &Path) -> Vec<String> {
     let data = fs::read_to_string(path)
         .ok()
@@ -125,7 +125,7 @@ fn name_of(spec: &Value) -> &Value {
     }
 }
 
-/// `display_power.snapshot`: what is saved to put a head back, without Travel's transform.
+/// What is saved to put a head back, without Travel's transform.
 fn snapshot(m: &Value) -> Value {
     let field = |k: &str, d: i64| or_default(&m[k], d.into());
     json!({"name": m["name"], "output": selector(m), "width": field("width", 0), "height": field("height", 0),
