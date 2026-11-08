@@ -1,22 +1,14 @@
 use crate::config::{self, charge_limit, truthy};
 use crate::{exec, paths, power};
 use serde_json::{Value, json};
-use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::time::Duration;
-use std::{env, fs};
+use std::fs;
 
 const HELPER_FILES: [&str; 2] = ["ops-priv", "hid_wakeup.py"];
 
 fn secs(n: u64) -> Duration {
     Duration::from_secs(n)
-}
-
-/// `shutil.which`: an executable regular file on `PATH`.
-fn on_path(tool: &str) -> bool {
-    env::var_os("PATH").is_some_and(|p| {
-        env::split_paths(&p).any(|d| fs::metadata(d.join(tool)).is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0))
-    })
 }
 
 /// The passwordless sudo rule covers only the root-owned copy; a copy that differs from the plugin's counts as absent.
@@ -143,7 +135,7 @@ pub fn charge_status() -> Value {
         return upower_health_status();
     }
     let mut v = none();
-    if !on_path("framework_tool") {
+    if !exec::on_path("framework_tool") {
         v["reason"] = json!("framework_tool is not installed");
         return v;
     }
@@ -164,10 +156,78 @@ pub fn set_charge(limit: i64) -> String {
     if !power::framework() {
         return "not a Framework machine".into();
     }
-    if !on_path("framework_tool") {
+    if !exec::on_path("framework_tool") {
         return "framework_tool is not installed".into();
     }
     privileged(&["charge-limit", &limit.clamp(40, 100).to_string()])
+}
+
+pub fn set_health(on: bool) -> String {
+    let batteries = upower_batteries();
+    if batteries.is_empty() {
+        return "Battery charge limits are not supported".into();
+    }
+    let desired = if on { "true" } else { "false" };
+    let mut failed = false;
+    for device in &batteries {
+        let args = ["busctl", "call", "org.freedesktop.UPower", device, "org.freedesktop.UPower.Device", "EnableChargeThreshold", "b", desired];
+        failed |= exec::run(&args, secs(4)).0 != 0;
+    }
+    if failed { "Failed to update charge limits".into() } else { String::new() }
+}
+
+fn saved(cfg: &Value) -> String {
+    config::save(cfg).err().map(|e| e.to_string()).unwrap_or_default()
+}
+
+/// `charge <n>`: parses before touching anything, so a bad value leaves the config alone.
+pub fn charge_verb(limit: &str) -> String {
+    let Ok(n) = limit.trim().parse::<i64>() else { return "bad value".into() };
+    let mut cfg = config::load();
+    let err = set_charge(n);
+    if !err.is_empty() {
+        return err;
+    }
+    cfg["chargeLimit"] = json!(n);
+    if !truthy(&cfg["boost"]) {
+        cfg["boostSavedLimit"] = json!(n);
+    }
+    saved(&cfg)
+}
+
+/// The first truthy of the saved keys, as a limit; 80 when none.
+fn first_limit(cfg: &Value, keys: &[&str]) -> Value {
+    keys.iter().map(|k| &cfg[*k]).find(|v| truthy(v)).cloned().unwrap_or(json!(80))
+}
+
+pub fn boost(on: bool) -> String {
+    let mut cfg = config::load();
+    if !on {
+        cfg["boost"] = json!(false);
+        let err = saved(&cfg);
+        if !err.is_empty() {
+            return err;
+        }
+        return set_charge(charge_limit(&json!({"chargeLimit": first_limit(&cfg, &["boostSavedLimit", "chargeLimit"])})));
+    }
+    cfg["boostSavedLimit"] = match charge_status()["limit"].as_i64().filter(|&n| n != 0) {
+        Some(n) => json!(n),
+        None => first_limit(&cfg, &["chargeLimit"]),
+    };
+    cfg["boost"] = json!(true);
+    let err = saved(&cfg);
+    if err.is_empty() { set_charge(100) } else { err }
+}
+
+pub fn helper_install() -> (i32, String) {
+    let ops = paths::ops_priv();
+    let (code, out) = exec::run(&["pkexec", &ops.to_string_lossy(), "helper-install"], secs(120));
+    let msg = match (code, out.trim()) {
+        (0, _) => "ok",
+        (_, "") => "helper install failed",
+        (_, out) => out,
+    };
+    (code, msg.into())
 }
 
 /// Re-applies the saved Framework limit when the EC lost it; returns `ch` unchanged unless that succeeded.

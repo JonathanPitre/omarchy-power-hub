@@ -55,3 +55,19 @@ pub fn ops_priv() -> PathBuf {
 pub fn helper_dir() -> PathBuf {
     root("/usr/local/libexec/omarchy-power-hub")
 }
+
+pub fn shell_file() -> PathBuf {
+    home().join(".config/omarchy/shell.json")
+}
+
+pub fn bindings_file() -> PathBuf {
+    home().join(".config/hypr/bindings.lua")
+}
+
+pub fn profile_state_dir() -> PathBuf {
+    match env::var_os("XDG_STATE_HOME") {
+        Some(base) if !base.is_empty() => PathBuf::from(base),
+        _ => home().join(".local/state"),
+    }
+    .join("omarchy/powerprofiles")
+}

@@ -1,5 +1,6 @@
 use crate::config::truthy;
-use crate::travel::{matches_set, safe_name_v, safe_output};
+use crate::monitor::{or_default, py_str, restore_lua};
+use crate::names::{matches_set, safe_name_v, safe_output};
 use crate::{hypr, paths};
 use serde_json::{Map, Value};
 use std::fs::{self, OpenOptions};
@@ -9,74 +10,8 @@ use std::time::{Duration, SystemTime};
 /// A cursor older than this is from the last blank and would read as motion.
 const CURSOR_FRESH: Duration = Duration::from_secs(5);
 
-/// Python `repr(float)`: shortest round-trip digits, `60.0` not `60`, exponent from 1e16 or below 1e-4.
-fn py_float_repr(x: f64) -> String {
-    if x.is_nan() {
-        return "nan".into();
-    }
-    if x.is_infinite() {
-        return if x < 0.0 { "-inf" } else { "inf" }.into();
-    }
-    let sign = if x.is_sign_negative() { "-" } else { "" };
-    if x == 0.0 {
-        return format!("{sign}0.0");
-    }
-    let sci = format!("{:e}", x.abs());
-    let (mantissa, exp) = sci.split_once('e').unwrap_or((&sci, "0"));
-    let exp: i32 = exp.parse().unwrap_or(0);
-    let digits = mantissa.replace('.', "");
-    if (-4..16).contains(&exp) {
-        let body = if exp < 0 {
-            format!("0.{}{digits}", "0".repeat((-exp - 1) as usize))
-        } else {
-            let int_len = exp as usize + 1;
-            match digits.len() {
-                n if n <= int_len => format!("{digits}{}.0", "0".repeat(int_len - n)),
-                _ => format!("{}.{}", &digits[..int_len], &digits[int_len..]),
-            }
-        };
-        return format!("{sign}{body}");
-    }
-    let frac = if digits.len() > 1 { format!(".{}", &digits[1..]) } else { String::new() };
-    format!("{sign}{}{frac}e{}{:02}", &digits[..1], if exp < 0 { '-' } else { '+' }, exp.abs())
-}
-
-/// Python `str(value)` for a JSON value.
-fn py_str(v: &Value) -> String {
-    match v {
-        Value::Null => "None".into(),
-        Value::Bool(b) => if *b { "True" } else { "False" }.into(),
-        Value::Number(n) => n.as_f64().filter(|_| n.is_f64()).map_or_else(|| n.to_string(), py_float_repr),
-        Value::String(s) => s.clone(),
-        _ => v.to_string(),
-    }
-}
-
-/// `spec.get(key) or default`, as Python evaluates it.
-fn or_default(v: &Value, default: Value) -> Value {
-    if truthy(v) { v.clone() } else { default }
-}
-
-fn restore_lua(spec: &Value) -> String {
-    let name = py_str(&or_default(&spec["output"], spec["name"].clone()));
-    let (w, h) = (or_default(&spec["width"], 0.into()), or_default(&spec["height"], 0.into()));
-    if truthy(&w) && truthy(&h) {
-        let field = |k: &str, d: i64| py_str(&or_default(&spec[k], d.into()));
-        return format!(
-            r#"hl.monitor({{ output = "{name}", mode = "{}x{}@{}", position = "{}x{}", scale = {}, disabled = false }})"#,
-            py_str(&w),
-            py_str(&h),
-            field("refreshRate", 60),
-            field("x", 0),
-            field("y", 0),
-            field("scale", 1)
-        );
-    }
-    format!(r#"hl.monitor({{ output = "{name}", disabled = false }})"#)
-}
-
 /// First readable `state` file under the ACPI lid directory; open when there is none.
-fn lid_text() -> String {
+pub fn lid_text() -> String {
     let dir = paths::root("/proc/acpi/button/lid");
     let mut names: Vec<_> = fs::read_dir(dir.as_path())
         .into_iter()
@@ -92,7 +27,7 @@ fn lid_text() -> String {
         .map_or_else(|| "state:      open\n".into(), |b| String::from_utf8_lossy(&b).into_owned())
 }
 
-fn lid_is_open(text: &str) -> bool {
+pub fn lid_is_open(text: &str) -> bool {
     let t = text.to_lowercase();
     !t.contains("closed") && t.contains("open")
 }
@@ -208,22 +143,6 @@ fn sync_locked(state_path: &Path) -> String {
 mod tests {
     use super::*;
     use serde_json::json;
-
-    #[test]
-    fn floats_print_like_python_repr() {
-        let got: Vec<_> = [60.0, 59.951, 1.25, 144.0, 0.1, 1e15, 1e16, 0.0001, 0.00001, 1.5e300, -2.5, 0.0, 165.00001, 123456.789]
-            .map(py_float_repr)
-            .into();
-        assert_eq!(got, ["60.0", "59.951", "1.25", "144.0", "0.1", "1000000000000000.0", "1e+16", "0.0001", "1e-05", "1.5e+300", "-2.5", "0.0", "165.00001", "123456.789"]);
-    }
-
-    #[test]
-    fn restore_lua_keeps_python_number_forms() {
-        let spec = json!({"name": "DP-1", "width": 2560, "height": 1600, "refreshRate": 59.951, "x": 0, "y": 0, "scale": 1.25});
-        assert_eq!(restore_lua(&spec), r#"hl.monitor({ output = "DP-1", mode = "2560x1600@59.951", position = "0x0", scale = 1.25, disabled = false })"#);
-        let spec = json!({"name": "DP-1", "width": 1920, "height": 1080, "refreshRate": 60.0, "scale": 1});
-        assert!(restore_lua(&spec).contains(r#"mode = "1920x1080@60.0", position = "0x0", scale = 1,"#));
-    }
 
     #[test]
     fn lid_text_decides_open() {

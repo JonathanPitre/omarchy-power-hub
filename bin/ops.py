@@ -1331,7 +1331,8 @@ def lid_opened():
         if (display_power.load_state().get("disabled")
                 or display_power.blanked(display_power.default_monitors())):
             set_displays("on")
-            sync_lights("on")
+    # Lit displays can still have blanked lights; this does nothing when none were saved.
+    sync_lights("on")
     return 0
 
 def tweak_state():

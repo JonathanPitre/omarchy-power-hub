@@ -40,7 +40,7 @@ Item {
   }
 
   // Panel edits land here within ~a second instead of on the 30 s poll. The
-  // debounce skips the truncated file between ops.py's truncate and write.
+  // debounce skips the truncated file between the config's truncate and write.
   FileView {
     path: Quickshell.env("HOME") + "/.config/omarchy/omarchy-power-hub.json"
     watchChanges: true
@@ -57,6 +57,9 @@ Item {
     try { parsed = JSON.parse(String(text || "")) } catch (e) { return }
     root.state = parsed
     var side = parsed.side === "battery" ? "battery" : "ac"
+    // The adapter's power can settle after the plug events, so the poll catches a missed switch.
+    if (root.appliedSide && side !== root.appliedSide) applyProfileDebounce.restart()
+    root.appliedSide = side
     var src = (parsed.config && parsed.config[side]) || ({})
     root.displaysTimeout = Number(src.displaysOff) || 0
     root.saverTimeout = Model.effectiveSaver(src.screensaver, src.displaysOff)
@@ -66,6 +69,7 @@ Item {
   }
 
   property bool displaysIdle: false
+  property string appliedSide: ""
 
   function dpms(mode) {
     if (mode === "on" || mode === "off") root.dismissScreensaver()
@@ -75,6 +79,7 @@ Item {
   }
 
   function dismissScreensaver() {
+    saverCountdown.stop()
     if (!dismissProc.running) dismissProc.running = true
   }
 
@@ -99,6 +104,7 @@ Item {
     if (open) next[address] = true
     else delete next[address]
     root.saverWindows = next
+    if (open && root.saverTimeout > 0 && root.displaysTimeout > root.saverTimeout) saverCountdown.restart()
     if (open) saverSettle.restart()
     else if (Object.keys(next).length === 0) {
       saverSettle.stop()
@@ -157,7 +163,7 @@ Item {
     running: root.parked || root.displaysOff
     repeat: true
     onTriggered: {
-      if (!wakePoll.running) {
+      if (!wakePoll.running && !dpmsProc.running) {
         wakePoll.command = [root.hub, "idle-wake-poll",
                             root.displaysOff ? "blanked" : "on"]
         wakePoll.running = true
@@ -217,9 +223,16 @@ Item {
     id: saverPointer
     timeout: 1
     respectInhibitors: false
-    onIsIdleChanged: if (!isIdle && root.saverArmed) {
-      root.saverArmed = false
-      root.dismissScreensaver()
+    onIsIdleChanged: {
+      if (isIdle) return
+      if (root.saverArmed) {
+        root.saverArmed = false
+        root.dismissScreensaver()
+      }
+      if (root.displaysOff && !root.lidClosed && !dpmsProc.running) {
+        root.displaysIdle = false
+        root.dpms("on")
+      }
     }
   }
 
@@ -244,14 +257,26 @@ Item {
     delegate: IdleMonitor {
       timeout: modelData
       respectInhibitors: true
-      onIsIdleChanged: {
-        root.displaysIdle = isIdle
-        if (isIdle) root.dpms("off")
-        else if (root.displaysOff && !root.lidClosed) root.dpms("on")
+      // A head going away reads as activity here, so only saverPointer wakes the displays.
+      onIsIdleChanged: if (isIdle && !root.displaysOff) {
+        root.displaysIdle = true
+        root.dpms("off")
       }
     }
   }
 
+
+  // Launching the saver resets the monitors above, so its launch finishes the Displays off
+  // countdown. Only the user dismissing it stops this: a lock on the same deadline closes it first.
+  Timer {
+    id: saverCountdown
+    interval: (root.displaysTimeout - root.saverTimeout) * 1000
+    onTriggered: {
+      if (root.displaysOff) return
+      root.displaysIdle = true
+      root.dpms("off")
+    }
+  }
 
   // Holds the lock deadline across Displays off, including a tie: see idle_lock in ops.py.
   Timer {
@@ -287,7 +312,7 @@ Item {
     }
   }
 
-  Process { id: applyProc; command: ["python3", root.ops, "apply"] }
+  Process { id: applyProc; command: [root.hub, "apply"] }
   Process { id: applyProfileProc; onExited: root.refresh() }
   Timer {
     id: applyProfileDebounce
@@ -295,7 +320,7 @@ Item {
     repeat: false
     onTriggered: {
       if (applyProfileProc.running) return
-      applyProfileProc.command = ["python3", root.ops, "apply-profile"]
+      applyProfileProc.command = [root.hub, "apply-profile"]
       applyProfileProc.running = true
     }
   }
@@ -309,7 +334,7 @@ Item {
   // after unplug, so OnBattery may never change. A Travel session started while
   // already plugged in sees no such transition and stays on.
   property int lastBatteryState: -1
-  Process { id: travelOffProc; command: ["python3", root.ops, "travel", "off"]; onExited: root.refresh() }
+  Process { id: travelOffProc; command: [root.hub, "travel", "off"]; onExited: root.refresh() }
   Connections {
     target: UPower.displayDevice
     function onStateChanged() {
@@ -344,6 +369,7 @@ Item {
         else applyProc.running = true
       }
     }
+    onRunningChanged: if (!running && !applyProc.running && !helperPkexec.running) applyProc.running = true
   }
   Process {
     id: helperPkexec

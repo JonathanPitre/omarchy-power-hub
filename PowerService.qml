@@ -53,14 +53,14 @@ Item {
 
   function act(verb, arg, arg2) {
     if (actionProc.running) return
-    actionProc.command = [root.binDir + "/battery-plus-action",
+    actionProc.command = [root.binDir + "/power-hub", "action",
                           String(verb), String(arg === undefined ? "" : arg),
                           String(arg2 === undefined ? "" : arg2)]
     actionProc.running = true
   }
 
   function openTerminal(which) {
-    Quickshell.execDetached([root.binDir + "/battery-plus-action", String(which)])
+    Quickshell.execDetached([root.binDir + "/power-hub", "action", String(which)])
   }
 
   Process {

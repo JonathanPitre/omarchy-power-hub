@@ -5,12 +5,35 @@ All notable changes to this project are documented in this file.
 The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.55] - 2026-11-07
 
 ### Added
 
 - Keyboard light off in daylight: an option to keep the keyboard light off when
   the displays wake at 100 lux or more, on Framework laptops with a light sensor.
+
+### Changed
+
+- Saving settings, profiles, Travel, Quick dim and Power Tweaks no longer start
+  Python.
+
+### Fixed
+
+- Displays off no longer wakes itself about a second after a monitor is
+  disabled; only real input wakes the displays.
+- Displays off fires at its set time when the screen saver runs first, and the
+  keyboard and power button lights go off with it.
+- Travel mode waits for the laptop display's refresh change instead of reporting
+  "Laptop display mode could not be verified".
+- Opening the lid brings back the power button light when no display needed
+  waking.
+- Screen saver and lock times follow the power source when the adapter's power
+  settles after the plug event.
+
+### Removed
+
+- `battery-plus-action` and the unused `battery-plus-priv`. The panel's actions
+  now run in `bin/power-hub`.
 
 ## [0.0.54] - 2026-11-07
 
