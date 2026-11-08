@@ -112,13 +112,13 @@ class LidWakeBindTests(unittest.TestCase):
         )
         self.assertEqual(calls, ["on"])
 
-    def test_lid_opened_leaves_lit_displays_alone(self):
+    def test_lid_opened_leaves_lit_displays_alone_but_restores_the_lights(self):
         calls, kb = self._lid_opened(
             {"disabled": []},
             [{"name": "eDP-1", "disabled": False, "dpmsStatus": True}],
         )
         self.assertEqual(calls, [])
-        kb.assert_not_called()
+        self.assertEqual(kb.call_args.args[0], "on")
 
 
 class IdleWakePollTests(unittest.TestCase):
