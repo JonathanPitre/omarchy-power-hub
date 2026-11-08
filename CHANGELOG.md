@@ -12,6 +12,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - The whole backend runs in one binary, `bin/power-hub`. Python is no longer needed.
 - The first start asks once to update the root helper.
 - Lid close no longer asks for a password before the helper is updated.
+- A failed apply, or a failed profile apply, still points the lid handler at the new binary.
 
 ### Removed
 
