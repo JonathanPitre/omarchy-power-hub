@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.56] - 2026-11-09
+
+### Changed
+
+- Document the hybrid AMD + NVIDIA case where Omarchy still exports NVIDIA
+  VA-API and GLX even though the Radeon iGPU owns the panel. Brave and Chromium
+  show a black video, and the discrete GPU stays out of runtime suspend, so
+  the battery pays for a card that is not driving the display. Power Hub only
+  reports that state. The note is
+  [docs/hybrid-amd-nvidia-black-video.md](docs/hybrid-amd-nvidia-black-video.md).
+
 ## [0.0.55] - 2026-11-07
 
 ### Added

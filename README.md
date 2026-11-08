@@ -114,6 +114,11 @@ Power plans use Power saver, Balanced, or Performance where supported. New
 plugged-in plans default to Performance; new battery plans default to
 Balanced.
 
+On a hybrid laptop whose panel is on the AMD iGPU, Omarchy can still point
+VA-API at the NVIDIA card. Browser video then stays black, and the discrete
+GPU stays awake. The panel only reports that state. See
+[the hybrid GPU note](docs/hybrid-amd-nvidia-black-video.md).
+
 Framework keyboard lighting uses `qmk_hid` on Laptop 16 and `framework_tool
 --kblight` on Laptop 12 and 13. The fingerprint power button light uses
 `/sys/class/leds/chromeos:white:power`, a root-owned device. The first applied
@@ -182,3 +187,4 @@ noise, and the idle check doesn't run in this test.
 - [Framework 16 hibernate resume](docs/framework-16-hibernate-resume.md)
 - [Hibernation blocked by `memfd_secret`](docs/hibernate-memfd-secret-bitwarden.md)
 - [Quickshell idle timer failure](docs/quickshell-idle-timer-failure.md)
+- [Hybrid AMD + NVIDIA: black video and a discrete GPU that stays awake](docs/hybrid-amd-nvidia-black-video.md)
