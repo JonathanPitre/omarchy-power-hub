@@ -3,7 +3,10 @@ use crate::names::{laptop_monitor, matches_set, safe_name, safe_name_v, safe_out
 use crate::state::{int_in, is_int, py_float, py_int};
 use crate::{exec, hypr};
 use serde_json::{Value, json};
-use std::time::Duration;
+use std::time::{Duration, Instant};
+
+/// How long a mode change may take to show up after Hyprland accepts it.
+const MODE_SETTLE: Duration = Duration::from_secs(3);
 
 /// Python `repr(float)`: shortest round-trip digits, `60.0` not `60`, exponent from 1e16 or below 1e-4.
 fn py_float_repr(x: f64) -> String {
@@ -194,10 +197,18 @@ pub fn monitor_change(saved: &Value, refresh: &Value) -> String {
     if let Err(e) = hypr::eval_checked(&restore_lua(&spec)) {
         return Some(e.trim()).filter(|e| !e.is_empty()).unwrap_or("Monitor mode change failed").into();
     }
-    match hypr::monitors_within(Duration::from_secs(4)).iter().find(|m| m["name"] == saved["name"]) {
-        None => "Saved laptop display is unavailable".into(),
-        Some(actual) if mode_holds(saved, actual, refresh) => String::new(),
-        Some(_) => "Laptop display mode could not be verified".into(),
+    // Hyprland replies first and changes the mode about 0.7 s later, refusing reads while it connects.
+    let deadline = Instant::now() + MODE_SETTLE;
+    loop {
+        let failure = match hypr::monitors_within(Duration::from_secs(4)).iter().find(|m| m["name"] == saved["name"]) {
+            None => "Saved laptop display is unavailable",
+            Some(actual) if mode_holds(saved, actual, refresh) => return String::new(),
+            Some(_) => "Laptop display mode could not be verified",
+        };
+        if Instant::now() >= deadline {
+            return failure.into();
+        }
+        std::thread::sleep(Duration::from_millis(50));
     }
 }
 

@@ -1733,6 +1733,18 @@ class TravelParity(unittest.TestCase):
     def test_monitor_change_failing_on_a_travel_off_retry(self):
         self.check(travel_env(replies=("ok", "error: nope", "ok")), ["travel", "on"], ["travel", "off"], ["travel", "off"])
 
+    def test_rust_waits_for_the_mode_hyprland_applies_after_replying(self):
+        """Hyprland answers eval at once and changes the mode about 0.7 s later."""
+        with Sandbox() as s:
+            travel_env()(s)
+
+            def later(lua):
+                rate = float(re.search(r'@([\d.]+)"', lua)[1])
+                threading.Timer(0.75, lambda: s.monitors({**PANEL, "refreshRate": rate})).start()
+            s.hypr_on_eval = later
+            run = s.rust("travel", "on")
+            self.assertEqual(run.stdout.strip(), "ok")
+
     def test_failed_restore_stays_incomplete_then_retries(self):
         def counted(s):
             n = s.base / "sets"
