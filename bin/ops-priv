@@ -140,7 +140,24 @@ case "${1:-}" in
     ;;
   hid-wakeup)
     want "${2:-}"
-    exec /usr/bin/python3 "$(dirname "$0")/hid_wakeup.py" "$2"
+    v=disabled; [ "$2" = on ] && v=enabled
+    for w in /sys/bus/usb/devices/*/power/wakeup; do
+      [ -e "$w" ] || continue
+      d=${w%/power/wakeup}
+      vendor=$(cat "$d/idVendor" 2>/dev/null || true)
+      if [ "${vendor,,}" = 046d ] || grep -qsx 03 "$d"/*/bInterfaceClass; then
+        { echo "$v" > "$w"; } 2>/dev/null || true
+      fi
+    done
+    for w in /sys/bus/i2c/devices/*/power/wakeup; do
+      [ -e "$w" ] || continue
+      d=${w%/power/wakeup}
+      name=$(cat "$d/name" 2>/dev/null || true)
+      blob="$name${d##*/}"
+      case "${blob,,}" in
+        *pixa*|*touchpad*|*mouse*|*keyboard*) { echo "$v" > "$w"; } 2>/dev/null || true ;;
+      esac
+    done
     ;;
   hibernate-delay)
     sec=${2:-0}
@@ -168,7 +185,7 @@ case "${1:-}" in
     dir=/usr/local/libexec/omarchy-power-hub
     install -d -m 755 -o root -g root "$dir"
     install -m 755 -o root -g root "$src/ops-priv" "$dir/ops-priv"
-    install -m 644 -o root -g root "$src/hid_wakeup.py" "$dir/hid_wakeup.py"
+    rm -f "$dir/hid_wakeup.py"
     file=/etc/sudoers.d/omarchy-power-hub
     umask 177
     printf '%s\n' "$user ALL=(root) NOPASSWD: $dir/ops-priv" > "$file.new"

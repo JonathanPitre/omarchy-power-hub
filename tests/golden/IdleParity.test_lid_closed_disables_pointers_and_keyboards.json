@@ -1,0 +1,74 @@
+[
+ {
+  "code": 0,
+  "stdout": "closed\n",
+  "calls": [],
+  "evals": [
+   "hl.device({ name = \"m1\", enabled = false })",
+   "hl.device({ name = \"m2\", enabled = false })",
+   "hl.device({ name = \"kb\", enabled = false })"
+  ],
+  "requests": [
+   "cursorpos",
+   "j/monitors",
+   "j/devices",
+   "eval hl.device({ name = \"m1\", enabled = false })",
+   "eval hl.device({ name = \"m2\", enabled = false })",
+   "eval hl.device({ name = \"kb\", enabled = false })"
+  ],
+  "files": {
+   "run/omarchy-power-hub/idle-wake.json": [
+    420,
+    "{\"cursor\": \"\"}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "closed\n",
+  "calls": [],
+  "evals": [
+   "hl.device({ name = \"m1\", enabled = true })",
+   "hl.device({ name = \"m2\", enabled = true })",
+   "hl.device({ name = \"kb\", enabled = true })"
+  ],
+  "requests": [
+   "cursorpos",
+   "j/monitors",
+   "j/devices",
+   "eval hl.device({ name = \"m1\", enabled = true })",
+   "eval hl.device({ name = \"m2\", enabled = true })",
+   "eval hl.device({ name = \"kb\", enabled = true })"
+  ],
+  "files": {
+   "run/omarchy-power-hub/idle-wake.json": [
+    420,
+    "{\"cursor\": \"\"}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "wake\n",
+  "calls": [],
+  "evals": [
+   "hl.device({ name = \"m1\", enabled = true })",
+   "hl.device({ name = \"m2\", enabled = true })",
+   "hl.device({ name = \"kb\", enabled = true })"
+  ],
+  "requests": [
+   "cursorpos",
+   "j/monitors",
+   "j/devices",
+   "eval hl.device({ name = \"m1\", enabled = true })",
+   "eval hl.device({ name = \"m2\", enabled = true })",
+   "eval hl.device({ name = \"kb\", enabled = true })"
+  ],
+  "files": {
+   "run/omarchy-power-hub/idle-wake.json": [
+    420,
+    "{\"cursor\": \"\"}"
+   ]
+  }
+ }
+]

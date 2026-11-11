@@ -1,0 +1,10 @@
+[
+ {
+  "code": 0,
+  "stdout": "{\"present\": true, \"asleep\": true}\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {}
+ }
+]

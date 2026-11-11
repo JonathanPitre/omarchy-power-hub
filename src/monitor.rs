@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 /// How long a mode change may take to show up after Hyprland accepts it.
 const MODE_SETTLE: Duration = Duration::from_secs(3);
 
-/// Python `repr(float)`: shortest round-trip digits, `60.0` not `60`, exponent from 1e16 or below 1e-4.
+/// A float's shortest round-trip digits, `60.0` not `60`, exponent from 1e16 or below 1e-4.
 fn py_float_repr(x: f64) -> String {
     if x.is_nan() {
         return "nan".into();
@@ -40,7 +40,7 @@ fn py_float_repr(x: f64) -> String {
     format!("{sign}{}{frac}e{}{:02}", &digits[..1], if exp < 0 { '-' } else { '+' }, exp.abs())
 }
 
-/// Python `str(value)` for a JSON value.
+/// A JSON value as the text the shell shows: `True`, `None`, `60.0`.
 pub fn py_str(v: &Value) -> String {
     match v {
         Value::Null => "None".into(),
@@ -51,7 +51,7 @@ pub fn py_str(v: &Value) -> String {
     }
 }
 
-/// `spec.get(key) or default`, as Python evaluates it.
+/// The value, or the default when the value is falsy.
 pub fn or_default(v: &Value, default: Value) -> Value {
     if truthy(v) { v.clone() } else { default }
 }
@@ -151,8 +151,8 @@ pub fn brightness_set(monitor: &Value, value: &Value) -> String {
     if code == 0 { String::new() } else { Some(out.trim()).filter(|o| !o.is_empty()).unwrap_or("Brightness command failed").into() }
 }
 
-/// `display_power.selector`: a description Hyprland rules can match, else the name.
-fn selector(mon: &Value) -> Value {
+/// A description Hyprland rules can match, else the name.
+pub fn selector(mon: &Value) -> Value {
     let desc = py_str(&or_default(&mon["description"], json!("")));
     if matches_set(&desc, |c| c.is_ascii_alphanumeric() || matches!(c, ' ' | '.' | '_' | '(' | ')' | '+' | '-')) {
         return json!(format!("desc:{desc}"));
@@ -160,7 +160,7 @@ fn selector(mon: &Value) -> Value {
     mon["name"].clone()
 }
 
-/// What Travel saves to put a monitor back: `display_power.snapshot` with its transform, sides swapped when rotated.
+/// What Travel saves to put a monitor back: the display snapshot with its transform, sides swapped when rotated.
 pub fn monitor_snapshot(mon: &Value) -> Result<Value, String> {
     let transform = mon.get("transform").unwrap_or(&json!(0)).clone();
     let field = |k: &str, d: i64| or_default(&mon[k], d.into());

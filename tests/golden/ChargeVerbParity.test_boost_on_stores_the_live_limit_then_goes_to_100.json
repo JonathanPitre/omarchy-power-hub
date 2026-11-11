@@ -1,0 +1,80 @@
+[
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "sudo -n <base>/root/usr/local/libexec/omarchy-power-hub/ops-priv charge-limit",
+   "sudo -n <base>/root/usr/local/libexec/omarchy-power-hub/ops-priv charge-limit 100"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": 80, \"boost\": true, \"boostSavedLimit\": 90, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "sudo -n <base>/root/usr/local/libexec/omarchy-power-hub/ops-priv charge-limit",
+   "sudo -n <base>/root/usr/local/libexec/omarchy-power-hub/ops-priv charge-limit 100"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": 65, \"boost\": true, \"boostSavedLimit\": 65, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "sudo -n <base>/root/usr/local/libexec/omarchy-power-hub/ops-priv charge-limit",
+   "sudo -n <base>/root/usr/local/libexec/omarchy-power-hub/ops-priv charge-limit 100"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": 80, \"boost\": true, \"boostSavedLimit\": 80, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}"
+   ]
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "not a Framework machine\n",
+  "calls": [
+   "upower -e"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": 65, \"boost\": true, \"boostSavedLimit\": 65, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}"
+   ]
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "not a Framework machine\n",
+  "calls": [
+   "upower -e"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": 80, \"boost\": true, \"boostSavedLimit\": 80, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}"
+   ]
+  }
+ }
+]

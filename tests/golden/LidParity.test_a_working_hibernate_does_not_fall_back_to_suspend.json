@@ -1,0 +1,39 @@
+[
+ {
+  "code": 0,
+  "stdout": "",
+  "calls": [
+   "pkexec <base>/bin/ops-priv hid-wakeup off",
+   "EVAL hl.device({ name = \"m1\", enabled = false })",
+   "EVAL hl.device({ name = \"pixa3854:00-093a:0274-mouse\", enabled = false })",
+   "EVAL hl.device({ name = \"kb\", enabled = false })",
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
+   "systemctl hibernate"
+  ],
+  "evals": [
+   "hl.device({ name = \"m1\", enabled = false })",
+   "hl.device({ name = \"pixa3854:00-093a:0274-mouse\", enabled = false })",
+   "hl.device({ name = \"kb\", enabled = false })"
+  ],
+  "requests": [
+   "j/devices",
+   "eval hl.device({ name = \"m1\", enabled = false })",
+   "eval hl.device({ name = \"pixa3854:00-093a:0274-mouse\", enabled = false })",
+   "eval hl.device({ name = \"kb\", enabled = false })"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\", \"lid\": \"hibernate\"}, \"battery\": {\"profile\": \"balanced\", \"lid\": \"hibernate\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 150, \"lock\": 300}, \"other\": 1}"
+   ]
+  }
+ }
+]

@@ -17,7 +17,7 @@ fn weekly(n: i64) -> i64 {
     if n <= 0 { WEEK } else { n }
 }
 
-/// Python `idle.get(k) == v` for a number.
+/// Whether the idle key already holds the number.
 fn equals(v: Option<&Value>, want: i64) -> bool {
     v.is_some_and(|v| matches!(v, Value::Number(_) | Value::Bool(_)) && py_float(v) == Some(want as f64))
 }
@@ -112,13 +112,13 @@ pub fn write_lid_block() -> io::Result<()> {
         Err(e) => return Err(e),
     };
     let mut text = without_blocks(&original);
-    let exe = paths::bin_dir().join("ops.py");
+    let exe = paths::bin_dir().join("power-hub");
     let exe = exe.display();
     if !text.ends_with('\n') {
         text.push('\n');
     }
     text += &format!(
-        "{BEGIN}\nhl.unbind(\"switch:on:Lid Switch\")\nhl.unbind(\"switch:off:Lid Switch\")\no.bind(\"switch:on:Lid Switch\", nil, \"python3 {exe} lid-closed\", {{ locked = true }})\no.bind(\"switch:off:Lid Switch\", nil, \"python3 {exe} lid-opened\", {{ locked = true }})\n{END}\n"
+        "{BEGIN}\nhl.unbind(\"switch:on:Lid Switch\")\nhl.unbind(\"switch:off:Lid Switch\")\no.bind(\"switch:on:Lid Switch\", nil, \"{exe} lid-closed\", {{ locked = true }})\no.bind(\"switch:off:Lid Switch\", nil, \"{exe} lid-opened\", {{ locked = true }})\n{END}\n"
     );
     if text != original {
         fs::write(path, text)?;
@@ -192,8 +192,15 @@ pub fn set_key(side: &str, key: &str, value: &str) -> String {
 }
 
 /// Apply the active side's profile, idle, hibernate delay and lid action under the energy lock.
-/// An error Python lets escape (an unwritable file) is an `Err`, which ends the verb with exit 1.
+/// An unwritable file is an `Err`, which ends the verb with exit 1. The lid binding is still rewritten
+/// then, so a binding left by an older version never outlives the backend it names.
 pub fn apply_active() -> io::Result<String> {
+    apply_side().inspect_err(|_| {
+        let _ = write_lid_block();
+    })
+}
+
+fn apply_side() -> io::Result<String> {
     let _lock = energy_lock()?;
     let cfg = config::load();
     let mut state = travel_state();
@@ -232,7 +239,10 @@ pub fn apply_active() -> io::Result<String> {
 
 /// `apply`: the active side, then the pinned tweaks (after the lock is released), then the HID wakeup when the lid is open.
 pub fn apply() -> String {
-    let active = match apply_active() {
+    let active = apply_active();
+    // A failed apply must not leave a unit that names an older version's backend either.
+    tweaks::refresh_unit();
+    let active = match active {
         Ok(e) => e,
         Err(e) => return e.to_string(),
     };

@@ -1,10 +1,10 @@
-use crate::config::truthy;
-use crate::monitor::{or_default, py_str, restore_lua};
-use crate::names::{matches_set, safe_name_v, safe_output};
-use crate::{hypr, paths};
-use serde_json::{Map, Value};
-use std::fs::{self, OpenOptions};
-use std::path::Path;
+use crate::config::{self, truthy};
+use crate::display::{awake, blanked, load_state, partly_lit, set_displays, state_path, sync_lights, with_state_lock};
+use crate::monitor::py_str;
+use crate::names::matches_set;
+use crate::{charge, exec, hypr, paths, power};
+use serde_json::Value;
+use std::fs;
 use std::time::{Duration, SystemTime};
 
 /// A cursor older than this is from the last blank and would read as motion.
@@ -46,18 +46,6 @@ fn cursor_prev(cursor: &str) -> Option<Value> {
     prev
 }
 
-/// `display_power.awake`: some monitor is enabled and every enabled one is lit.
-fn awake(monitors: &[Value]) -> bool {
-    let mut enabled = monitors.iter().filter(|m| !truthy(&m["disabled"])).peekable();
-    enabled.peek().is_some() && enabled.all(|m| truthy(&m["dpmsStatus"]))
-}
-
-/// `display_power.partly_lit`: enabled monitors are a mix of lit and dark.
-fn partly_lit(monitors: &[Value]) -> bool {
-    let lit = |want: bool| monitors.iter().any(|m| !truthy(&m["disabled"]) && truthy(&m["dpmsStatus"]) == want);
-    lit(true) && lit(false)
-}
-
 fn device_names(devices: &Value, key: &str, keep: impl Fn(&str) -> bool) -> Vec<String> {
     devices[key]
         .as_array()
@@ -68,9 +56,9 @@ fn device_names(devices: &Value, key: &str, keep: impl Fn(&str) -> bool) -> Vec<
         .collect()
 }
 
-fn set_enabled(names: &[String], enabled: bool) {
+fn set_enabled(names: &[String], enabled: bool, eval: fn(&str)) {
     for name in names {
-        hypr::eval(&format!(r#"hl.device({{ name = "{name}", enabled = {enabled} }})"#));
+        eval(&format!(r#"hl.device({{ name = "{name}", enabled = {enabled} }})"#));
     }
 }
 
@@ -92,57 +80,103 @@ pub fn poll(blanked: bool) -> String {
     } else {
         "hold"
     };
-    let enabled = result == "wake" || lid_open || !blanked;
-    set_enabled(&device_names(&devices, "mice", |_| true), enabled);
+    set_inputs(&devices, result == "wake" || lid_open || !blanked, hypr::eval);
+    result.into()
+}
+
+/// Enable or disable every mouse and every keyboard that is not a lid, power or video-bus switch.
+pub fn set_inputs(devices: &Value, enabled: bool, eval: fn(&str)) {
+    set_enabled(&device_names(devices, "mice", |_| true), enabled, eval);
     set_enabled(
-        &device_names(&devices, "keyboards", |n| {
+        &device_names(devices, "keyboards", |n| {
             let n = n.strip_suffix('\n').unwrap_or(n);
             !(n.contains("video-bus") || n.contains("gpio-keys") || n == "power-button")
         }),
         enabled,
+        eval,
     );
-    result.into()
 }
 
-fn restore(state: &Value) {
-    for spec in state["disabled"].as_array().into_iter().flatten() {
-        let spec = match spec {
-            Value::Object(_) => spec.clone(),
-            other => Value::Object(Map::from_iter([("name".into(), other.clone())])),
-        };
-        if safe_name_v(&spec["name"]) && safe_output(&or_default(&spec["output"], spec["name"].clone())) {
-            hypr::eval(&restore_lua(&spec));
+/// The active side's lid action; a config without one acts as `nothing`.
+fn lid_action(cfg: &Value) -> &str {
+    cfg[power::active_side(cfg)]["lid"].as_str().unwrap_or("nothing")
+}
+
+/// Lid switch closed. Inputs go off first so a bump cannot wake what is about to sleep.
+/// Prints nothing and exits 0; when the display-state lock cannot be taken, `display-off` touches nothing.
+pub fn lid_closed() {
+    charge::helper_quiet(&["hid-wakeup", "off"]);
+    set_inputs(&hypr::devices(), false, hypr::eval_slow);
+    let cfg = config::load();
+    let systemctl = |verb: &str| exec::run(&["systemctl", verb], Duration::from_secs(8)).0;
+    match lid_action(&cfg) {
+        "display-off" => {
+            with_state_lock(|| {
+                set_displays(true, false);
+                sync_lights(true);
+            });
         }
+        "suspend" => {
+            systemctl("suspend");
+        }
+        "hibernate" if systemctl("hibernate") != 0 => {
+            systemctl("suspend");
+        }
+        _ => {}
     }
 }
 
-/// `displays sync` under the display-state lock: put parked heads back once every other one is lit.
-/// None when the lock cannot be taken, as Python's `state_lock` raises: nothing is printed or touched.
-pub fn sync() -> Option<String> {
-    let dir = paths::plugin_run_dir();
-    fs::create_dir_all(&dir).ok()?;
-    let lock = OpenOptions::new().write(true).create(true).truncate(true).open(dir.join("display-off.lock")).ok()?;
-    lock.lock().ok()?;
-    Some(sync_locked(&dir.join("display-off.json")))
+/// Lid switch opened. Inputs come back before the displays, so a failed display step never leaves them dead.
+/// Prints nothing and exits 0; when the display-state lock cannot be taken, the displays stay as they are.
+pub fn lid_opened() {
+    charge::helper_quiet(&["hid-wakeup", "on"]);
+    set_inputs(&hypr::devices(), true, hypr::eval_slow);
+    // Key presses re-enable DPMS but not heads that Displays off disabled.
+    // The lights stay in the lock, so a lid bounce cannot relight keys after a close.
+    // Lit displays can still have blanked lights; this does nothing when none were saved.
+    with_state_lock(|| {
+        let parked = load_state(&state_path())["disabled"].as_array().is_some_and(|d| !d.is_empty());
+        if parked || blanked(&hypr::monitors_within(hypr::WRITE_WAIT)) {
+            set_displays(false, true);
+        }
+        sync_lights(false);
+    });
 }
 
-fn sync_locked(state_path: &Path) -> String {
-    let state = fs::read_to_string(state_path).ok().and_then(|t| serde_json::from_str::<Value>(&t).ok()).unwrap_or_default();
-    if !truthy(&state["disabled"]) {
-        return "idle".into();
+fn stay_awake() -> bool {
+    paths::home().join(".local/state/omarchy/indicators/stay-awake").exists()
+}
+
+/// Closing the saver for Displays off reads to Omarchy as the user returning,
+/// which cancels its lock countdown, so the plugin keeps that deadline itself.
+pub fn idle_lock() {
+    if !stay_awake() {
+        exec::run(&["omarchy-system-lock"], Duration::from_secs(8));
     }
-    if !awake(&hypr::monitors()) {
-        return "waiting".into();
+}
+
+/// Omarchy's idle timer honors Wayland idle inhibitors (a playing video in a
+/// browser holds one), so it never starts the screensaver. Only step in then;
+/// otherwise Omarchy launches it and a second launch would race the first.
+pub fn saver_past_inhibitor() {
+    let clients = hypr::request("j/clients").and_then(|r| serde_json::from_str::<Value>(&r).ok());
+    let inhibited = clients.as_ref().and_then(Value::as_array).is_some_and(|c| c.iter().any(|c| truthy(&c["inhibitingIdle"])));
+    if !inhibited || stay_awake() || exec::run(&["omarchy-shell", "lock", "isLocked"], Duration::from_secs(4)).1.trim() == "true" {
+        return;
     }
-    restore(&state);
-    let _ = fs::write(state_path, "{\"disabled\": []}\n");
-    "restored".into()
+    exec::run(&["omarchy-launch-screensaver"], Duration::from_secs(20));
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn a_config_without_a_lid_action_does_nothing() {
+        assert_eq!(lid_action(&json!({})), "nothing");
+        assert_eq!(lid_action(&json!({"ac": {"lid": 5}, "battery": {"lid": 5}})), "nothing");
+    }
 
     #[test]
     fn lid_text_decides_open() {

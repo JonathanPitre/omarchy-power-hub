@@ -1,0 +1,28 @@
+[
+ {
+  "code": 1,
+  "stdout": "privilege required\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
+   "busctl call org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager CanHibernate",
+   "sudo -n <base>/root/usr/local/libexec/omarchy-power-hub/ops-priv hibernate-delay 900",
+   "pkexec <base>/bin/ops-priv hibernate-delay 900"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": 80, \"boost\": false, \"boostSavedLimit\": 80, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 900, \"lid\": \"suspend\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 150, \"lock\": 300}, \"other\": 1}"
+   ]
+  }
+ }
+]

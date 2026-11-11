@@ -1,0 +1,32 @@
+[
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "sudo -n <base>/root/usr/local/libexec/omarchy-power-hub/ops-priv charge-limit 40"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": 30, \"boost\": false, \"boostSavedLimit\": 30, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "sudo -n <base>/root/usr/local/libexec/omarchy-power-hub/ops-priv charge-limit 100"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": 110, \"boost\": false, \"boostSavedLimit\": 110, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}"
+   ]
+  }
+ }
+]

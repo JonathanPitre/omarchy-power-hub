@@ -1,0 +1,66 @@
+[
+ {
+  "code": 1,
+  "stdout": "",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
+   "omarchy-powerprofiles-set ac performance"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/hypr/bindings.lua": [
+    292,
+    "bind = x"
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\", \"screensaver\": 600, \"lock\": 900, \"lid\": \"display-off\"}, \"battery\": {\"profile\": \"balanced\", \"screensaver\": 120, \"lock\": 240, \"lid\": \"nothing\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 600, \"lock\": 900}, \"other\": 1}"
+   ]
+  },
+  "side": {
+   "profile.state": "balanced\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
+   "omarchy-powerprofiles-set ac performance"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/hypr/bindings.lua": [
+    292,
+    "bind = x"
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\", \"screensaver\": 600, \"lock\": 900, \"lid\": \"display-off\"}, \"battery\": {\"profile\": \"balanced\", \"screensaver\": 120, \"lock\": 240, \"lid\": \"nothing\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 600, \"lock\": 900}, \"other\": 1}"
+   ]
+  },
+  "side": {
+   "profile.state": "balanced\n"
+  }
+ }
+]

@@ -15,7 +15,7 @@ sends events, but the shell's `isIdle` value stops updating.
 
 The power plugin contains a direct trigger for this defect:
 
-1. `bin/ops.py` calls `idle_for_blank()` when displays turn off or wake up.
+1. `bin/power-hub` calls `idle_for_blank()` when displays turn off or wake up.
 2. `idle_for_blank()` calls `shell_idle()` to update `shell.json`.
 3. During blanking, it substitutes 604800 seconds for the screensaver timeout.
 4. Omarchy's idle service uses the smaller of the screensaver and lock
@@ -33,8 +33,8 @@ work initially and then stop for hours.
 
 Relevant sources:
 
-- [Plugin timer updates](../bin/ops.py), `shell_idle()`, `idle_for_blank()`,
-  and the `displays` command.
+- [Plugin timer updates](../src/settings.rs), `shell_idle()`, and
+  [`idle_for_blank()`](../src/display.rs) in the `displays` command.
 - Installed Omarchy service,
   `/usr/share/omarchy/shell/plugins/services/idle/Service.qml`.
 - [Quickshell 0.3.1 listener replacement](https://github.com/quickshell-mirror/quickshell/blob/v0.3.1/src/wayland/idle_notify/monitor.cpp).
@@ -227,6 +227,6 @@ setting or application idle inhibitor:
 4. Unlock, then repeat a full idle interval to check that locking rearms.
 5. Repeat after display blanking and wake, and after a power-plan change.
 
-A passing Python plugin test suite does not verify Quickshell's native
+A passing plugin test suite does not verify Quickshell's native
 idle listener or lock-screen coverage. If the patched build fails these
 checks, reinstall the retained distribution package and restart the shell.

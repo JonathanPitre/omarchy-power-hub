@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 use std::fs;
 
-const HELPER_FILES: [&str; 2] = ["ops-priv", "hid_wakeup.py"];
+const HELPER_FILES: [&str; 1] = ["ops-priv"];
 
 fn secs(n: u64) -> Duration {
     Duration::from_secs(n)
@@ -18,10 +18,31 @@ pub fn helper_bin() -> Option<PathBuf> {
     same.then(|| dst.join("ops-priv"))
 }
 
+/// A timed-out PPM init at boot leaves no USB-C data until the driver is rebound; once per boot, and only through the installed helper.
+pub fn recover_ucsi() {
+    let mark = paths::plugin_run_dir().join("ucsi-rebound");
+    if power::ucsi_source_watts().is_some() || mark.exists() || !power::framework() {
+        return;
+    }
+    let Some(helper) = helper_bin() else { return };
+    if fs::create_dir_all(paths::plugin_run_dir()).and_then(|()| fs::write(&mark, "")).is_ok() {
+        exec::run(&["sudo", "-n", &helper.to_string_lossy(), "ucsi-rebind"], secs(4));
+    }
+}
+
 pub fn helper_needed() -> bool {
     let Some(helper) = helper_bin() else { return true };
     let (code, out) = exec::run(&["sudo", "-n", "-l"], secs(4));
     code != 0 || !out.contains(&format!("NOPASSWD: {}", helper.display()))
+}
+
+/// Runs a helper op through sudo only, never prompting; skipped when no current helper is installed.
+pub fn helper_quiet(args: &[&str]) {
+    if let Some(helper) = helper_bin() {
+        let helper = helper.to_string_lossy();
+        let cmd: Vec<&str> = ["sudo", "-n", &helper].into_iter().chain(args.iter().copied()).collect();
+        exec::run(&cmd, secs(8));
+    }
 }
 
 /// Runs a privileged op through the sudo-allowed helper, falling back to pkexec. Empty on success.
@@ -43,7 +64,7 @@ pub fn privileged(args: &[&str]) -> String {
     }
 }
 
-/// `re.search(r"Maximum\D*(\d{1,3})", out)`: the first "Maximum" decides, as no digit after it means none anywhere later.
+/// Up to three digits after the first "Maximum" and any non-digits; that first one decides, so no digit after it means none.
 fn parse_max(out: &str) -> Option<i64> {
     let rest = &out[out.find("Maximum")? + "Maximum".len()..];
     let digits = rest.trim_start_matches(|c: char| !c.is_ascii_digit());
@@ -55,7 +76,7 @@ fn none() -> Value {
     json!({"kind": "none", "available": false, "reason": "", "limit": null, "tool": false, "health": null, "policy": null})
 }
 
-/// Python's `parse_busctl_value`.
+/// One `busctl get-property` reply as a JSON value.
 fn parse_busctl_value(raw: &str) -> Option<Value> {
     let text = raw.trim().split('\n').next().unwrap_or("");
     if text.is_empty() {
@@ -90,7 +111,7 @@ fn upower_batteries() -> Vec<String> {
         .collect()
 }
 
-/// Python `isinstance(v, int)`, where bool counts.
+/// An integer, where a bool counts.
 fn as_int(v: &Option<Value>) -> Option<i64> {
     match v {
         Some(Value::Bool(b)) => Some(i64::from(*b)),
@@ -252,7 +273,7 @@ pub fn maybe_reapply(cfg: &Value, ch: Value) -> Value {
     next
 }
 
-/// `re.search(r"percentage:\s+(\d+)", out)`; saturates instead of overflowing.
+/// The digits after "percentage:" and some whitespace; saturates instead of overflowing.
 fn percentage(out: &str) -> Option<u64> {
     out.match_indices("percentage:").find_map(|(i, m)| {
         let rest = &out[i + m.len()..];

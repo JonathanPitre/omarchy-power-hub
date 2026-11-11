@@ -1,0 +1,28 @@
+[
+ {
+  "code": 1,
+  "stdout": "Laptop display is unavailable\n",
+  "calls": [],
+  "evals": [],
+  "requests": [
+   "j/monitors"
+  ],
+  "files": {},
+  "side": {
+   "brightness.state": "80\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "Laptop display is unavailable\n",
+  "calls": [],
+  "evals": [],
+  "requests": [
+   "j/monitors"
+  ],
+  "files": {},
+  "side": {
+   "brightness.state": "80\n"
+  }
+ }
+]

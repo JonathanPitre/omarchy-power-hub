@@ -1,0 +1,74 @@
+[
+ {
+  "code": 1,
+  "stdout": "Brightness did not reach the requested level\n",
+  "calls": [
+   "omarchy brightness display --monitor eDP-1",
+   "omarchy brightness display --no-osd --monitor eDP-1 40%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "run/omarchy-power-hub/quick-dim.json": [
+    384,
+    "{\"on\": true, \"monitor\": \"eDP-1\", \"brightness\": 80, \"error\": \"Brightness did not reach the requested level\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "42\n"
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "omarchy brightness display --monitor eDP-1",
+   "omarchy brightness display --no-osd --monitor eDP-1 40%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "run/omarchy-power-hub/quick-dim.json": [
+    384,
+    "{\"on\": true, \"monitor\": \"eDP-1\", \"brightness\": 80, \"error\": \"\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "41\n"
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "Brightness restoration could not be verified\n",
+  "calls": [
+   "omarchy brightness display --no-osd --monitor eDP-1 70%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "run/omarchy-power-hub/quick-dim.json": [
+    384,
+    "{\"on\": true, \"monitor\": \"eDP-1\", \"brightness\": 70, \"error\": \"Brightness restoration could not be verified\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "10\n"
+  }
+ }
+]

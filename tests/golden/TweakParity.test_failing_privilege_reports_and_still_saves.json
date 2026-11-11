@@ -1,0 +1,21 @@
+[
+ {
+  "code": 1,
+  "stdout": "privilege required\n",
+  "calls": [
+   "pkexec <base>/bin/ops-priv wifi on"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/power-hub-tweaks.json": [
+    420,
+    "{\"wifi\": true}"
+   ]
+  }
+ }
+]

@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 const MALFORMED_TRAVEL: &str = "Travel restore point is malformed; restore ownership manually";
 const MALFORMED_DIM: &str = "Quick dim restore point is malformed; restore ownership manually";
 
-/// Python `type(v) is int`: a JSON integer, never a bool or float.
+/// A JSON integer, never a bool or float.
 pub fn is_int(v: &Value) -> bool {
     v.is_i64() || v.is_u64()
 }
@@ -19,7 +19,7 @@ pub fn int_in(v: &Value, lo: i64, hi: i64) -> bool {
     v.as_i64().is_some_and(|n| (lo..=hi).contains(&n))
 }
 
-/// Python `float(v)`.
+/// A number, bool or numeric string as a float.
 pub fn py_float(v: &Value) -> Option<f64> {
     match v {
         Value::Number(n) => n.as_f64(),
@@ -29,7 +29,7 @@ pub fn py_float(v: &Value) -> Option<f64> {
     }
 }
 
-/// Python `int(v)`.
+/// A number, bool or numeric string as an integer.
 pub fn py_int(v: &Value) -> Option<i64> {
     match v {
         Value::Number(n) => n.as_i64().or_else(|| n.as_f64().filter(|f| f.is_finite()).map(|f| f as i64)),
@@ -77,7 +77,7 @@ pub fn atomic_state(path: &Path, value: &Value) -> io::Result<()> {
     })
 }
 
-/// An exclusive flock on `<run>/energy-controls.lock`, shared with ops.py, released on drop.
+/// An exclusive flock on `<run>/energy-controls.lock`, released on drop.
 #[allow(dead_code)] // the file is held open for its flock
 pub struct EnergyLock(File);
 

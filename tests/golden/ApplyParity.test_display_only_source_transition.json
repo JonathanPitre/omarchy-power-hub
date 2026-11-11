@@ -1,0 +1,40 @@
+[
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
+   "omarchy-powerprofiles-set battery balanced"
+  ],
+  "evals": [],
+  "requests": [
+   "reload"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/hypr/bindings.lua": [
+    420,
+    "bind = x\n-- BEGIN Omarchy Power Hub lid action override\nhl.unbind(\"switch:on:Lid Switch\")\nhl.unbind(\"switch:off:Lid Switch\")\no.bind(\"switch:on:Lid Switch\", nil, \"<base>/bin/power-hub lid-closed\", { locked = true })\no.bind(\"switch:off:Lid Switch\", nil, \"<base>/bin/power-hub lid-opened\", { locked = true })\n-- END Omarchy Power Hub lid action override\n"
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\", \"screensaver\": 600, \"lock\": 900, \"lid\": \"display-off\"}, \"battery\": {\"profile\": \"balanced\", \"screensaver\": 120, \"lock\": 240, \"lid\": \"nothing\"}}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{\"idle\": {\"screensaver\": 120, \"lock\": 240}, \"other\": 1}"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    420,
+    "{\"on\": true, \"complete\": true, \"reduceCpu\": false, \"source\": \"battery\", \"error\": \"\", \"pending\": [\"brightness\"], \"profile\": null, \"cpu\": {\"turbo\": null, \"epp\": []}, \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 70}, \"monitor\": null, \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Frozen profile\"}, \"turbo\": {\"available\": true, \"detail\": \"Frozen turbo\"}, \"epp\": {\"available\": true, \"detail\": \"Frozen epp\"}, \"brightness\": {\"available\": true, \"detail\": \"Frozen brightness\"}, \"refresh\": {\"available\": false, \"detail\": \"x\"}}}"
+   ]
+  },
+  "side": {
+   "profile.state": "balanced\n"
+  }
+ }
+]

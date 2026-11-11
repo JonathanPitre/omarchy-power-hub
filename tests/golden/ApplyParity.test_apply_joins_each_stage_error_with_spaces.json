@@ -1,0 +1,44 @@
+[
+ {
+  "code": 1,
+  "stdout": "E  shell.json unreadable denied denied\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
+   "pkexec <base>/bin/ops-priv wifi on",
+   "pkexec <base>/bin/ops-priv hid-wakeup on"
+  ],
+  "evals": [],
+  "requests": [
+   "reload"
+  ],
+  "files": {
+   "home/.config/hypr/.keep": [
+    420,
+    ""
+   ],
+   "home/.config/hypr/bindings.lua": [
+    420,
+    "bind = x\n-- BEGIN Omarchy Power Hub lid action override\nhl.unbind(\"switch:on:Lid Switch\")\nhl.unbind(\"switch:off:Lid Switch\")\no.bind(\"switch:on:Lid Switch\", nil, \"<base>/bin/power-hub lid-closed\", { locked = true })\no.bind(\"switch:off:Lid Switch\", nil, \"<base>/bin/power-hub lid-opened\", { locked = true })\n-- END Omarchy Power Hub lid action override\n"
+   ],
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\", \"screensaver\": 600, \"lock\": 900, \"lid\": \"display-off\"}, \"battery\": {\"profile\": \"balanced\", \"screensaver\": 120, \"lock\": 240, \"lid\": \"nothing\"}}"
+   ],
+   "home/.config/omarchy/power-hub-tweaks.json": [
+    420,
+    "{\"wifi\": true, \"wifiPinned\": true}"
+   ],
+   "home/.config/omarchy/shell.json": [
+    420,
+    "{broken"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    420,
+    "{\"on\": true, \"complete\": false, \"reduceCpu\": true, \"source\": \"battery\", \"error\": \"E\", \"pending\": [\"profile\", \"brightness\", \"refresh\"], \"profile\": \"balanced\", \"cpu\": {\"turbo\": null, \"epp\": []}, \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 70}, \"monitor\": {\"output\": \"eDP-1\", \"name\": \"eDP-1\", \"width\": 1920, \"height\": 1200, \"x\": 0, \"y\": 0, \"refreshRate\": 165.004, \"scale\": 1.25, \"transform\": 0}, \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Frozen profile\"}, \"turbo\": {\"available\": true, \"detail\": \"Frozen turbo\"}, \"epp\": {\"available\": true, \"detail\": \"Frozen epp\"}, \"brightness\": {\"available\": true, \"detail\": \"Frozen brightness\"}, \"refresh\": {\"available\": false, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}}"
+   ]
+  },
+  "side": {
+   "profile.state": "balanced\n"
+  }
+ }
+]

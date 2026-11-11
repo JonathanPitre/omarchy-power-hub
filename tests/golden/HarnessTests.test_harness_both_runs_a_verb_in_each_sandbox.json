@@ -1,0 +1,32 @@
+[
+ {
+  "code": 0,
+  "stdout": "{\"side\": \"ac\", \"config\": {\"chargeLimit\": 80, \"boost\": false, \"boostSavedLimit\": 80, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}}\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "1\n",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ]
+  }
+ }
+]

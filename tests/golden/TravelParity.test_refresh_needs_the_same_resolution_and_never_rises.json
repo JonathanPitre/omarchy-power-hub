@@ -1,0 +1,415 @@
+[
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "omarchy brightness display --monitor eDP-1",
+   "powerprofilesctl get",
+   "powerprofilesctl get",
+   "powerprofilesctl set power-saver",
+   "powerprofilesctl get",
+   "omarchy brightness display --no-osd --monitor eDP-1 40%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "getoption animations:enabled",
+   "getoption decoration:shadow:enabled"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "power-saver\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "power-saver\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": true, \"complete\": true, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": false, \"detail\": \"No supported mode at or below 60 Hz\"}}, \"error\": \"\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "40\n",
+   "profile.state": "power-saver\n"
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "powerprofilesctl set balanced",
+   "powerprofilesctl get",
+   "omarchy brightness display --no-osd --monitor eDP-1 80%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "performance\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "balanced\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": false, \"complete\": true, \"reduceCpu\": false, \"pending\": [], \"error\": \"\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "balanced\n"
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "omarchy brightness display --monitor eDP-1",
+   "powerprofilesctl get",
+   "powerprofilesctl get",
+   "powerprofilesctl set power-saver",
+   "powerprofilesctl get",
+   "omarchy brightness display --no-osd --monitor eDP-1 40%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [
+   "hl.monitor({ output = \"desc:BOE NE160\", mode = \"1200x1920@30.0\", position = \"0x0\", scale = 1.25, disabled = false })"
+  ],
+  "requests": [
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1200x1920@30.0\", position = \"0x0\", scale = 1.25, disabled = false })",
+   "j/monitors",
+   "getoption animations:enabled",
+   "getoption decoration:shadow:enabled"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "power-saver\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "power-saver\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": true, \"complete\": true, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1200, \"height\": 1920, \"refreshRate\": 165.004, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 1}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"refresh\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh capped at 30 Hz\"}}, \"error\": \"\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "40\n",
+   "profile.state": "power-saver\n"
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "powerprofilesctl set balanced",
+   "powerprofilesctl get",
+   "omarchy brightness display --no-osd --monitor eDP-1 80%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [
+   "hl.monitor({ output = \"desc:BOE NE160\", mode = \"1200x1920@165.004\", position = \"0x0\", scale = 1.25, disabled = false })"
+  ],
+  "requests": [
+   "eval hl.monitor({ output = \"desc:BOE NE160\", mode = \"1200x1920@165.004\", position = \"0x0\", scale = 1.25, disabled = false })",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "performance\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "balanced\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": false, \"complete\": true, \"reduceCpu\": false, \"pending\": [], \"error\": \"\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "balanced\n"
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "omarchy brightness display --monitor eDP-1",
+   "powerprofilesctl get",
+   "powerprofilesctl get",
+   "powerprofilesctl set power-saver",
+   "powerprofilesctl get",
+   "omarchy brightness display --no-osd --monitor eDP-1 40%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "getoption animations:enabled",
+   "getoption decoration:shadow:enabled"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "power-saver\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "power-saver\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": true, \"complete\": true, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 50.0, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh is 50 Hz (already at or below 60 Hz)\"}}, \"error\": \"\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "40\n",
+   "profile.state": "power-saver\n"
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "powerprofilesctl set balanced",
+   "powerprofilesctl get",
+   "omarchy brightness display --no-osd --monitor eDP-1 80%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "performance\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "balanced\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": false, \"complete\": true, \"reduceCpu\": false, \"pending\": [], \"error\": \"\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "balanced\n"
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "omarchy brightness display --monitor eDP-1",
+   "powerprofilesctl get",
+   "powerprofilesctl get",
+   "powerprofilesctl set power-saver",
+   "powerprofilesctl get",
+   "omarchy brightness display --no-osd --monitor eDP-1 40%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "getoption animations:enabled",
+   "getoption decoration:shadow:enabled"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "power-saver\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "power-saver\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": true, \"complete\": true, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": {\"name\": \"eDP-1\", \"output\": \"desc:BOE NE160\", \"width\": 1920, \"height\": 1200, \"refreshRate\": 60.0, \"x\": 0, \"y\": 0, \"scale\": 1.25, \"transform\": 0}, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": true, \"detail\": \"Laptop refresh is 60 Hz (already at or below 60 Hz)\"}}, \"error\": \"\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "40\n",
+   "profile.state": "power-saver\n"
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "powerprofilesctl set balanced",
+   "powerprofilesctl get",
+   "omarchy brightness display --no-osd --monitor eDP-1 80%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "performance\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "balanced\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": false, \"complete\": true, \"reduceCpu\": false, \"pending\": [], \"error\": \"\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "balanced\n"
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "omarchy brightness display --monitor eDP-1",
+   "powerprofilesctl get",
+   "powerprofilesctl get",
+   "powerprofilesctl set power-saver",
+   "powerprofilesctl get",
+   "omarchy brightness display --no-osd --monitor eDP-1 40%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "getoption animations:enabled",
+   "getoption decoration:shadow:enabled"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "power-saver\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "power-saver\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": true, \"complete\": true, \"reduceCpu\": true, \"source\": \"battery\", \"profile\": \"performance\", \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 80}, \"monitor\": null, \"cpu\": {\"turbo\": null, \"epp\": []}, \"pending\": [\"brightness\", \"profile\"], \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Power saver\"}, \"turbo\": {\"available\": false, \"detail\": \"CPU turbo off\"}, \"epp\": {\"available\": false, \"detail\": \"No saving CPU preference supported\"}, \"brightness\": {\"available\": true, \"detail\": \"Laptop brightness capped at 40%\"}, \"refresh\": {\"available\": false, \"detail\": \"No supported mode at or below 60 Hz\"}}, \"error\": \"\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "40\n",
+   "profile.state": "power-saver\n"
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "powerprofilesctl set balanced",
+   "powerprofilesctl get",
+   "omarchy brightness display --no-osd --monitor eDP-1 80%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"performance\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.local/state/omarchy/powerprofiles/ac": [
+    420,
+    "performance\n"
+   ],
+   "home/.local/state/omarchy/powerprofiles/battery": [
+    420,
+    "balanced\n"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    384,
+    "{\"on\": false, \"complete\": true, \"reduceCpu\": false, \"pending\": [], \"error\": \"\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n",
+   "profile.state": "balanced\n"
+  }
+ }
+]

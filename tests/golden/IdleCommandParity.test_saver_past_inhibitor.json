@@ -1,0 +1,94 @@
+[
+ {
+  "code": 0,
+  "stdout": "",
+  "calls": [
+   "omarchy-shell lock isLocked",
+   "omarchy-launch-screensaver "
+  ],
+  "evals": [],
+  "requests": [
+   "j/clients"
+  ],
+  "files": {}
+ },
+ {
+  "code": 0,
+  "stdout": "",
+  "calls": [],
+  "evals": [],
+  "requests": [
+   "j/clients"
+  ],
+  "files": {}
+ },
+ {
+  "code": 0,
+  "stdout": "",
+  "calls": [],
+  "evals": [],
+  "requests": [
+   "j/clients"
+  ],
+  "files": {}
+ },
+ {
+  "code": 0,
+  "stdout": "",
+  "calls": [],
+  "evals": [],
+  "requests": [
+   "j/clients"
+  ],
+  "files": {}
+ },
+ {
+  "code": 0,
+  "stdout": "",
+  "calls": [],
+  "evals": [],
+  "requests": [
+   "j/clients"
+  ],
+  "files": {}
+ },
+ {
+  "code": 0,
+  "stdout": "",
+  "calls": [],
+  "evals": [],
+  "requests": [
+   "j/clients"
+  ],
+  "files": {
+   "home/.local/state/omarchy/indicators/stay-awake": [
+    420,
+    ""
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "",
+  "calls": [
+   "omarchy-shell lock isLocked"
+  ],
+  "evals": [],
+  "requests": [
+   "j/clients"
+  ],
+  "files": {}
+ },
+ {
+  "code": 0,
+  "stdout": "",
+  "calls": [
+   "omarchy-shell lock isLocked"
+  ],
+  "evals": [],
+  "requests": [
+   "j/clients"
+  ],
+  "files": {}
+ }
+]

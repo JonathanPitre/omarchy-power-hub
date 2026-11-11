@@ -5,7 +5,7 @@ use std::{fs, io};
 
 pub const LID_ACTIONS: [&str; 4] = ["nothing", "display-off", "suspend", "hibernate"];
 
-/// Python truthiness of a JSON value.
+/// Truthiness of a JSON value: null, false, zero and empty are false.
 pub fn truthy(v: &Value) -> bool {
     match v {
         Value::Null => false,
@@ -134,7 +134,7 @@ pub fn save_tweaks(prefs: &Value) -> io::Result<()> {
 }
 
 pub fn tweak_state() -> Value {
-    // Whatever JSON the file holds, as ops.py returns it; {} only when it cannot be read or parsed.
+    // Whatever JSON the file holds, as the backend returns it; {} only when it cannot be read or parsed.
     fs::read_to_string(paths::tweaks_file()).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_else(|| json!({}))
 }
 

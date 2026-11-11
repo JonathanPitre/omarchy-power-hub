@@ -1,0 +1,28 @@
+[
+ {
+  "code": 0,
+  "stdout": "hold\n",
+  "calls": [],
+  "evals": [
+   "hl.device({ name = \"power-button\", enabled = true })",
+   "hl.device({ name = \"video-bus\", enabled = true })",
+   "hl.device({ name = \"my-power-button\", enabled = true })",
+   "hl.device({ name = \"AT:kb.0_1-x\", enabled = true })"
+  ],
+  "requests": [
+   "cursorpos",
+   "j/monitors",
+   "j/devices",
+   "eval hl.device({ name = \"power-button\", enabled = true })",
+   "eval hl.device({ name = \"video-bus\", enabled = true })",
+   "eval hl.device({ name = \"my-power-button\", enabled = true })",
+   "eval hl.device({ name = \"AT:kb.0_1-x\", enabled = true })"
+  ],
+  "files": {
+   "run/omarchy-power-hub/idle-wake.json": [
+    420,
+    "{\"cursor\": \"\"}"
+   ]
+  }
+ }
+]

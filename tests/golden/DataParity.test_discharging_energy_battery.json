@@ -1,0 +1,17 @@
+[
+ {
+  "code": 0,
+  "stdout": "{\"battery\": {\"present\": true, \"percent\": 90, \"status\": \"Discharging\", \"watts\": 10.0, \"health\": 91, \"whFull\": 50.0, \"whDesign\": 55.0, \"cycles\": 123, \"minutes\": 240, \"acOnline\": 1, \"fraction\": 0.9, \"drainTo\": 85}, \"rapl\": {\"available\": false, \"package\": 0, \"core\": 0, \"gpu\": 0}, \"tweaks\": {\"wifi\": false, \"usb\": false, \"pcie\": false, \"audio\": false, \"abm\": false, \"abmAvailable\": false, \"effects\": false, \"daylight\": false, \"daylightAvailable\": false}, \"sleep\": {\"installed\": false}}",
+  "calls": [],
+  "evals": [],
+  "requests": [
+   "getoption animations:enabled"
+  ],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}, \"chargeLimit\": 85}"
+   ]
+  }
+ }
+]

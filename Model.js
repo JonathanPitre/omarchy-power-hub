@@ -91,13 +91,6 @@ function chargeLimitLabel(c, boosting) {
   return p ? p.split("-").pop() + "%" : "On";
 }
 
-// Which segmented power mode is active.
-function activeMode(tlp) {
-  if (!tlp || !tlp.installed || !tlp.active) return "";
-  if (!tlp.manual) return "auto";
-  return tlp.mode === "battery" ? "saver" : "full";
-}
-
 function raplLabel(rapl) {
   if (!rapl || !rapl.available) return "";
   var parts = ["CPU " + Number(rapl.package).toFixed(1) + " W"];
@@ -199,7 +192,7 @@ function idleOptions(stops, current) {
 }
 
 // Displays going off first would close the saver, so it counts as Never.
-// Mirrors effective_saver in ops.py.
+// Mirrors effective_saver in src/settings.rs.
 function effectiveSaver(saver, displaysOff) {
   var s = Number(saver) || 0, d = Number(displaysOff) || 0;
   return d > 0 && d <= s ? 0 : s;
@@ -239,30 +232,6 @@ function sleepSummary(s) {
     avgWatts: fmtWatts(s.avgWatts),
     samples: Number(s.samples) || 0
   };
-}
-
-// ---------- Wi-Fi suspend-fix detector (extras/wifi-suspend-fix) ---------
-// Shown only when the exact BCM4377b PM-timeout bug has actually been
-// observed on this machine (see src/data.rs), not just when the
-// chip is present.
-function showWifiFixBanner(w) {
-  return false;
-}
-
-var WIFI_FIX_INFO = {
-  title: "Wi-Fi suspend bug detected",
-  help: "Known issue on the Intel MacBook Air 9,1 (T2): leaving the brcmfmac "
-      + "driver bound during suspend times out its PCI power-management call "
-      + "(errno -5), which aborts suspend and can crash-loop it continuously — "
-      + "draining the battery in hours instead of days. The fix unloads the "
-      + "driver before suspend and reloads it after resume, and stops the card "
-      + "being armed as a wakeup source."
-};
-
-function wifiFixBlurb(w) {
-  var n = (w && w.failCount) || 0;
-  return "Suspend has failed " + n + " time" + (n === 1 ? "" : "s")
-       + " at this Wi-Fi adapter.";
 }
 
 // Device-power-saving rows: what each toggle does, plus the tradeoff to weigh

@@ -1,0 +1,32 @@
+[
+ {
+  "code": 0,
+  "stdout": "waiting\n",
+  "calls": [],
+  "evals": [],
+  "requests": [
+   "j/monitors"
+  ],
+  "files": {
+   "run/omarchy-power-hub/display-off.json": [
+    420,
+    "{\"disabled\": [{\"name\": \"DP-1\", \"width\": 1920, \"height\": 1080}]}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "waiting\n",
+  "calls": [],
+  "evals": [],
+  "requests": [
+   "j/monitors"
+  ],
+  "files": {
+   "run/omarchy-power-hub/display-off.json": [
+    420,
+    "{\"disabled\": [{\"name\": \"DP-1\", \"width\": 1920, \"height\": 1080}]}"
+   ]
+  }
+ }
+]

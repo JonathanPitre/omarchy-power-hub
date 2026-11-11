@@ -1,0 +1,13 @@
+[
+ {
+  "code": 0,
+  "stdout": "[{\"t\": 1730000000, \"pct\": 85.5, \"charging\": true}, {\"t\": 1730000600, \"pct\": 84.0, \"charging\": false}]\n",
+  "calls": [
+   "upower -e",
+   "busctl call org.freedesktop.UPower /org/freedesktop/UPower/devices/battery_BAT1 org.freedesktop.UPower.Device GetHistory suu charge 172800 400"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {}
+ }
+]

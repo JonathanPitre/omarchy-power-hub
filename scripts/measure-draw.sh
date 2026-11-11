@@ -11,16 +11,16 @@ mkdir -p "$(dirname "$out")"
 
 [ "$(cat "$bat/status")" = Discharging ] || { echo "not discharging: unplug first" >&2; exit 1; }
 # Battery idle settings would otherwise blank or suspend the machine mid-run.
-ops=$HOME/.config/omarchy/plugins/omarchy-power-hub/bin/ops.py
+hub=$HOME/.config/omarchy/plugins/omarchy-power-hub/bin/power-hub
 cfg=$HOME/.config/omarchy/omarchy-power-hub.json
 keys="screensaver displaysOff lock sleep hibernateAfter"
 restore=""
+trap 'eval "$restore"; omarchy toggle idle allow-idle >/dev/null 2>&1' EXIT
 for k in $keys; do
-  restore+="python3 $ops set battery $k $(jq -r ".battery.$k // 0" "$cfg") >/dev/null; "
-  python3 "$ops" set battery "$k" 0 >/dev/null
+  restore+="$(printf '%q' "$hub") set battery $k $(jq -r ".battery.$k // 0" "$cfg") >/dev/null; "
+  "$hub" set battery "$k" 0 >/dev/null || { echo "could not zero battery $k: stopping, restoring settings" >&2; exit 1; }
 done
 omarchy toggle idle stay-awake >/dev/null 2>&1
-trap "$restore omarchy toggle idle allow-idle >/dev/null 2>&1" EXIT
 
 echo "settling 45 s for the embedded controller's smoothed current" >&2
 sleep 45

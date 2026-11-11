@@ -123,26 +123,6 @@ fn rapl() -> Option<[f64; 3]> {
     Some(watts)
 }
 
-fn tlp(ac: bool) -> Value {
-    let mut mode = if let Some(pwr) = cat(paths::root("/run/tlp/last_pwr")) {
-        if pwr.split_whitespace().next() == Some("1") { "battery" } else { "ac" }
-    } else if ac {
-        "ac"
-    } else {
-        "battery"
-    };
-    let mut manual = false;
-    if let Some(m) = cat(paths::root("/run/tlp/manual_mode")) {
-        match m.split_whitespace().next() {
-            Some("0") => (manual, mode) = (true, "ac"),
-            Some("1" | "2") => (manual, mode) = (true, "battery"),
-            _ => {}
-        }
-    }
-    json!({"installed": exec::on_path("tlp"), "active": exec::run(&["systemctl", "is-active", "--quiet", "tlp"], Duration::from_secs(2)).0 == 0,
-           "mode": mode, "manual": manual})
-}
-
 fn wifi_power_save() -> bool {
     let Some(dev) = sorted_dir(paths::root("/sys/class/net")).into_iter().find_map(|p| {
         let n = p.file_name()?.to_string_lossy().into_owned();
@@ -249,24 +229,6 @@ fn sleep() -> Value {
     Value::Object(out)
 }
 
-/// BCM4377b suspend failure (errno -5 at that device), the only one the Wi-Fi fix addresses.
-fn wifi_fix() -> Value {
-    let pci = paths::root("/sys/bus/pci/devices");
-    let chip = sorted_dir(pci.clone()).iter().any(|d| cat(d.join("modalias")).is_some_and(|m| m.contains("v000014E4d00004488")));
-    let stats = paths::root("/sys/power/suspend_stats");
-    let fails = cat(stats.join("fail")).map_or(0, |s| int(&s));
-    let mut problem = false;
-    if fails > 0 && fs::File::open(stats.join("last_failed_dev")).is_ok() {
-        let dev = cat(stats.join("last_failed_dev")).unwrap_or_default();
-        if !dev.is_empty() && cat(stats.join("last_failed_errno")).as_deref() == Some("-5") {
-            let attr = |n: &str| cat(pci.join(&dev).join(n));
-            problem = attr("vendor").as_deref() == Some("0x14e4") && attr("device").as_deref() == Some("0x4488");
-        }
-    }
-    json!({"chipPresent": chip, "installed": exec::executable(&paths::root("/usr/lib/systemd/system-sleep/battery-plus-wifi-suspend-fix")),
-           "problemSeen": problem, "failCount": fails})
-}
-
 pub fn collect() -> Value {
     let b = battery();
     let ac = !power::on_battery();
@@ -286,9 +248,7 @@ pub fn collect() -> Value {
                     "whFull": round(full / 1e6, 1), "whDesign": round(b.design as f64 / 1e6, 1), "cycles": b.cycles, "minutes": minutes,
                     "acOnline": u8::from(ac), "fraction": round(b.percent as f64 / 100.0, 3), "drainTo": drain_to},
         "rapl": {"available": rapl.is_some(), "package": package, "core": core, "gpu": gpu},
-        "tlp": tlp(ac),
         "tweaks": tweaks(),
         "sleep": sleep(),
-        "wifiFix": wifi_fix(),
     })
 }

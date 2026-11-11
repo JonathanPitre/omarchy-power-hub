@@ -46,7 +46,7 @@ pub fn monitors() -> Vec<Value> {
     monitors_within(Duration::from_secs(2))
 }
 
-/// `monitors` for the read that verifies a mode change, which Python allows 4 s.
+/// `monitors` for the read that verifies a mode change, which gets 4 s.
 pub fn monitors_within(timeout: Duration) -> Vec<Value> {
     request_within("j/monitors", timeout)
         .and_then(|r| serde_json::from_str(&r).ok())
@@ -63,6 +63,27 @@ pub fn cursor() -> String {
     request("cursorpos").unwrap_or_default().trim().to_string()
 }
 
+/// How long a display write may take to reply: Hyprland applies mode and power changes slowly.
+pub const WRITE_WAIT: Duration = Duration::from_secs(4);
+
+fn write_at(path: &Path, verb: &str, lua: &str) -> Option<String> {
+    request_at(path, &format!("{verb} {lua}"), WRITE_WAIT)
+}
+
+/// `eval` that waits `WRITE_WAIT` for the reply.
+pub fn eval_slow(lua: &str) {
+    if let Some(p) = socket_path() {
+        write_at(&p, "eval", lua);
+    }
+}
+
+/// `hyprctl dispatch <lua>` over the socket, waiting `WRITE_WAIT`.
+pub fn dispatch(lua: &str) {
+    if let Some(p) = socket_path() {
+        write_at(&p, "dispatch", lua);
+    }
+}
+
 pub fn eval(lua: &str) {
     request(&format!("eval {lua}"));
 }
@@ -75,7 +96,7 @@ fn eval_reply(reply: Option<String>) -> Result<(), String> {
     }
 }
 
-/// Run Lua in Hyprland, waiting up to 8 s as Python does; Err when the socket is unreachable or the reply starts with `error`.
+/// Run Lua in Hyprland, waiting up to 8 s; Err when the socket is unreachable or the reply starts with `error`.
 pub fn eval_checked(lua: &str) -> Result<(), String> {
     eval_reply(request_within(&format!("eval {lua}"), Duration::from_secs(8)))
 }
@@ -99,6 +120,26 @@ mod tests {
         assert_eq!(request_at(&path, "eval x", Duration::from_secs(8)).as_deref(), Some("ok"));
         handle.join().ok();
         let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn a_reply_after_3_s_reaches_a_write() {
+        for verb in ["eval", "dispatch"] {
+            let path = std::env::temp_dir().join(format!("ph-write-{verb}-{}.sock", std::process::id()));
+            let _ = fs::remove_file(&path);
+            let server = std::os::unix::net::UnixListener::bind(&path).unwrap();
+            let handle = std::thread::spawn(move || {
+                let (mut conn, _) = server.accept().unwrap();
+                let mut buf = [0; 64];
+                let n = conn.read(&mut buf).unwrap();
+                std::thread::sleep(Duration::from_secs(3));
+                conn.write_all(b"ok").unwrap();
+                String::from_utf8_lossy(&buf[..n]).into_owned()
+            });
+            assert_eq!(write_at(&path, verb, "x").as_deref(), Some("ok"));
+            assert_eq!(handle.join().unwrap(), format!("{verb} x"));
+            let _ = fs::remove_file(&path);
+        }
     }
 
     #[test]

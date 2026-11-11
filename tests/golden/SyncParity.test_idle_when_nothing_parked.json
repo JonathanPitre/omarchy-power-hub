@@ -1,0 +1,23 @@
+[
+ {
+  "code": 0,
+  "stdout": "idle\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "run/omarchy-power-hub/display-off.json": [
+    420,
+    "{\"disabled\": []}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "idle\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {}
+ }
+]

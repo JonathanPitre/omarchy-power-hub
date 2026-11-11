@@ -1,0 +1,49 @@
+[
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {}
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    ""
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"boost\": false}"
+   ]
+  }
+ }
+]

@@ -1,0 +1,78 @@
+[
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "pkexec <base>/bin/ops-priv wifi on"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/power-hub-tweaks.json": [
+    420,
+    "{\"wifi\": true}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "pkexec <base>/bin/ops-priv wifi off"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/power-hub-tweaks.json": [
+    420,
+    "{\"wifi\": false}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "pkexec <base>/bin/ops-priv usb on"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/power-hub-tweaks.json": [
+    420,
+    "{\"wifi\": false, \"usb\": true}"
+   ]
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "pkexec <base>/bin/ops-priv pcie off"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/power-hub-tweaks.json": [
+    420,
+    "{\"wifi\": false, \"usb\": true, \"pcie\": false}"
+   ]
+  }
+ }
+]

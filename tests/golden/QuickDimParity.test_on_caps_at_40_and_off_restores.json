@@ -1,0 +1,190 @@
+[
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "omarchy brightness display --monitor eDP-1",
+   "omarchy brightness display --no-osd --monitor eDP-1 40%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "run/omarchy-power-hub/quick-dim.json": [
+    384,
+    "{\"on\": true, \"monitor\": \"eDP-1\", \"brightness\": 80, \"error\": \"\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "40\n"
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "omarchy brightness display --no-osd --monitor eDP-1 80%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "run/omarchy-power-hub/quick-dim.json": [
+    384,
+    "{\"on\": false}"
+   ]
+  },
+  "side": {
+   "brightness.state": "80\n"
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "omarchy brightness display --monitor eDP-1",
+   "omarchy brightness display --no-osd --monitor eDP-1 30%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "run/omarchy-power-hub/quick-dim.json": [
+    384,
+    "{\"on\": true, \"monitor\": \"eDP-1\", \"brightness\": 30, \"error\": \"\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "30\n"
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "omarchy brightness display --no-osd --monitor eDP-1 30%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "run/omarchy-power-hub/quick-dim.json": [
+    384,
+    "{\"on\": false}"
+   ]
+  },
+  "side": {
+   "brightness.state": "30\n"
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "omarchy brightness display --monitor eDP-1",
+   "omarchy brightness display --no-osd --monitor eDP-1 40%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "run/omarchy-power-hub/quick-dim.json": [
+    384,
+    "{\"on\": true, \"monitor\": \"eDP-1\", \"brightness\": 40, \"error\": \"\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "40\n"
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "omarchy brightness display --no-osd --monitor eDP-1 40%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "run/omarchy-power-hub/quick-dim.json": [
+    384,
+    "{\"on\": false}"
+   ]
+  },
+  "side": {
+   "brightness.state": "40\n"
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "omarchy brightness display --monitor eDP-1",
+   "omarchy brightness display --no-osd --monitor eDP-1 0%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors",
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "run/omarchy-power-hub/quick-dim.json": [
+    384,
+    "{\"on\": true, \"monitor\": \"eDP-1\", \"brightness\": 0, \"error\": \"\"}"
+   ]
+  },
+  "side": {
+   "brightness.state": "0\n"
+  }
+ },
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "omarchy brightness display --no-osd --monitor eDP-1 0%",
+   "omarchy brightness display --monitor eDP-1"
+  ],
+  "evals": [],
+  "requests": [
+   "j/monitors",
+   "j/monitors"
+  ],
+  "files": {
+   "run/omarchy-power-hub/quick-dim.json": [
+    384,
+    "{\"on\": false}"
+   ]
+  },
+  "side": {
+   "brightness.state": "0\n"
+  }
+ }
+]

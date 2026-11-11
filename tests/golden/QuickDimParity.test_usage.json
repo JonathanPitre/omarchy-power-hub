@@ -1,0 +1,35 @@
+[
+ {
+  "code": 2,
+  "stdout": "usage: quick-dim on|off\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {},
+  "side": {
+   "brightness.state": "80\n"
+  }
+ },
+ {
+  "code": 2,
+  "stdout": "usage: quick-dim on|off\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {},
+  "side": {
+   "brightness.state": "80\n"
+  }
+ },
+ {
+  "code": 2,
+  "stdout": "usage: quick-dim on|off\n",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {},
+  "side": {
+   "brightness.state": "80\n"
+  }
+ }
+]

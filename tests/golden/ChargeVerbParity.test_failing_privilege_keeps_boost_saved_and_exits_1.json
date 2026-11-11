@@ -1,0 +1,19 @@
+[
+ {
+  "code": 1,
+  "stdout": "privilege required\n",
+  "calls": [
+   "sudo -n <base>/root/usr/local/libexec/omarchy-power-hub/ops-priv charge-limit",
+   "sudo -n <base>/root/usr/local/libexec/omarchy-power-hub/ops-priv charge-limit 100",
+   "pkexec <base>/bin/ops-priv charge-limit 100"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"chargeLimit\": 80, \"boost\": true, \"boostSavedLimit\": 90, \"ac\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}, \"battery\": {\"screensaver\": 150, \"displaysOff\": 0, \"lock\": 300, \"sleep\": 0, \"hibernateAfter\": 0, \"lid\": \"suspend\", \"profile\": \"balanced\"}}"
+   ]
+  }
+ }
+]

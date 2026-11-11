@@ -1,0 +1,20 @@
+[
+ {
+  "code": 0,
+  "stdout": "{\"battery\": {\"present\": false, \"percent\": 0, \"status\": \"Unknown\", \"watts\": 0.0, \"health\": 0, \"whFull\": 0.0, \"whDesign\": 0.0, \"cycles\": 0, \"minutes\": 0, \"acOnline\": 1, \"fraction\": 0.0, \"drainTo\": 0}, \"rapl\": {\"available\": false, \"package\": 0, \"core\": 0, \"gpu\": 0}, \"tweaks\": {\"wifi\": true, \"usb\": false, \"pcie\": true, \"audio\": true, \"abm\": true, \"abmAvailable\": true, \"effects\": true, \"daylight\": false, \"daylightAvailable\": false, \"wifiPinned\": true, \"usbPinned\": false, \"audioPinned\": 3}, \"sleep\": {\"installed\": false}}",
+  "calls": [
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
+   "iw dev wlan0 get power_save"
+  ],
+  "evals": [],
+  "requests": [
+   "getoption animations:enabled"
+  ],
+  "files": {
+   "home/.config/omarchy/power-hub-tweaks.json": [
+    420,
+    "{\"wifiPinned\": true, \"usbPinned\": false, \"audioPinned\": 3, \"other\": 1, \"wifi\": \"no\"}"
+   ]
+  }
+ }
+]

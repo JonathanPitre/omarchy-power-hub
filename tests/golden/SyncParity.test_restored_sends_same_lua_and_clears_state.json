@@ -1,0 +1,36 @@
+[
+ {
+  "code": 0,
+  "stdout": "restored\n",
+  "calls": [],
+  "evals": [
+   "hl.monitor({ output = \"desc:BOE NE160 (1)+x\", mode = \"2560x1600@59.951\", position = \"0x0\", scale = 1.25, disabled = false })",
+   "hl.monitor({ output = \"DP-2\", mode = \"1920x1080@60.0\", position = \"-1920x0\", scale = 1, disabled = false })",
+   "hl.monitor({ output = \"DP-3\", mode = \"3840x2160@144\", position = \"2560x100\", scale = 2.0, disabled = false })",
+   "hl.monitor({ output = \"DP-4\", mode = \"800x600@60\", position = \"0x0\", scale = 1, disabled = false })",
+   "hl.monitor({ output = \"DP-5\", disabled = false })",
+   "hl.monitor({ output = \"DP-6\", mode = \"100x100@1e+16\", position = \"0x0\", scale = 1e-05, disabled = false })",
+   "hl.monitor({ output = \"DP-7\", mode = \"100x100@0.1\", position = \"0x0\", scale = 1.5e+300, disabled = false })",
+   "hl.monitor({ output = \"HDMI-A-1\", disabled = false })",
+   "hl.monitor({ output = \"12\", disabled = false })"
+  ],
+  "requests": [
+   "j/monitors",
+   "eval hl.monitor({ output = \"desc:BOE NE160 (1)+x\", mode = \"2560x1600@59.951\", position = \"0x0\", scale = 1.25, disabled = false })",
+   "eval hl.monitor({ output = \"DP-2\", mode = \"1920x1080@60.0\", position = \"-1920x0\", scale = 1, disabled = false })",
+   "eval hl.monitor({ output = \"DP-3\", mode = \"3840x2160@144\", position = \"2560x100\", scale = 2.0, disabled = false })",
+   "eval hl.monitor({ output = \"DP-4\", mode = \"800x600@60\", position = \"0x0\", scale = 1, disabled = false })",
+   "eval hl.monitor({ output = \"DP-5\", disabled = false })",
+   "eval hl.monitor({ output = \"DP-6\", mode = \"100x100@1e+16\", position = \"0x0\", scale = 1e-05, disabled = false })",
+   "eval hl.monitor({ output = \"DP-7\", mode = \"100x100@0.1\", position = \"0x0\", scale = 1.5e+300, disabled = false })",
+   "eval hl.monitor({ output = \"HDMI-A-1\", disabled = false })",
+   "eval hl.monitor({ output = \"12\", disabled = false })"
+  ],
+  "files": {
+   "run/omarchy-power-hub/display-off.json": [
+    420,
+    "{\"disabled\": []}"
+   ]
+  }
+ }
+]

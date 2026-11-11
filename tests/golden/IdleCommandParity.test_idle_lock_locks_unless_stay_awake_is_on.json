@@ -1,0 +1,25 @@
+[
+ {
+  "code": 0,
+  "stdout": "",
+  "calls": [
+   "omarchy-system-lock "
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {}
+ },
+ {
+  "code": 0,
+  "stdout": "",
+  "calls": [],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.local/state/omarchy/indicators/stay-awake": [
+    420,
+    ""
+   ]
+  }
+ }
+]

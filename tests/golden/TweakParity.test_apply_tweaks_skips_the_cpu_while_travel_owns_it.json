@@ -1,0 +1,25 @@
+[
+ {
+  "code": 0,
+  "stdout": "ok\n",
+  "calls": [
+   "pkexec <base>/bin/ops-priv wifi on"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/power-hub-tweaks.json": [
+    420,
+    "{\"turboPinned\": true, \"turbo\": true, \"wifiPinned\": true, \"wifi\": true, \"eppPinned\": true, \"epp\": \"power\"}"
+   ],
+   "run/omarchy-power-hub/travel.json": [
+    420,
+    "{\"on\": true, \"complete\": true, \"reduceCpu\": true, \"source\": \"battery\", \"error\": \"\", \"pending\": [\"profile\", \"turbo\", \"brightness\", \"refresh\"], \"profile\": \"balanced\", \"cpu\": {\"turbo\": true, \"epp\": []}, \"brightness\": {\"monitor\": \"eDP-1\", \"before\": 70}, \"monitor\": {\"output\": \"eDP-1\", \"name\": \"eDP-1\", \"width\": 1920, \"height\": 1200, \"x\": 0, \"y\": 0, \"refreshRate\": 165.004, \"scale\": 1.25, \"transform\": 0}, \"controls\": {\"profile\": {\"available\": true, \"detail\": \"Frozen profile\"}, \"turbo\": {\"available\": true, \"detail\": \"Frozen turbo\"}, \"epp\": {\"available\": true, \"detail\": \"Frozen epp\"}, \"brightness\": {\"available\": true, \"detail\": \"Frozen brightness\"}, \"refresh\": {\"available\": false, \"detail\": \"Laptop refresh capped at 59.94 Hz\"}}}"
+   ]
+  }
+ }
+]
