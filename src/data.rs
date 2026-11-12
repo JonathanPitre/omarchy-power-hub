@@ -173,6 +173,8 @@ fn tweaks() -> Value {
     ] {
         t.insert(k.into(), Value::Bool(v));
     }
+    t.insert("powerButtonAvailable".into(), Value::Bool(crate::kblight::power_button_available()));
+    t.insert("powerButton".into(), saved["powerButton"].as_str().filter(|l| crate::kblight::FP_LEVELS.contains(l)).unwrap_or("auto").into());
     if let Value::Object(saved) = saved {
         t.extend(saved.into_iter().filter(|(k, _)| k.ends_with("Pinned")));
     }

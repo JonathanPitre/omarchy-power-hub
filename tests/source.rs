@@ -205,7 +205,7 @@ mod copy {
     #[test]
     fn charge_section_names_backends() {
         let src = file("PlanSection.qml");
-        has_all(&src, "PlanSection.qml", &["CHARGE LIMIT", "BATTERY HEALTH", "80% is recommended for everyday use", "Set the BIOS charge limit to match this value",
+        has_all(&src, "PlanSection.qml", &["CHARGE LIMIT", "BATTERY HEALTH", "80% for everyday use, 60% if mostly plugged in", "Set the BIOS charge limit to match this value",
                                             r#""Needs permission""#, r#"root.call(["health""#]);
         has_none(&src, "PlanSection.qml", &["Desk use"]);
     }
@@ -258,6 +258,8 @@ mod copy {
         let model = file("Model.js");
         has_all(&model, "Model.js", &[r#"key: "abm""#, r#"key: "effects""#]);
         has_all(&file("src/action.rs"), "src/action.rs", &[r#""wifi" | "usb" | "pcie" | "audio" | "abm" | "effects""#]);
+        has_all(&file("src/action.rs"), "src/action.rs", &[r#""powerbutton""#]);
+        has_all(&file("Panel.qml"), "Panel.qml", &["powerButtonAvailable", r#"service.act("powerbutton""#]);
         has_all(&file("bin/ops-priv"), "bin/ops-priv", &["  abm)\n"]);
     }
 

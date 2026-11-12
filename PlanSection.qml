@@ -310,7 +310,7 @@ Column {
         anchors.leftMargin: Style.space(6)
         anchors.verticalCenter: parent.verticalCenter
         iconText: ""
-        tooltipText: "80% is recommended for everyday use. Set the BIOS charge limit to match this value, and turn off Battery Extender, which can override it."
+        tooltipText: "80% for everyday use, 60% if mostly plugged in. Set the BIOS charge limit to match this value, and turn off Battery Extender, which can override it."
         foreground: root.dim
         hoverColor: root.fg
         fontFamily: root.fontFamily

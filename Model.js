@@ -235,12 +235,11 @@ function sleepSummary(s) {
 }
 
 // Device-power-saving rows: what each toggle does, plus the tradeoff to weigh
-// before turning it on. `blurb` shows under the label; `help` opens on the (i).
+// before turning it on. `help` opens on the (i); `framework` rows sit in the Framework group.
 var TWEAK_INFO = [
   {
     key: "wifi",
     title: "Wi-Fi power saving",
-    blurb: "Radio sleeps between packets",
     help: "Saves roughly 0.5–1 W. Adds a few milliseconds of latency, and on some "
         + "Broadcom/Intel adapters can cause brief stalls or lower throughput on a "
         + "weak signal. Turn it off if you notice connection hiccups or video-call drops."
@@ -248,7 +247,6 @@ var TWEAK_INFO = [
   {
     key: "pcie",
     title: "PCIe runtime power",
-    blurb: "Idle PCIe devices suspend",
     help: "One of the larger idle-power wins (~1–2 W) — SSD controller, card reader, "
         + "Thunderbolt/USB4. Rarely a device fails to resume and needs a reboot. The "
         + "installed TLP config already keeps the NVMe controller out of this."
@@ -256,7 +254,6 @@ var TWEAK_INFO = [
   {
     key: "usb",
     title: "USB autosuspend",
-    blurb: "Idle USB devices power down, except keyboards and mice",
     help: "Saves about 0.1–0.5 W per device. Some webcams, audio interfaces, DACs and "
         + "wireless dongles drop off or take a moment to wake. If a device misbehaves, "
         + "replug it or turn this off."
@@ -264,7 +261,6 @@ var TWEAK_INFO = [
   {
     key: "audio",
     title: "Audio codec power save",
-    blurb: "Codec sleeps a second after sound stops",
     help: "Saves ~0.4 W. You may hear a faint pop, or lose the first fraction of a "
         + "second of playback, when it wakes. Harmless — disable it if the click bothers you."
   },
@@ -272,23 +268,20 @@ var TWEAK_INFO = [
     key: "abm",
     optional: true,
     title: "Panel power saving",
-    blurb: "Lowers the backlight and boosts contrast",
     help: "AMD's adaptive backlight. Saves display power, but colors can look less accurate "
         + "and dark scenes can shift slightly. Travel mode turns this on for its duration."
   },
   {
     key: "effects",
     title: "Reduce effects",
-    blurb: "Turns off animations and shadows",
     help: "Less work for the GPU on every window change. Windows open and move instantly "
         + "instead of animating. Travel mode turns this on for its duration."
   },
   {
     key: "daylight",
-    optional: true,
+    framework: true,
     setting: true,
     title: "Keyboard light off in daylight",
-    blurb: "Stays off when waking in bright light",
     help: "When the displays wake at 100 lux or more, the keyboard light stays off. In a "
         + "darker room it returns to its level. The light sensor is only read at wake."
   }

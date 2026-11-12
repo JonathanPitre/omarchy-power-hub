@@ -616,7 +616,7 @@ Panel {
             PanelSectionHeader { text: "POWER TWEAKS"; foreground: root.fg; fontFamily: root.fontFamily }
 
             Repeater {
-              model: Model.TWEAK_INFO
+              model: Model.TWEAK_INFO.filter(function(t) { return !t.framework })
 
               TweakRow {
                 required property var modelData
@@ -624,7 +624,6 @@ Panel {
                 width: parent.width
                 tweakKey: modelData.key
                 title: modelData.title
-                blurb: modelData.blurb
                 help: modelData.help
                 on: root.tweaks[modelData.key] === true
                 pinned: root.tweaks[modelData.key + "Pinned"] === true
@@ -637,6 +636,87 @@ Panel {
                 onSetPinned: function(next) {
                   if (next) service.act("persist", tweakKey, on ? "on" : "off")
                   else service.act("unpersist", tweakKey)
+                }
+              }
+            }
+
+            Text {
+              text: "FRAMEWORK"
+              color: root.dim
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.caption
+              font.bold: true
+              font.letterSpacing: 1
+            }
+
+            Repeater {
+              model: Model.TWEAK_INFO.filter(function(t) { return t.framework })
+
+              TweakRow {
+                required property var modelData
+                enabled: root.tweaks[modelData.key + "Available"] === true
+                width: parent.width
+                tweakKey: modelData.key
+                title: modelData.title
+                help: modelData.help
+                on: root.tweaks[modelData.key] === true
+                pinnable: !modelData.setting
+                onSetOn: function(next) { service.act(tweakKey, next ? "on" : "off") }
+              }
+            }
+
+            Item {
+              id: powerButtonRow
+              readonly property var levels: ["auto", "high", "medium", "low", "ultra-low"]
+              readonly property var labels: ["Auto", "High", "Medium", "Low", "Ultra Low"]
+              width: parent.width
+              implicitHeight: Style.space(34)
+              enabled: root.tweaks.powerButtonAvailable === true
+              opacity: enabled ? 1 : 0.35
+
+              Text {
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                text: "Power button brightness"
+                color: root.fg
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.body
+                font.bold: true
+              }
+              Row {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+
+                Repeater {
+                  model: powerButtonRow.levels
+
+                  Rectangle {
+                    required property string modelData
+                    required property int index
+                    readonly property bool current: modelData === (root.tweaks.powerButton || "auto")
+                    width: segText.implicitWidth + Style.space(20)
+                    height: Style.space(26)
+                    color: current ? Commons.Color.accent : segHit.containsMouse ? root.faint : "transparent"
+                    border.width: 1
+                    border.color: root.faint
+
+                    Text {
+                      id: segText
+                      anchors.centerIn: parent
+                      text: powerButtonRow.labels[index]
+                      color: current ? Qt.darker(Commons.Color.accent, 4) : root.dim
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                      font.bold: current
+                    }
+                    MouseArea {
+                      id: segHit
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: service.act("powerbutton", modelData)
+                    }
+                  }
                 }
               }
             }
@@ -779,14 +859,13 @@ Panel {
     }
   }
 
-  // A device-power-saving row: label + one-line blurb, an (i) that expands
-  // the full explanation and a "keep after reboot" control, and the switch.
+  // A device-power-saving row: label and switch, with an (i) on hover that expands
+  // the full explanation and a "keep after reboot" control.
   component TweakRow: Column {
     id: tw
 
     property string tweakKey: ""
     property string title: ""
-    property string blurb: ""
     property string help: ""
     property bool on: false
     property bool pinned: false
@@ -798,10 +877,13 @@ Panel {
 
     width: parent ? parent.width : implicitWidth
     spacing: Style.space(4)
+    opacity: enabled ? 1 : 0.35
 
     Item {
       width: parent.width
-      implicitHeight: Math.max(twSwitch.implicitHeight, twText.implicitHeight, Style.space(28))
+      implicitHeight: Style.space(34)
+
+      HoverHandler { id: twHover }
 
       Column {
         id: twText
@@ -820,15 +902,6 @@ Panel {
           font.bold: true
           elide: Text.ElideRight
         }
-        Text {
-          width: parent.width
-          text: tw.blurb
-          visible: text !== ""
-          color: root.dim
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.caption
-          wrapMode: Text.WordWrap
-        }
       }
 
       Row {
@@ -840,6 +913,7 @@ Panel {
         PanelActionButton {
           iconText: tw.expanded ? "\uf056" : "\uf05a"
           tooltipText: tw.expanded ? "Hide details" : tw.help
+          opacity: twHover.hovered || tw.expanded ? 1 : 0
           foreground: tw.expanded ? Commons.Color.accent : root.dim
           hoverColor: root.fg
           fontFamily: root.fontFamily

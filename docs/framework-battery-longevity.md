@@ -9,6 +9,7 @@ Recommended setup for the longest battery life, and why.
 | BIOS > Advanced | Battery charge limit | `80`, same as the plugin limit |
 | BIOS > Advanced | Battery Extender | `Disabled` |
 | Plugin | Charge limit | `80` (default) |
+| Both, mostly plugged in | Charge limit | `60`, in the BIOS and the plugin |
 
 - The BIOS limit is the only limit that applies before login, in the BIOS, or if the plugin is not running. Match it to the plugin so there is no window above the target after boot.
 - 100% in the BIOS leaves the plugin as the only protection. 90% leaves a window above 80% after every boot.

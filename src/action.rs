@@ -10,6 +10,7 @@ pub fn run(args: &[String]) -> Option<Value> {
     let _ = match arg(0) {
         verb @ ("turbo" | "epp") => tweaks::cpu(verb, arg(1)),
         verb @ ("wifi" | "usb" | "pcie" | "audio" | "abm" | "effects") => tweaks::apply_tweak(verb, on(arg(1)), false),
+        "powerbutton" => tweaks::power_button(arg(1)),
         "daylight" => tweaks::daylight(arg(1) == "on"),
         "persist" => tweaks::apply_tweak(arg(1), on(arg(2)), true),
         "unpersist" => tweaks::unpin(arg(1)),

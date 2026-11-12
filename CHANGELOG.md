@@ -7,8 +7,17 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [0.0.59] - 2026-11-11
 
+### Added
+
+- **Power button brightness** in power tweaks: Auto, High, Medium, Low or Ultra Low. It is greyed out unless a Framework with `framework_tool` is found, and the level is reapplied at login. The EC only shows a new level when it takes the LED back, so each change hands `chromeos:white:power` to `none` and back to `chromeos-auto`.
+
+### Fixed
+
+- Waking the displays no longer leaves the power button light at full brightness. A brightness write took it off `chromeos-auto`, so only a manual light gets one now.
+
 ### Changed
 
+- The charge limit tooltip suggests 60% for a mostly plugged-in laptop.
 - The whole backend runs in one binary, `bin/power-hub`. Python is no longer needed.
 - The first start asks once to update the root helper.
 - Lid close no longer asks for a password before the helper is updated.

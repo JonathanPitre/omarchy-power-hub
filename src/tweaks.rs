@@ -65,10 +65,15 @@ fn unit_text() -> String {
     )
 }
 
-fn write_unit() -> io::Result<()> {
+/// `start` runs every pinned tweak now as well; a caller that just applied its own leaves it off.
+fn write_unit(start: bool) -> io::Result<()> {
+    if !start && fs::read(unit_dir().join(UNIT)).is_ok_and(|t| t == unit_text().as_bytes()) {
+        return Ok(());
+    }
     fs::create_dir_all(unit_dir())?;
     fs::write(unit_dir().join(UNIT), unit_text())?;
-    exec::run(&["systemctl", "--user", "enable", "--now", UNIT], Duration::from_secs(8));
+    let args: &[&str] = if start { &["systemctl", "--user", "enable", "--now", UNIT] } else { &["systemctl", "--user", "enable", UNIT] };
+    exec::run(args, Duration::from_secs(8));
     Ok(())
 }
 
@@ -92,7 +97,7 @@ fn apply_unlocked(key: &str, on: bool, persist: bool) -> String {
     if persist {
         prefs[format!("{key}Pinned")] = json!(true);
     }
-    let saved = save_tweaks(&prefs).and_then(|()| if persist { write_unit() } else { Ok(()) });
+    let saved = save_tweaks(&prefs).and_then(|()| if persist { write_unit(true) } else { Ok(()) });
     saved.map_or_else(|e| e.to_string(), |()| err)
 }
 
@@ -116,6 +121,12 @@ pub fn apply_saved_tweaks() -> String {
             continue;
         }
         let e = apply_tweak(key, truthy(&prefs[key]), false);
+        if !e.is_empty() {
+            err = e;
+        }
+    }
+    if let Some(level) = prefs["powerButton"].as_str().filter(|_| truthy(&prefs["powerButtonPinned"])) {
+        let e = crate::kblight::set_power_button(level);
         if !e.is_empty() {
             err = e;
         }
@@ -152,6 +163,18 @@ pub fn daylight(on: bool) -> String {
     let mut prefs = saved_prefs();
     prefs["daylight"] = json!(on);
     save(&prefs)
+}
+
+/// The power button light level: applied now, saved, and reapplied at login.
+pub fn power_button(level: &str) -> String {
+    let err = crate::kblight::set_power_button(level);
+    if !err.is_empty() {
+        return err;
+    }
+    let mut prefs = saved_prefs();
+    prefs["powerButton"] = json!(level);
+    prefs["powerButtonPinned"] = json!(true);
+    save_tweaks(&prefs).and_then(|()| write_unit(false)).map_or_else(|e| e.to_string(), |()| String::new())
 }
 
 pub fn cpu(which: &str, value: &str) -> String {

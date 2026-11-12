@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 const DAYLIGHT_LUX: f64 = 100.0;
-const FP_LEVELS: [&str; 5] = ["auto", "high", "medium", "low", "ultra-low"];
+pub const FP_LEVELS: [&str; 5] = ["auto", "high", "medium", "low", "ultra-low"];
 type Argv = Vec<String>;
 
 fn argv(parts: &[&str]) -> Argv {
@@ -226,7 +226,8 @@ fn wake_power(led: &Path, fp: &Fp) {
     if let Some(name) = &fp.trigger {
         put(&led.join("trigger"), name);
     }
-    if let Some(n) = fp.brightness {
+    // Writing a brightness takes the LED off its trigger, so only a manual LED gets one.
+    if let (Some(n), None | Some("none")) = (fp.brightness, fp.trigger.as_deref()) {
         put(&led.join("brightness"), &n.to_string());
     }
 }
@@ -242,6 +243,30 @@ fn fp_restore(fp: &Fp) -> Option<Argv> {
 fn save(path: &Path, state: &Map<String, Value>) {
     let _ = path.parent().map(fs::create_dir_all);
     let _ = fs::write(path, Value::Object(state.clone()).to_string() + "\n");
+}
+
+/// Whether this machine is a Framework whose power button light `framework_tool` can set.
+pub fn power_button_available() -> bool {
+    !model_of(&dmi("sys_vendor"), &dmi("product_name")).is_empty() && exec::on_path("framework_tool")
+}
+
+/// Set the power button light to a named level, or the error to show.
+pub fn set_power_button(level: &str) -> String {
+    if !FP_LEVELS.contains(&level) || !power_button_available() {
+        return "The power button level cannot be set on this machine".into();
+    }
+    let helper = charge::helper_bin().or_else(|| Some(paths::ops_priv()).filter(|p| p.is_file()));
+    let args = argv(&["framework_tool", "--fp-led-level", level]);
+    let (code, out) = call(&args, priv_argv(&args, helper.as_deref()));
+    if !tool_ok(code, &out) {
+        return out.trim().to_string();
+    }
+    // The EC only shows a new level when it takes the LED back, so hand it over once.
+    if let Some(led) = power_led().filter(|l| fs::read_to_string(l.join("trigger")).ok().and_then(|t| trigger(&t)).as_deref() == Some("chromeos-auto")) {
+        put(&led.join("trigger"), "none");
+        put(&led.join("trigger"), "chromeos-auto");
+    }
+    String::new()
 }
 
 /// Dark lights for `off`, or the saved ones back for a wake; `daylight` keeps the keys off in a bright room.
@@ -373,6 +398,17 @@ mod tests {
         assert_eq!(fp_state("Requested: nope\nBrightness: 101%"), None);
         assert_eq!(fp_state("Brightness: 1000%\nBrightness: 5%"), fp(None, Some(5)));
         assert_eq!(fp_state("Requested:"), None);
+    }
+
+    #[test]
+    fn wake_leaves_brightness_to_a_restored_trigger() {
+        let led = tmp("wake-auto", "").parent().unwrap().to_path_buf();
+        fs::write(led.join("brightness"), "0").unwrap();
+        wake_power(&led, &Fp { sys: true, trigger: Some("chromeos-auto".into()), brightness: Some(100), ..Fp::default() });
+        assert_eq!(fs::read_to_string(led.join("trigger")).unwrap(), "chromeos-auto");
+        assert_eq!(fs::read_to_string(led.join("brightness")).unwrap(), "0", "a brightness write takes the LED off its trigger");
+        wake_power(&led, &Fp { sys: true, trigger: Some("none".into()), brightness: Some(40), ..Fp::default() });
+        assert_eq!(fs::read_to_string(led.join("brightness")).unwrap(), "40");
     }
 
     #[test]
