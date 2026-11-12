@@ -85,7 +85,7 @@
   },
   "side": {
    "keys.state": "33\n",
-   "brightness": "80",
+   "brightness": "0",
    "max_brightness": "100\n",
    "trigger": "chromeos-auto"
   }

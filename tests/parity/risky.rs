@@ -563,7 +563,7 @@ mod lights_parity {
         go(&s, OFF);
         assert_eq!((led_file(&s, "brightness"), kblight_saved(&s).unwrap()["fp"].clone()), ("0".to_string(), json!({"sys": true, "trigger": "chromeos-auto", "brightness": 80})));
         go(&s, ON);
-        assert_eq!((led_file(&s, "brightness"), led_file(&s, "trigger")), ("80".to_string(), "chromeos-auto".to_string()));
+        assert_eq!((led_file(&s, "brightness"), led_file(&s, "trigger")), ("0".to_string(), "chromeos-auto".to_string()));
     }
 
     #[test]
@@ -593,7 +593,7 @@ mod lights_parity {
         assert!(fs::read_to_string(&s.calls_log).unwrap().contains(&format!("sudo -n tee {}/sys/class/leds/chromeos:white:power/brightness", s.root.display())));
         assert_eq!(piped(), "[0]");
         go(&s, ON);
-        assert_eq!(piped(), "[0][80]");
+        assert_eq!(piped(), "[0]");
     }
 
     #[test]
@@ -663,7 +663,7 @@ mod lights_parity {
             let (s, go) = start(&Lights { led: AUTO_LED, lux, scale, daylight, ..lights(vec![qmk_keys(67)]) }, "LightsParity.test_daylight_keeps_the_keys_off_from_100_lux_up");
             go(&s, OFF);
             go(&s, ON);
-            let want = if kept { (0, "80", Some(json!({"level": 67, "held": true}))) } else { (67, "80", None) };
+            let want = if kept { (0, "0", Some(json!({"level": 67, "held": true}))) } else { (67, "0", None) };
             assert_eq!((keys_level(&s), led_file(&s, "brightness"), kblight_saved(&s)), (want.0, want.1.to_string(), want.2), "{lux:?} {scale:?} {daylight}");
         }
     }
@@ -678,7 +678,7 @@ mod lights_parity {
         assert_eq!(led_file(&s, "brightness"), "0");
         s.light_sensor(37, None);
         go(&s, ON);
-        assert_eq!((keys_level(&s), led_file(&s, "brightness"), kblight_saved(&s)), (67, "80".to_string(), None));
+        assert_eq!((keys_level(&s), led_file(&s, "brightness"), kblight_saved(&s)), (67, "0".to_string(), None));
     }
 
     #[test]
@@ -703,7 +703,7 @@ mod lights_parity {
         go(&s, OFF);
         assert_eq!(kblight_saved(&s), saved);
         go(&s, ON);
-        assert_eq!((keys_level(&s), led_file(&s, "brightness"), led_file(&s, "trigger")), (67, "80".to_string(), "chromeos-auto".to_string()));
+        assert_eq!((keys_level(&s), led_file(&s, "brightness"), led_file(&s, "trigger")), (67, "0".to_string(), "chromeos-auto".to_string()));
     }
 
     #[test]

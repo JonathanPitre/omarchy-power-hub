@@ -918,7 +918,7 @@ mod data_parity {
         let d = data_of(&s, "DataParity.test_tweaks_counts_and_pins");
         assert_eq!(d["tweaks"], json!({"wifi": true, "usb": false, "pcie": true, "audio": true, "abm": true,
                                        "abmAvailable": true, "effects": true, "daylight": false, "daylightAvailable": false,
-                                       "wifiPinned": true, "usbPinned": false, "audioPinned": 3}));
+                                       "powerButtonAvailable": false, "powerButton": "auto", "wifiPinned": true, "usbPinned": false, "audioPinned": 3}));
         assert_eq!(r.requests, ["getoption animations:enabled"]);
         assert!(r.calls_text().contains("iw dev wlan0 get power_save"));
     }
@@ -931,7 +931,7 @@ mod data_parity {
         s.write("/sys/module/snd_hda_intel/parameters/power_save", "0\n");
         assert_eq!(data_of(&s, "DataParity.test_tweaks_default_off")["tweaks"], json!({
             "wifi": false, "usb": false, "pcie": false, "audio": false, "abm": false, "abmAvailable": true, "effects": false,
-            "daylight": false, "daylightAvailable": false}));
+            "daylight": false, "daylightAvailable": false, "powerButtonAvailable": false, "powerButton": "auto"}));
     }
 
     #[test]

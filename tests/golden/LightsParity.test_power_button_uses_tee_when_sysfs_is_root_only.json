@@ -56,8 +56,7 @@
    "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
    "pkill -x ttfx",
    "pkill -f [o]rg.omarchy.screensaver",
-   "qmk_hid via --backlight 41",
-   "sudo -n tee <base>/root/sys/class/leds/chromeos:white:power/brightness"
+   "qmk_hid via --backlight 41"
   ],
   "evals": [
    "hl.config({ cursor = { invisible = false } })"

@@ -1,7 +1,7 @@
 [
  {
   "code": 0,
-  "stdout": "{\"battery\": {\"present\": false, \"percent\": 0, \"status\": \"Unknown\", \"watts\": 0.0, \"health\": 0, \"whFull\": 0.0, \"whDesign\": 0.0, \"cycles\": 0, \"minutes\": 0, \"acOnline\": 1, \"fraction\": 0.0, \"drainTo\": 0}, \"rapl\": {\"available\": true, \"package\": 0.0, \"core\": 0.0, \"gpu\": 0}, \"tweaks\": {\"wifi\": false, \"usb\": false, \"pcie\": false, \"audio\": false, \"abm\": false, \"abmAvailable\": false, \"effects\": false, \"daylight\": false, \"daylightAvailable\": false}, \"sleep\": {\"installed\": false}}",
+  "stdout": "{\"battery\": {\"present\": false, \"percent\": 0, \"status\": \"Unknown\", \"watts\": 0.0, \"health\": 0, \"whFull\": 0.0, \"whDesign\": 0.0, \"cycles\": 0, \"minutes\": 0, \"acOnline\": 1, \"fraction\": 0.0, \"drainTo\": 0}, \"rapl\": {\"available\": true, \"package\": 0.0, \"core\": 0.0, \"gpu\": 0}, \"tweaks\": {\"wifi\": false, \"usb\": false, \"pcie\": false, \"audio\": false, \"abm\": false, \"abmAvailable\": false, \"effects\": false, \"daylight\": false, \"daylightAvailable\": false, \"powerButtonAvailable\": false, \"powerButton\": \"auto\"}, \"sleep\": {\"installed\": false}}",
   "calls": [
    "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery"
   ],
@@ -13,7 +13,7 @@
  },
  {
   "code": 0,
-  "stdout": "{\"battery\": {\"present\": false, \"percent\": 0, \"status\": \"Unknown\", \"watts\": 0.0, \"health\": 0, \"whFull\": 0.0, \"whDesign\": 0.0, \"cycles\": 0, \"minutes\": 0, \"acOnline\": 1, \"fraction\": 0.0, \"drainTo\": 0}, \"rapl\": {\"available\": true, \"package\": 5.0, \"core\": 5.0, \"gpu\": 0}, \"tweaks\": {\"wifi\": false, \"usb\": false, \"pcie\": false, \"audio\": false, \"abm\": false, \"abmAvailable\": false, \"effects\": false, \"daylight\": false, \"daylightAvailable\": false}, \"sleep\": {\"installed\": false}}",
+  "stdout": "{\"battery\": {\"present\": false, \"percent\": 0, \"status\": \"Unknown\", \"watts\": 0.0, \"health\": 0, \"whFull\": 0.0, \"whDesign\": 0.0, \"cycles\": 0, \"minutes\": 0, \"acOnline\": 1, \"fraction\": 0.0, \"drainTo\": 0}, \"rapl\": {\"available\": true, \"package\": 5.0, \"core\": 5.0, \"gpu\": 0}, \"tweaks\": {\"wifi\": false, \"usb\": false, \"pcie\": false, \"audio\": false, \"abm\": false, \"abmAvailable\": false, \"effects\": false, \"daylight\": false, \"daylightAvailable\": false, \"powerButtonAvailable\": false, \"powerButton\": \"auto\"}, \"sleep\": {\"installed\": false}}",
   "calls": [
    "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery"
   ],

@@ -96,7 +96,7 @@
   },
   "side": {
    "keys.state": "0\n",
-   "brightness": "80",
+   "brightness": "0",
    "max_brightness": "100\n",
    "trigger": "chromeos-auto"
   }
@@ -144,7 +144,7 @@
    ],
    "run/omarchy-power-hub/kblight.json": [
     420,
-    "{\"level\": 67, \"fp\": {\"sys\": true, \"brightness\": 80}}"
+    "{\"level\": 67, \"fp\": {\"sys\": true, \"brightness\": 0}}"
    ]
   },
   "side": {
@@ -195,7 +195,7 @@
   },
   "side": {
    "keys.state": "67\n",
-   "brightness": "80",
+   "brightness": "0",
    "max_brightness": "100\n",
    "trigger": "chromeos-auto"
   }

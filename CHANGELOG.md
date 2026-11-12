@@ -14,6 +14,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ### Fixed
 
 - Waking the displays no longer leaves the power button light at full brightness. A brightness write took it off `chromeos-auto`, so only a manual light gets one now.
+- The parity tests expect the power button light to stay with its `chromeos-auto` trigger on wake, and the new power button fields in `data`.
 
 ### Changed
 

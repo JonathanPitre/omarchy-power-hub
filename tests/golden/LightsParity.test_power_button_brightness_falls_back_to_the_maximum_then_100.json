@@ -85,7 +85,7 @@
   },
   "side": {
    "keys.state": "33\n",
-   "brightness": "60",
+   "brightness": "0",
    "max_brightness": "60\n",
    "trigger": "chromeos-auto"
   }
@@ -176,7 +176,7 @@
   },
   "side": {
    "keys.state": "33\n",
-   "brightness": "100",
+   "brightness": "0",
    "max_brightness": "junk\n",
    "trigger": "chromeos-auto"
   }
