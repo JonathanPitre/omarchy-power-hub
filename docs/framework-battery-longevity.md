@@ -44,6 +44,7 @@ upower -i (upower -e | grep BAT) | grep -E 'state|percentage'
 
 - `Maximum 80%` is the EC ceiling. Above it, the EC discharges the battery down to the limit with the adapter connected, and the panel shows `PLUGGED IN · DRAINING TO 80%`. At the limit it holds with `Not charging`.
 - `Maximum 100%` means the firmware reset the limit. The plugin reapplies it after login. To set it by hand: `sudo framework_tool --charge-limit 80`.
+- A BIOS flash does not always reset it: after 4.02, `--charge-limit` still reported `Minimum 0%, Maximum 80%`. Check anyway, since a reset shows up as the `PLUGGED IN` row charging past the limit.
 
 ## Sources
 

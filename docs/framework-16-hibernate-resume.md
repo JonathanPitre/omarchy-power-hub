@@ -34,7 +34,7 @@ Same machine as [docs/framework-16-usb-c-replug-drain.md](framework-16-usb-c-rep
 | --- | --- |
 | Product | Framework Laptop 16 (AMD Ryzen AI 300 Series) |
 | Board | FRANMHCP09, version A9 |
-| BIOS | 04.01, 2026-06-12 |
+| BIOS | 04.02, 2026-11-06 (DMI build date; released 2026-11-16) |
 | OS | Arch / Omarchy, Hyprland, kernel `7.2.3-arch1-3` |
 | Resume setup | swapfile on LUKS/btrfs, `resume=/dev/mapper/root`, matching `resume_offset`, mkinitcpio `resume` hook |
 | Hibernate attempts in this journal | none recorded (availability was blocked by Bitwarden until documented) |
@@ -51,6 +51,10 @@ Hibernate, power off, power on, unlock LUKS, restore the previous session.
 Resume boots a new session. Community logs show the E820 mismatch. A
 separate AI 300 class of failure is a hang or reset on device resume;
 `pm_async=0` is an experimental workaround for that race, not a firmware fix.
+
+BIOS 4.02 (2026-11-06) does not claim an ACPI or memory-map change. Its AGESA
+1.1.0.2f update is documented as an SPL security fix that also blocks rollback
+to 04.01. Nothing to retest here unless a resume starts working.
 
 ## Workaround
 

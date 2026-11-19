@@ -16,6 +16,8 @@ With a bus-powered USB-C monitor connected, unplugging the Framework **240 W** a
 
 Unplugging the monitor and reconnecting the adapter restores several amps input (~9 A seen) and charging. A 90% charge limit does not explain this; discharge continued from ~82% toward ~50% with the brick in.
 
+On BIOS 4.02 the port no longer stays there: it retries for 13-40 s and returns to 240 W EPR on its own. The dip, and the throttling during it, remain. See [BIOS 4.02](#bios-402).
+
 ## System (reporter)
 
 | Item | Value |
@@ -24,10 +26,10 @@ Unplugging the monitor and reconnecting the adapter restores several amps input 
 | Board | FRANMHCP09, version A9 |
 | CPU | AMD Ryzen AI 9 HX 370 |
 | GPU | NVIDIA GeForce RTX 5070 Laptop GPU |
-| BIOS | 04.01, 2026-06-12 |
-| EC | `tulip-4.0.1-9b2a0b1` (RO/RW), Nuvoton npcx9m3f, built 2026-06-11 |
+| BIOS | 04.02, 2026-11-06 (DMI build date; released 2026-11-16) |
+| EC | `tulip-4.0.2-d229205` (RO/RW), Nuvoton npcx9m3f, built 2026-10-30 |
 | `framework_tool` | 0.6.5 |
-| OS | Arch / Omarchy, Hyprland, kernel `7.2.3-arch1-3` |
+| OS | Arch / Omarchy, Hyprland, kernel `7.2.15-1-omarchy` |
 | Battery | NVT FRANDBA, 85.0 Wh design, ~67% health (3667 mAh LFCC), 62 cycles |
 | Adapter | Stock Framework **240 W** USB-C + cable, middle-left, **EC port 2** |
 | Monitor | **JSAUX FlipGo** (EDID FlipGo-A1 / FlipGo-A2, vendor RTK), USB-C only, **EC port 4** |
@@ -59,13 +61,13 @@ Replug can freeze the machine. Be ready to hold the power button.
 1. Boot with JSAUX FlipGo on USB-C and the 240 W adapter in the middle-left port.
 2. `sudo framework_tool --power` — AC connected, `Chg Input Current` several amps (4900–9000 mA seen).
 3. Unplug the adapter ~20 s, plug back into the **same** port; do **not** unplug the FlipGo.
-4. `sudo framework_tool --power` and `--pdports`. Failure: **800 mA** + **Battery discharging**.
+4. `sudo framework_tool --power` and `--pdports`. Failure: **800 mA** + **Battery discharging**. Poll once a second for a minute: on 4.02 the EC retries and can restore EPR without unplugging the monitor (13-40 s in two runs).
 
 **Control:** disconnect FlipGo, then unplug/replug only the adapter → ~9 A input, charging.
 
 ## Workaround
 
-Unplug the JSAUX FlipGo (or similar bus-powered USB-C display), then reconnect the Framework adapter. Avoid hotplugging the brick while the FlipGo is attached until firmware fixes the charge-port handoff.
+Unplug the JSAUX FlipGo (or similar bus-powered USB-C display), then reconnect the Framework adapter. On 4.02, wait about a minute first: the EC retried for 13-40 s and then renegotiated 240 W EPR by itself (see [BIOS 4.02](#bios-402)). Do not unplug anything while it retries, and avoid hotplugging the brick with the FlipGo attached.
 
 ## EC evidence
 
@@ -140,9 +142,56 @@ FlipGo partner PDOs: 5 V/3 A, 9 V/560 mA, 12 V/420 mA.
 
 When the hero line shows **ON AC · DISCHARGING**, that matches EC/UPower: mains present (including FlipGo backfeed or brick) while `BAT1` is discharging. The plugin uses USB-C contract **≥15 W** for “AC” detection and applies the **battery** power profile while discharging to reduce replug freezes; it does **not** fix the 800 mA EC cap.
 
-## Test BIOS
+## BIOS 4.02
 
-Asked @quinchou77 on issue #193 for the private Laptop 16 AI 300 test BIOS (checksum, flash, rollback). Waiting for a non-public channel. Will capture `--pdports`, `--pd-info`, `--power -vv`, and `--console recent` before/after if a build is provided.
+Flashed 2026-11-19. PD moved to `0.0.23`, the EC to `tulip-4.0.2-d229205`, and
+the Input Module App to `0.3.17`. Three notes touch this code path, none names
+the symptom:
+
+- USB4 devices link down during data transitions or PCIe enumeration
+- DP Alt Mode fallback negotiation for partners rejecting SVDM 2.1 structures
+- EC crash from corrupted or malformed PD payload data
+
+Nothing in the notes covers the 800 mA floor after a 4→2 charge-port switch,
+EPR not coming back, or the replug freeze (`GPU HPD wake`).
+
+Two replugs on 2026-11-19, FlipGo attached and never unplugged, both entered the
+800 mA state and both recovered without help:
+
+| Attempt | First `800mA` | Back at `9000mA` | Dip |
+| --- | --- | --- | --- |
+| 16:17 | 16:17:14 | 16:17:55 | ~40 s, four retry cycles |
+| 16:27 | 16:27:44 | 16:27:57 | ~13 s, one retry cycle |
+
+A retry cycle reads as one second at `800mA`, two at `10000mA`, then either
+`2900mA` or a single `0mA` sample before the floor again. On 04.01 the floor
+held until the monitor was pulled off the port. The EC log of the successful
+attempt shows the floor and the recovery 1.5 s later:
+
+```text
+[6683.226500 Entered EPR]
+[6683.332100 Updating charger with EPR correction: ma 490, 3lvl_buck ma 490]
+[6683.339300 CL: p3 s0 i500 v20000]
+[6684.089200 Updating charger with EPR correction: ma 9025, 3lvl_buck ma 4900]
+[6684.093600 CL: p3 s0 i5000 v48000]
+[6684.112100 board_set_active_charge_port port 3, prev:3]
+[6684.119100 3lv-buck update! V:48000mV,W:240000mW]
+```
+
+The platform was throttled while the port retried: `PMF: SPL 28000mW,
+fPPT 50000mW` during the dip, `SPL 45000mW, fPPT 71000mW` after EPR settled.
+No freeze in either run.
+
+4.02 cannot be rolled back to 04.01: the AMD AGESA PI SPL update blocks it.
+
+Healthy state after the flash, brick and FlipGo attached:
+
+- PD App `0.0.23` in backup and main on all three controllers (right, left, back)
+- `Chg Input Current: 9000mA`, battery `Not charging` at the 80% ceiling
+- framework_tool port 3: `48.000 V, 5000 mA, 240.0 W`, `EPR: Active (Supported)`, `Sink Active: Yes`
+- Charge limit: `Minimum 0%, Maximum 80%`
+
+framework_tool prints ports 0-3 here, while the EC log quoted above says `port 2` and `prev:4`. The two labels do not line up, so compare port maps by reading `--pdports`, not by EC port number.
 
 ## Capture commands
 
