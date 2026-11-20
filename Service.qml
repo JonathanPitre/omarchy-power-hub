@@ -70,7 +70,17 @@ Item {
   property bool displaysIdle: false
   property string appliedSide: ""
 
+  property real offAt: 0
+  property real lockedAt: 0
+  readonly property bool unlockWatched: (((root.state.resume || ({})).settings || ({})).triggers || []).indexOf("unlock") >= 0
+
+  function resumed(source, awaySecs) {
+    Quickshell.execDetached([root.hub, "resume-run", "--source", source, "--away", String(Math.max(0, Math.round(awaySecs)))])
+  }
+
   function dpms(mode) {
+    if (mode === "off") root.offAt = Date.now()
+    else if (mode === "on" && root.displaysOff) root.resumed("displays", (Date.now() - root.offAt) / 1000)
     if (mode === "on" || mode === "off") root.dismissScreensaver()
     dpmsProc.command = [root.hub, "displays", mode]
     dpmsProc.running = true
@@ -199,6 +209,32 @@ Item {
     }
   }
   Process { id: dpmsProc }
+  Process {
+    id: sleepWatch
+    running: true
+    command: ["gdbus", "monitor", "--system", "--dest", "org.freedesktop.login1", "--object-path", "/org/freedesktop/login1"]
+    stdout: SplitParser { onRead: line => { if (line.indexOf("PrepareForSleep (false,)") >= 0) root.resumed("wake", 0) } }
+    onExited: sleepWatchRestart.start()
+  }
+  Timer { id: sleepWatchRestart; interval: 5000; onTriggered: sleepWatch.running = true }
+  // Neither Hyprland nor the lock plugin exposes lock state to other plugins, so poll its IPC.
+  Timer { interval: 5000; repeat: true; running: root.unlockWatched; onTriggered: if (!lockPoll.running) lockPoll.running = true }
+  Process {
+    id: lockPoll
+    command: ["omarchy-shell", "lock", "isLocked"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        if (text.trim() === "true") {
+          if (!root.lockedAt) root.lockedAt = Date.now()
+        } else if (root.lockedAt) {
+          var away = (Date.now() - root.lockedAt) / 1000
+          root.lockedAt = 0
+          root.resumed("unlock", away)
+        }
+      }
+    }
+  }
   Process {
     id: dismissProc
     command: ["bash", "-lc", "pkill -x ttfx; pkill -f '[o]rg.omarchy.screensaver'"]

@@ -350,3 +350,24 @@ mod no_python {
         }
     }
 }
+
+mod resume_triggers {
+    use super::*;
+
+    #[test]
+    fn resume_triggers_are_wired() {
+        has_all(
+            &file("Service.qml"),
+            "Service.qml",
+            &["PrepareForSleep", r#"resumed("wake""#, r#"resumed("displays""#, r#"resumed("unlock""#, r#""resume-run", "--source""#, "Quickshell.execDetached"],
+        );
+    }
+
+    #[test]
+    fn resume_runs_detached() {
+        for part in file("Service.qml").split("Process {").skip(1) {
+            let body = part.split("\n  }").next().unwrap();
+            assert!(!body.contains("resume-run"), "a Process runs resume-run: {body}");
+        }
+    }
+}
