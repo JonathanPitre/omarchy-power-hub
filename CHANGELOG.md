@@ -10,7 +10,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ### Added
 
 - **On resume** updates Omarchy, plugins, lean-ctx, Rulesync, Skills Manager and T3 Code after wake, displays on or unlock. It can restart the shell and T3 Code, restore T3 Code's windows with hypr-persist, or run your own script. Failed steps are logged to `resume.log` and never stop later steps.
-- `power-hub resume-run --now` runs it by hand.
+- **Run now** in the panel runs it by hand. Opening the lid counts as displays on.
 
 ## [0.0.59] - 2026-11-11
 

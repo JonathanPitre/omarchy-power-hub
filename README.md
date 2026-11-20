@@ -40,7 +40,8 @@ are supported where they expose the required Linux controls. See
   button lights, and can keep the keyboard light off when the displays wake in
   daylight.
 - **On resume:** updates Omarchy, plugins, lean-ctx, Rulesync, Skills Manager
-  and T3 Code after wake, displays on or unlock, then restores T3 Code's windows.
+  and T3 Code after wake, displays on or unlock. It restores T3 Code's windows
+  when hypr-persist supports `--class`.
 - **Bar widget:** battery icon and optional percentage, configurable for
   battery and plugged-in states.
 
@@ -150,12 +151,12 @@ installed backport, rollback steps, and verification.
 ## 🔄 On resume
 
 Power Hub can update your tools when the laptop wakes. Run it by hand with
-`power-hub resume-run --now`. Settings live under `onResume` in
+the panel's Run now button. Settings live under `onResume` in
 `~/.config/omarchy/omarchy-power-hub.json`.
 
 | Setting | Default | What it does |
 |---|---|---|
-| `triggers` | `["wake"]` | Events that start a run: `wake`, `displays` or `unlock`. |
+| `triggers` | `["wake"]` | Events that start a run: `wake`, `displays` or `unlock`. Opening the lid counts as `displays`. |
 | `awayMinutes` | `30` | Minimum time away for `displays` and `unlock`. Wake always counts. |
 | `everyHours` | `4` | Minimum time between runs, for every trigger. |
 | `omarchy` | `true` | Runs `omarchy update -y`. |
@@ -174,15 +175,19 @@ Skills Manager.
 
 ### 🔐 Sudo and the terminal
 
-If a step needs sudo, the run opens a floating terminal titled `Stack Refresh`.
-It lists the steps, says `Omarchy update installs system packages`, and asks
-for your password once. Otherwise the run stays in the background.
+If a step needs sudo, the run opens a floating terminal titled `Stack Refresh`
+and lists the steps. With `omarchy` on, it says
+`Omarchy update installs system packages`, and `omarchy update` asks for your
+password once in that terminal. With only Skills Manager, it says
+`Skills Manager installs a system package` and asks for your password once
+before the steps. Otherwise the run stays in the background.
 
 ### 📝 Log and notifications
 
 The log is at `~/.local/state/omarchy-power-hub/resume.log`. A run sends one
 notification with each from and to version, or one naming the failed tool.
-Nothing is sent when everything is current. Power Hub never reboots.
+Nothing is sent when everything is current. Power Hub never reboots on its
+own: when an update needs one, the notification offers a Reboot button.
 
 ### 🤖 T3 Code
 
