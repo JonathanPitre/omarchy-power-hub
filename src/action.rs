@@ -15,6 +15,10 @@ pub fn run(args: &[String]) -> Option<Value> {
         "persist" => tweaks::apply_tweak(arg(1), on(arg(2)), true),
         "unpersist" => tweaks::unpin(arg(1)),
         "resume" => resume::set(arg(1), arg(2)),
+        "resume-now" => {
+            let _ = Command::new("setsid").arg(paths::bin_dir().join("power-hub")).args(["resume-run", "--now"]).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn();
+            String::new()
+        }
         "install-sleep-tracking" => {
             install_sleep_tracking();
             return None;

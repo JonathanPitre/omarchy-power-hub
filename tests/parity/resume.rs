@@ -121,3 +121,90 @@ fn test_failing_mise_is_asked_once_an_hour() {
     let asked = |s: &Sandbox| s.rust(&["data"]).calls.iter().filter(|c| c.starts_with("mise")).count();
     assert_eq!((asked(&s), asked(&s)), (1, 0));
 }
+
+/// Runs `resume-run`, then waits for the detached dispatch (or the lack of one) to show in the calls log.
+fn dispatched(s: &Sandbox, argv: &[&str], expect: bool) -> Vec<String> {
+    s.stub("uwsm-app", "", 0, "");
+    let argv: Vec<&str> = [&["resume-run"], argv].concat();
+    assert_eq!(s.rust(&argv).code, 0);
+    for _ in 0..if expect { 100 } else { 10 } {
+        if expect && !fs::read_to_string(&s.calls_log).unwrap().is_empty() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    fs::read_to_string(&s.calls_log).unwrap().lines().map(String::from).collect()
+}
+
+fn state(s: &Sandbox, v: Value) {
+    s.write("~/.local/state/omarchy-power-hub/resume.json", &v.to_string());
+}
+
+fn bin(s: &Sandbox) -> String {
+    format!("{}/power-hub", s.bin.display())
+}
+
+const TERMINAL: &str = "uwsm-app -- xdg-terminal-exec --app-id=org.omarchy.terminal --title=Stack Refresh -e";
+
+#[test]
+fn test_source_not_selected_skips() {
+    let s = Sandbox::new();
+    assert!(dispatched(&s, &["--source", "unlock", "--away", "9999"], false).is_empty());
+}
+
+#[test]
+fn test_away_threshold_only_for_displays_and_unlock() {
+    let s = Sandbox::new();
+    s.config(json!({"onResume": {"triggers": ["wake", "displays"]}}));
+    assert!(dispatched(&s, &["--source", "displays", "--away", "600"], false).is_empty());
+    assert_eq!(dispatched(&s, &["--source", "displays", "--away", "1800"], true).len(), 1);
+    assert_eq!(dispatched(&s, &["--source", "wake", "--away", "0"], true).len(), 1);
+}
+
+#[test]
+fn test_every_hours_limit() {
+    let s = Sandbox::new();
+    state(&s, json!({"lastRun": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() - 3600}));
+    assert!(dispatched(&s, &["--source", "wake", "--away", "0"], false).is_empty());
+    assert_eq!(dispatched(&s, &["--now"], true).len(), 1);
+}
+
+#[test]
+fn test_running_pid_alive_skips() {
+    let s = Sandbox::new();
+    state(&s, json!({"runningPid": std::process::id()}));
+    assert!(dispatched(&s, &["--source", "wake", "--away", "0"], false).is_empty());
+    assert!(dispatched(&s, &["--now"], false).is_empty());
+    state(&s, json!({"runningPid": 4_000_000}));
+    assert_eq!(dispatched(&s, &["--source", "wake", "--away", "0"], true).len(), 1);
+}
+
+#[test]
+fn test_background_dispatch() {
+    let s = Sandbox::new();
+    s.config(json!({"onResume": {"omarchy": false}}));
+    assert_eq!(dispatched(&s, &["--now"], true), [format!("uwsm-app -- {} resume-run --exec", bin(&s))]);
+}
+
+#[test]
+fn test_terminal_dispatch() {
+    let s = Sandbox::new();
+    assert_eq!(dispatched(&s, &["--source", "wake", "--away", "0"], true), [format!("{TERMINAL} {} resume-run --exec", bin(&s))]);
+}
+
+#[test]
+fn test_resume_now_action_returns_data_and_dispatches() {
+    let s = Sandbox::new();
+    s.stub("uwsm-app", "", 0, "");
+    fs::create_dir_all(&s.bin).unwrap();
+    std::os::unix::fs::symlink(crate::support::RUST_BIN, s.bin.join("power-hub")).unwrap();
+    let out = s.rust(&["action", "resume-now"]);
+    assert!(j(&out).get("resume").is_some());
+    for _ in 0..100 {
+        if !fs::read_to_string(&s.calls_log).unwrap().is_empty() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    assert!(fs::read_to_string(&s.calls_log).unwrap().contains("resume-run --exec"));
+}

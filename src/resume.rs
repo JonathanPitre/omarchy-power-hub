@@ -1,6 +1,7 @@
 use crate::{config, exec, paths};
 use serde_json::{Map, Value, json};
 use std::path::PathBuf;
+use std::process::{Command, Stdio};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::{fs, io};
 
@@ -120,4 +121,56 @@ pub fn status() -> Value {
         "lastError": state.get("lastError").cloned().unwrap_or_default(),
         "needsSudo": settings["omarchy"] == true && settings["script"] == "",
     })
+}
+
+/// Why a resume must not start a run, or `Ok` when it should. `--now` skips every limit but a live run.
+pub fn gate(source: &str, away_secs: u64, now: bool) -> Result<(), &'static str> {
+    let settings = settings();
+    let state = read_state();
+    if !now && !settings["triggers"].as_array().is_some_and(|t| t.iter().any(|t| t == source)) {
+        return Err("no trigger");
+    }
+    if state.get("runningPid").and_then(Value::as_u64).is_some_and(|p| std::path::Path::new(&format!("/proc/{p}")).exists()) {
+        return Err("running");
+    }
+    if now {
+        return Ok(());
+    }
+    if source != "wake" && away_secs < settings["awayMinutes"].as_u64().unwrap_or(30) * 60 {
+        return Err("not away long enough");
+    }
+    let last = state.get("lastRun").and_then(Value::as_u64).unwrap_or(0);
+    if self::now().saturating_sub(last) < settings["everyHours"].as_u64().unwrap_or(4) * 3600 {
+        return Err("too soon");
+    }
+    Ok(())
+}
+
+/// Starts the run detached from the caller, in a terminal when it needs sudo.
+pub fn dispatch() {
+    let bin = paths::bin_dir().join("power-hub").to_string_lossy().into_owned();
+    let terminal = ["xdg-terminal-exec", "--app-id=org.omarchy.terminal", "--title=Stack Refresh", "-e"];
+    let mut argv = vec!["uwsm-app", "--"];
+    if status()["needsSudo"] == true {
+        argv.extend(terminal);
+    }
+    argv.extend([bin.as_str(), "resume-run", "--exec"]);
+    let _ = Command::new("setsid").args(argv).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn();
+}
+
+/// `resume-run --source S --away N`, `--now` or `--exec`; the gate's verdict is silent. Returns the exit code.
+pub fn run(args: &[String]) -> i32 {
+    let flag = |f: &str| args.iter().position(|a| a == f).and_then(|i| args.get(i + 1));
+    let has = |f: &str| args.iter().any(|a| a == f);
+    if has("--exec") {
+        return 0;
+    }
+    let source = flag("--source").map_or("", String::as_str);
+    if source.is_empty() && !has("--now") {
+        return 2;
+    }
+    if gate(source, flag("--away").and_then(|a| a.parse().ok()).unwrap_or(0), has("--now")).is_ok() {
+        dispatch();
+    }
+    0
 }
