@@ -664,7 +664,7 @@ mod charge_verb_parity {
 
 /// What a trailing `data` adds to an action: reads the recorded run made and the binary does not fork the same way.
 const READS: &[&str] = &["busctl get-property org.freedesktop.UPower", "systemctl is-active"];
-const ACTION_DROP: &[&str] = &["hyprctl", "busctl get-property net.hadess", "omarchy-powerprofiles-list", READS[0], READS[1], "mise"];
+const ACTION_DROP: &[&str] = &["hyprctl", "busctl get-property net.hadess", "omarchy-powerprofiles-list", READS[0], READS[1]];
 
 #[derive(Clone)]
 pub(crate) struct Tweaks {

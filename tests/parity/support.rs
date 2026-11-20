@@ -21,8 +21,27 @@ const REPO: &str = env!("CARGO_MANIFEST_DIR");
 const LED: &str = "sys/class/leds/chromeos:white:power";
 const STUBBED: &[&str] = &["busctl", "iw", "systemctl", "sudo", "pkexec", "upower", "omarchy", "powerprofilesctl",
     "omarchy-powerprofiles-list", "omarchy-powerprofiles-set", "omarchy-system-lock", "omarchy-shell",
-    "omarchy-launch-screensaver", "omarchy-launch-floating-terminal-with-presentation", "pkill", "mise"];
-pub const DROPPED: &[&str] = &["hyprctl", "busctl get-property net.hadess", "omarchy-powerprofiles-list", "mise"];
+    "omarchy-launch-screensaver", "omarchy-launch-floating-terminal-with-presentation", "pkill"];
+pub const DROPPED: &[&str] = &["hyprctl", "busctl get-property net.hadess", "omarchy-powerprofiles-list"];
+
+/// The host's `/usr/bin` and `/bin` without `mise`, so a test never probes the real one; tests stub it when they need it.
+fn host_tools() -> PathBuf {
+    static DIR: Once = Once::new();
+    let dir = PathBuf::from(format!("/tmp/ph-tools-{}", std::process::id()));
+    DIR.call_once(|| {
+        extern "C" fn remove() {
+            let _ = fs::remove_dir_all(format!("/tmp/ph-tools-{}", std::process::id()));
+        }
+        assert_eq!(unsafe { atexit(remove) }, 0);
+        fs::create_dir_all(&dir).unwrap();
+        for src in ["/usr/bin", "/bin"] {
+            for e in fs::read_dir(src).into_iter().flatten().flatten().filter(|e| e.file_name() != "mise") {
+                let _ = std::os::unix::fs::symlink(e.path(), dir.join(e.file_name()));
+            }
+        }
+    });
+    dir
+}
 
 unsafe extern "C" {
     fn atexit(handler: extern "C" fn()) -> i32;
@@ -213,7 +232,7 @@ impl Sandbox {
         let sock_path = run.join("hypr/test/.socket.sock");
         let mut s = Self {
             calls_log: base.join("calls.log"),
-            path: RefCell::new(format!("{}:/usr/bin:/bin", stubs.display())),
+            path: RefCell::new(format!("{}:{}", stubs.display(), host_tools().display())),
             rules: RefCell::default(),
             traced: Cell::new(0),
             hypr: Arc::new(Mutex::new(Hypr {

@@ -72,7 +72,7 @@ fn test_installed_detection() {
     s.write("~/.local/share/t3code/T3-Code.AppImage", "");
     s.write_stub("skills-manager-refresh");
     s.write_stub("hypr-persist");
-    s.stub("mise", "ls npm:rulesync", 0, "npm:rulesync  1.2.3\n");
+    s.stub("mise", "ls --json npm:rulesync", 0, r#"[{"version": "1.2.3"}]"#);
     assert_eq!(installed(&s), json!({"leanCtx": true, "rulesync": true, "skillsManager": true, "t3code": true, "hyprPersist": true}));
 }
 
@@ -80,9 +80,9 @@ fn test_installed_detection() {
 fn test_rulesync_is_asked_once_an_hour() {
     let s = Sandbox::new();
     s.set_path(&s.stubs.display().to_string());
-    s.stub("mise", "ls npm:rulesync", 0, "npm:rulesync  1.2.3\n");
+    s.stub("mise", "ls --json npm:rulesync", 0, r#"[{"version": "1.2.3"}]"#);
     s.rust(&["data"]);
-    s.stub("mise", "ls npm:rulesync", 0, "");
+    s.stub("mise", "ls --json npm:rulesync", 0, "[]");
     assert_eq!(j(&s.rust(&["data"]))["resume"]["installed"]["rulesync"], true);
     let state = s.target("~/.local/state/omarchy-power-hub/resume.json");
     let mut cached: Value = serde_json::from_str(&fs::read_to_string(&state).unwrap()).unwrap();
@@ -105,4 +105,19 @@ fn test_needs_sudo() {
     s.rust(&["action", "resume", "script", ""]);
     s.rust(&["action", "resume", "omarchy", "off"]);
     assert_eq!(sudo(&s), false);
+}
+
+#[test]
+fn test_rulesync_ignores_stderr() {
+    let s = Sandbox::new();
+    executable(&s.stubs.join("mise"), "#!/bin/sh\necho warning >&2\n");
+    assert_eq!(status(&s)["installed"]["rulesync"], false);
+}
+
+#[test]
+fn test_failing_mise_is_asked_once_an_hour() {
+    let s = Sandbox::new();
+    s.stub("mise", "", 1, "");
+    let asked = |s: &Sandbox| s.rust(&["data"]).calls.iter().filter(|c| c.starts_with("mise")).count();
+    assert_eq!((asked(&s), asked(&s)), (1, 0));
 }

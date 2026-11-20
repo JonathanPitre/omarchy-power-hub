@@ -32,7 +32,7 @@ pub fn update_state(change: impl FnOnce(&mut Map<String, Value>)) -> io::Result<
     fs::create_dir_all(p.parent().unwrap_or(&p))?;
     let mut state = read_state();
     change(&mut state);
-    let tmp = p.with_extension("json.tmp");
+    let tmp = p.with_extension(format!("json.{}.tmp", std::process::id()));
     fs::write(&tmp, serde_json::to_string_pretty(&state).map_err(io::Error::other)? + "\n")?;
     fs::rename(tmp, p)
 }
@@ -95,14 +95,13 @@ fn rulesync() -> bool {
             return found;
         }
     }
-    let (code, out) = exec::run(&["mise", "ls", "npm:rulesync"], Duration::from_secs(3));
-    let found = !out.trim().is_empty();
-    if code == 0 {
-        let _ = update_state(|s| {
-            s.insert("rulesync".into(), json!({"at": now(), "installed": found}));
-        });
-    }
-    code == 0 && found
+    // Stdout only: a warning on stderr must not read as an install. A failed or hung probe is cached too, so polls stay cheap.
+    let (code, out) = exec::run(&["/bin/sh", "-c", "exec mise ls --json npm:rulesync 2>/dev/null"], Duration::from_secs(3));
+    let found = code == 0 && serde_json::from_str::<Value>(&out).is_ok_and(|v| v.as_array().is_some_and(|a| !a.is_empty()));
+    let _ = update_state(|s| {
+        s.insert("rulesync".into(), json!({"at": now(), "installed": found}));
+    });
+    found
 }
 
 pub fn status() -> Value {
