@@ -359,7 +359,7 @@ mod resume_triggers {
         has_all(
             &file("Service.qml"),
             "Service.qml",
-            &["PrepareForSleep", r#"resumed("wake""#, r#"resumed("displays""#, r#"resumed("unlock""#, r#""resume-run", "--source""#, "Quickshell.execDetached"],
+            &["PrepareForSleep", r#"[root.hub, "resume-status"]"#, r#"resumed("wake""#, r#"resumed("displays""#, r#"resumed("unlock""#, r#""resume-run", "--source""#, "Quickshell.execDetached"],
         );
     }
 

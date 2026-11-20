@@ -617,3 +617,11 @@ fn test_session_restore_off_or_missing() {
     let o = s.rust(&["resume-run", "--t3-restart"]);
     assert!(called(&o, "pkill -x t3code") && !called(&o, "hypr-persist"), "{:?}", o.calls);
 }
+
+#[test]
+fn test_status_carries_the_triggers_the_service_polls_for() {
+    let s = Sandbox::new();
+    assert_eq!(status(&s)["settings"]["triggers"], json!(["wake"]));
+    s.config(json!({"onResume": {"triggers": ["unlock"]}}));
+    assert_eq!(status(&s)["settings"]["triggers"], json!(["unlock"]));
+}

@@ -48,7 +48,10 @@ Item {
   Timer {
     id: configDebounce
     interval: 150
-    onTriggered: root.refresh()
+    onTriggered: {
+      root.refresh()
+      if (!resumeProc.running) resumeProc.running = true
+    }
   }
 
   function ingest(text) {
@@ -72,7 +75,7 @@ Item {
 
   property real offAt: 0
   property real lockedAt: 0
-  readonly property bool unlockWatched: (((root.state.resume || ({})).settings || ({})).triggers || []).indexOf("unlock") >= 0
+  property bool unlockWatched: false
 
   function resumed(source, awaySecs) {
     Quickshell.execDetached([root.hub, "resume-run", "--source", source, "--away", String(Math.max(0, Math.round(awaySecs)))])
@@ -208,6 +211,16 @@ Item {
       root.refresh()
     }
   }
+  Process {
+    id: resumeProc
+    command: [root.hub, "resume-status"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        try { root.unlockWatched = JSON.parse(text).settings.triggers.indexOf("unlock") >= 0 } catch (e) {}
+      }
+    }
+  }
   Process { id: dpmsProc }
   Process {
     id: sleepWatch
@@ -217,6 +230,7 @@ Item {
     onExited: sleepWatchRestart.start()
   }
   Timer { id: sleepWatchRestart; interval: 5000; onTriggered: sleepWatch.running = true }
+  onUnlockWatchedChanged: if (!unlockWatched) root.lockedAt = 0
   // Neither Hyprland nor the lock plugin exposes lock state to other plugins, so poll its IPC.
   Timer { interval: 5000; repeat: true; running: root.unlockWatched; onTriggered: if (!lockPoll.running) lockPoll.running = true }
   Process {
@@ -413,6 +427,7 @@ Item {
   }
   Component.onCompleted: {
     root.refresh()
+    resumeProc.running = true
     syncProc.running = true
     ledNeedProc.running = true
     helperNeedProc.running = true
