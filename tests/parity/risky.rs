@@ -729,6 +729,67 @@ mod lights_parity {
         assert_eq!((keys_level(&s), kbauto(&s)), (0, None));
     }
 
+    const SLEEP_OFF: &[&str] = &["lights", "off"];
+    const SLEEP_ON: &[&str] = &["lights", "on"];
+    const DISABLED: &str = r#"{"disabledPlugins": ["omarchy-power-hub"]}"#;
+
+    #[test]
+    fn test_sleep_darkens_and_restores_the_lights() {
+        let (s, go) = start(&lights(vec![qmk_keys(67)]), "LightsParity.test_sleep_darkens_and_restores_the_lights");
+        go(&s, SLEEP_OFF);
+        assert_eq!((keys_level(&s), kblight_saved(&s)), (0, Some(json!({"level": 67, "sleep": true}))));
+        go(&s, SLEEP_ON);
+        assert_eq!((keys_level(&s), kblight_saved(&s)), (67, None));
+    }
+
+    #[test]
+    fn test_sleep_after_displays_off_leaves_the_saved_levels() {
+        let (s, go) = start(&lights(vec![qmk_keys(67)]), "LightsParity.test_sleep_after_displays_off_leaves_the_saved_levels");
+        go(&s, OFF);
+        go(&s, SLEEP_OFF);
+        go(&s, SLEEP_ON);
+        assert_eq!((keys_level(&s), kblight_saved(&s)), (0, Some(json!({"level": 67}))));
+        go(&s, ON);
+        assert_eq!((keys_level(&s), kblight_saved(&s)), (67, None));
+    }
+
+    #[test]
+    fn test_sleep_does_nothing_when_the_plugin_is_disabled() {
+        let (s, go) = start(&lights(vec![qmk_keys(67)]), "LightsParity.test_sleep_does_nothing_when_the_plugin_is_disabled");
+        s.write(SHELL_FILE, DISABLED);
+        go(&s, SLEEP_OFF);
+        assert_eq!((keys_level(&s), kblight_saved(&s)), (67, None));
+    }
+
+    #[test]
+    fn test_disabling_between_pre_and_post_still_restores() {
+        let (s, go) = start(&lights(vec![qmk_keys(67)]), "LightsParity.test_disabling_between_pre_and_post_still_restores");
+        go(&s, SLEEP_OFF);
+        s.write(SHELL_FILE, DISABLED);
+        go(&s, SLEEP_ON);
+        assert_eq!((keys_level(&s), kblight_saved(&s)), (67, None));
+    }
+
+    #[test]
+    fn test_a_wake_with_the_lid_closed_keeps_the_lights_dark() {
+        let (s, go) = start(&lights(vec![qmk_keys(67)]), "LightsParity.test_a_wake_with_the_lid_closed_keeps_the_lights_dark");
+        go(&s, SLEEP_OFF);
+        s.lid("closed");
+        go(&s, SLEEP_ON);
+        assert_eq!((keys_level(&s), kblight_saved(&s)), (0, Some(json!({"level": 67, "sleep": true}))));
+        s.lid("open");
+        go(&s, SLEEP_ON);
+        assert_eq!((keys_level(&s), kblight_saved(&s)), (67, None));
+    }
+
+    #[test]
+    fn test_sleep_wake_applies_auto() {
+        let (s, go) = start(&auto_keys(Some(5)), "LightsParity.test_sleep_wake_applies_auto");
+        go(&s, SLEEP_OFF);
+        go(&s, SLEEP_ON);
+        assert_eq!((keys_level(&s), kblight_saved(&s)), (33, None));
+    }
+
     /// A second off would read the darkened lights and lose the levels to restore.
     #[test]
     fn test_a_second_off_keeps_the_saved_light_levels() {

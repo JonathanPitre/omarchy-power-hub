@@ -13,6 +13,7 @@ mod names;
 mod paths;
 mod power;
 mod settings;
+mod sleep;
 mod state;
 mod system;
 mod travel;
@@ -53,6 +54,7 @@ fn main() {
         Some("battery-history") => out(system::battery_history()),
         Some("idle-wake-poll") => out(idle::poll(matches!(args.get(1).map(String::as_str), Some("blanked" | "off")))),
         Some("lights") if args.get(1).is_some_and(|a| a == "auto") => keyboard::tick(),
+        Some("lights") if matches!(args.get(1).map(String::as_str), Some("off" | "on")) => sleep::lights_sleep(args[1] == "off"),
         Some("lid-closed") => idle::lid_closed(),
         Some("lid-opened") => idle::lid_opened(),
         Some("idle-lock") => idle::idle_lock(),
