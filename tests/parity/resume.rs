@@ -105,6 +105,10 @@ fn test_needs_sudo() {
     s.rust(&["action", "resume", "script", ""]);
     s.rust(&["action", "resume", "omarchy", "off"]);
     assert_eq!(sudo(&s), false);
+    s.write_stub("skills-manager-refresh");
+    assert_eq!(sudo(&s), true);
+    s.rust(&["action", "resume", "skillsManager", "off"]);
+    assert_eq!(sudo(&s), false);
 }
 
 #[test]
@@ -279,7 +283,29 @@ fn test_rulesync_and_skills_run_alone_when_omarchy_off() {
     s.config(json!({"onResume": {"omarchy": false, "plugins": false, "leanCtx": false}}));
     let o = exec(&s);
     assert!(at(&o, "mise up npm:rulesync") < at(&o, "skills-manager-refresh"));
-    assert!(!called(&o, "omarchy") && !called(&o, "sudo"));
+    assert!(!called(&o, "omarchy") && at(&o, "sudo true") < at(&o, "skills-manager-refresh"));
+    assert!(o.stdout.contains("Skills Manager installs a system package") && !o.stdout.contains("Omarchy update"));
+}
+
+#[test]
+fn test_failed_sudo_skips_the_steps_that_need_it() {
+    let s = Sandbox::new();
+    ready(&s);
+    s.stub("sudo", "true", 1, "");
+    let o = exec(&s);
+    assert!(!called(&o, "omarchy update") && called(&o, "omarchy plugin update") && called(&o, "lean-ctx update"));
+    assert!(o.calls[at(&o, "notify-send")].contains("Omarchy failed"));
+}
+
+#[test]
+fn test_terminal_run_shows_step_output() {
+    let s = Sandbox::new();
+    ready(&s);
+    s.stub("omarchy", "update -y", 0, "installing the things");
+    assert!(exec(&s).stdout.contains("installing the things"));
+    s.config(json!({"onResume": {"omarchy": false, "skillsManager": false, "leanCtx": false}}));
+    s.stub("mise", "up npm:rulesync", 0, "quiet run");
+    assert!(!exec(&s).stdout.contains("quiet run"));
 }
 
 #[test]

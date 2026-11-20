@@ -107,18 +107,19 @@ fn rulesync() -> bool {
 pub fn status() -> Value {
     let settings = settings();
     let state = read_state();
+    let skills = exec::on_path("skills-manager-refresh");
     json!({
         "settings": settings,
         "installed": {
             "leanCtx": exec::executable(&paths::home().join(".local/bin/lean-ctx")),
             "rulesync": rulesync(),
-            "skillsManager": exec::on_path("skills-manager-refresh"),
+            "skillsManager": skills,
             "t3code": paths::home().join(".local/share/t3code/T3-Code.AppImage").is_file(),
             "hyprPersist": exec::on_path("hypr-persist"),
         },
         "lastRun": state.get("lastRun").cloned().unwrap_or_default(),
         "lastError": state.get("lastError").cloned().unwrap_or_default(),
-        "needsSudo": settings["omarchy"] == true && settings["script"] == "",
+        "needsSudo": settings["script"] == "" && (settings["omarchy"] == true || (settings["skillsManager"] == true && skills)),
     })
 }
 

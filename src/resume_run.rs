@@ -2,8 +2,13 @@
 use crate::{exec, paths, resume};
 use serde_json::{Value, json};
 use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::io::{BufRead, BufReader, Write};
+use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
+
+/// Set for a run in a visible terminal, which shows each step's output as well as logging it.
+static TERMINAL: AtomicBool = AtomicBool::new(false);
 
 const LONG: Duration = Duration::from_secs(2 * 3600);
 const MAX_LISTED: usize = 8;
@@ -33,9 +38,21 @@ fn log(text: &str) {
 fn sh(name: &str, argv: &[&str]) -> Result<(), String> {
     println!("{name}");
     let stamp = exec::run(&["date", "+%F %T"], Duration::from_secs(5)).1;
-    let (code, out) = exec::run(argv, LONG);
+    let (code, out) = if TERMINAL.load(Ordering::Relaxed) { stream(argv) } else { exec::run(argv, LONG) };
     log(&format!("[{}] {name}: {}\n{}", stamp.trim(), argv.join(" "), out.trim_end()));
     if code == 0 { Ok(()) } else { Err(format!("exit {code}")) }
+}
+
+/// Like `exec::run`, but echoes each line of output as it arrives. `timeout` keeps the limit.
+fn stream(argv: &[&str]) -> (i32, String) {
+    let child = Command::new("sh").args(["-c", "exec timeout 7200 \"$@\" 2>&1", "sh"]).args(argv).stdin(Stdio::null()).stdout(Stdio::piped()).spawn();
+    let Ok(mut child) = child else { return (1, "could not start".into()) };
+    let mut out = String::new();
+    for line in BufReader::new(child.stdout.take().expect("piped")).lines().map_while(Result::ok) {
+        println!("{line}");
+        out += &(line + "\n");
+    }
+    (child.wait().ok().and_then(|s| s.code()).unwrap_or(1), out)
 }
 
 fn probe(argv: &[&str]) -> String {
@@ -133,20 +150,32 @@ pub fn reboot_required() -> bool {
     kernel || replaced || paths::home().join(".local/state/omarchy/reboot-required").exists()
 }
 
+/// Holds the run's lock and `runningPid`; dropping it, even in a panic, releases both.
+struct Held;
+
+impl Drop for Held {
+    fn drop(&mut self) {
+        let _ = resume::update_state(|s| {
+            s.remove("runningPid");
+        });
+        let _ = fs::remove_file(dir().join("resume.lock"));
+    }
+}
+
 /// Takes the run's exclusive lock, replacing one whose holder is gone.
-fn lock() -> bool {
+fn lock() -> Option<Held> {
     let path = dir().join("resume.lock");
     let _ = fs::create_dir_all(dir());
     for _ in 0..2 {
         match OpenOptions::new().write(true).create_new(true).open(&path) {
-            Ok(mut f) => return writeln!(f, "{}", std::process::id()).is_ok(),
-            Err(_) if fs::read_to_string(&path).ok().and_then(|p| p.trim().parse().ok()).is_some_and(resume::running) => return false,
+            Ok(mut f) => return writeln!(f, "{}", std::process::id()).ok().map(|()| Held),
+            Err(_) if fs::read_to_string(&path).ok().and_then(|p| p.trim().parse().ok()).is_some_and(resume::running) => return None,
             Err(_) => {
                 let _ = fs::remove_file(&path);
             }
         }
     }
-    false
+    None
 }
 
 fn notify(updates: &[(String, String, String)], failed: &[(&str, String)], reboot: bool) {
@@ -171,20 +200,24 @@ fn notify(updates: &[(String, String, String)], failed: &[(&str, String)], reboo
 
 /// `resume-run --exec`: runs the planned steps and reports once. Always 0.
 pub fn exec() -> i32 {
-    if !lock() {
-        return 0;
-    }
+    let Some(held) = lock() else { return 0 };
     let _ = resume::update_state(|s| {
         s.insert("runningPid".into(), json!(std::process::id()));
     });
     let (cfg, status) = (resume::settings(), resume::status());
     let names = plan(&cfg, &status["installed"]);
-    if status["needsSudo"] == true {
+    let terminal = status["needsSudo"] == true;
+    TERMINAL.store(terminal, Ordering::Relaxed);
+    let mut sudo = true;
+    if terminal {
         names.iter().for_each(|n| println!("- {n}"));
-        println!("\nOmarchy update installs system packages");
-        let _ = std::process::Command::new("sudo").arg("true").status();
+        println!("\n{}", if cfg["omarchy"] == true { "Omarchy update installs system packages" } else { "Skills Manager installs a system package" });
+        sudo = Command::new("sudo").arg("true").status().is_ok_and(|s| s.success());
+        if !sudo {
+            log("sudo true failed: skipping the steps that need it");
+        }
     }
-    let mut results: Vec<(&str, StepResult)> = names.iter().map(|n| (*n, step(n, &cfg))).collect();
+    let mut results: Vec<(&str, StepResult)> = names.iter().map(|n| (*n, if !sudo && ["Omarchy", "Skills Manager"].contains(n) { StepResult::Failed("sudo".into()) } else { step(n, &cfg) })).collect();
     let reboot = reboot_required();
     if cfg["restartShell"] == true && !reboot && results.iter().any(|(n, r)| *n == "Omarchy plugins" && matches!(r, StepResult::Updated(_))) {
         let r = sh("Restart shell", &["omarchy", "restart", "shell"]).map_or_else(StepResult::Failed, |()| StepResult::Current);
@@ -194,10 +227,9 @@ pub fn exec() -> i32 {
     let failed: Vec<_> = results.iter().filter_map(|(n, r)| if let StepResult::Failed(e) = r { Some((*n, e.clone())) } else { None }).collect();
     let last_error = failed.first().map_or(Value::Null, |(n, e)| json!(format!("{n}: {e}")));
     let _ = resume::update_state(|s| {
-        s.remove("runningPid");
         s.insert("lastError".into(), last_error);
     });
-    let _ = fs::remove_file(dir().join("resume.lock"));
+    drop(held);
     if !updates.is_empty() || !failed.is_empty() || reboot {
         notify(&updates, &failed, reboot);
     }
