@@ -11,6 +11,9 @@ mod monitor;
 mod names;
 mod paths;
 mod power;
+mod resume;
+mod resume_run;
+mod t3;
 mod settings;
 mod state;
 mod system;
@@ -45,6 +48,8 @@ fn main() {
             let cfg = config::load();
             out(serde_json::json!({"side": power::active_side(&cfg), "config": cfg}));
         }
+        Some("resume-status") => out(resume::status()),
+        Some("resume-run") => std::process::exit(resume::run(&args[1..])),
         Some("drain-to") => out(power::drain_to(&config::load())),
         Some("ac") => out(u8::from(!power::on_battery())),
         Some("helper-needed") => out(if charge::helper_needed() { "needed" } else { "ok" }),
@@ -108,7 +113,7 @@ fn main() {
             std::process::exit(code);
         }
         _ => {
-            eprintln!("usage: power-hub status|data|action|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|set|profile|charge|boost|health|quick-dim|travel|tweak|apply|apply-profile|apply-tweaks|unpin|daylight|cpu|helper-install|boost-check|idle-wake-poll|displays|lid-closed|lid-opened|idle-lock|saver-past-inhibitor|recover-ucsi");
+            eprintln!("usage: power-hub status|data|action|resume-status|resume-run|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|set|profile|charge|boost|health|quick-dim|travel|tweak|apply|apply-profile|apply-tweaks|unpin|daylight|cpu|helper-install|boost-check|idle-wake-poll|displays|lid-closed|lid-opened|idle-lock|saver-past-inhibitor|recover-ucsi");
             std::process::exit(2);
         }
     }

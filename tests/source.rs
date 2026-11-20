@@ -124,6 +124,12 @@ mod button_chrome {
         has_all(&file("AccentButton.qml"), "AccentButton.qml", &["bordered: true", "hot || selected || active"]);
     }
 
+    /// The script field is an inline editor: without `blocked` the key catcher eats its j, k, space and Enter.
+    #[test]
+    fn script_field_blocks_the_key_catcher() {
+        has_all(&file("Panel.qml"), "Panel.qml", &["blocked: root.editingScript", "root.editingScript = activeFocus", "Keys.onEscapePressed: function(event) { keyCatcher.forceActiveFocus()"]);
+    }
+
     #[test]
     fn switches_use_accent_switch() {
         for name in ["PlanSection.qml", "Panel.qml"] {
@@ -347,6 +353,27 @@ mod no_python {
             if let Ok(text) = fs::read_to_string(&path) {
                 assert!(!text.contains("python3"), "{} starts python3", path.display());
             }
+        }
+    }
+}
+
+mod resume_triggers {
+    use super::*;
+
+    #[test]
+    fn resume_triggers_are_wired() {
+        has_all(
+            &file("Service.qml"),
+            "Service.qml",
+            &["PrepareForSleep", r#"[root.hub, "resume-status"]"#, r#"resumed("wake""#, r#"resumed("displays""#, r#"resumed("unlock""#, r#""resume-run", "--source""#, "Quickshell.execDetached"],
+        );
+    }
+
+    #[test]
+    fn resume_runs_detached() {
+        for part in file("Service.qml").split("Process {").skip(1) {
+            let body = part.split("\n  }").next().unwrap();
+            assert!(!body.contains("resume-run"), "a Process runs resume-run: {body}");
         }
     }
 }

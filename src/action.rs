@@ -1,7 +1,6 @@
-use crate::{data, on, paths, tweaks};
+use crate::{data, on, paths, resume, tweaks};
 use serde_json::Value;
 use std::path::Path;
-use std::process::{Command, Stdio};
 
 /// The panel's one round trip: make the change, discard its result as the script's `>/dev/null` did, then return fresh data.
 /// `install-sleep-tracking` opens a terminal instead and returns nothing.
@@ -14,6 +13,11 @@ pub fn run(args: &[String]) -> Option<Value> {
         "daylight" => tweaks::daylight(arg(1) == "on"),
         "persist" => tweaks::apply_tweak(arg(1), on(arg(2)), true),
         "unpersist" => tweaks::unpin(arg(1)),
+        "resume" => resume::set(arg(1), arg(2)),
+        "resume-now" => {
+            resume::detach(&[&paths::bin_dir().join("power-hub").to_string_lossy(), "resume-run", "--now"]);
+            String::new()
+        }
         "install-sleep-tracking" => {
             install_sleep_tracking();
             return None;
@@ -33,12 +37,7 @@ fn install_sleep_tracking() {
     let user = paths::home().join(".config/omarchy/sleep-tracking/apply.sh");
     let script = if repo.exists() || !user.exists() { repo } else { user };
     // The launcher runs its one argument as a shell command line, so the path needs its own quoting.
-    let _ = Command::new("setsid")
-        .args(["omarchy-launch-floating-terminal-with-presentation", &format!("bash {}", quote(&script.to_string_lossy()))])
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn();
+    resume::detach(&["omarchy-launch-floating-terminal-with-presentation", &format!("bash {}", quote(&script.to_string_lossy()))]);
 }
 
 #[cfg(test)]

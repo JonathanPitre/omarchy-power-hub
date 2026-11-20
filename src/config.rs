@@ -101,7 +101,7 @@ pub fn load_with(available: &mut Profiles) -> Value {
         base.insert("profile".into(), json!(profile));
         cfg.insert(side.into(), Value::Object(base));
     }
-    for k in ["chargeLimit", "boost", "boostSavedLimit"] {
+    for k in ["chargeLimit", "boost", "boostSavedLimit", "onResume"] {
         if let Some(v) = raw.get(k) {
             cfg.insert(k.into(), v.clone());
         }

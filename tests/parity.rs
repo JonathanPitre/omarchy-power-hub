@@ -16,6 +16,9 @@ mod energy;
 #[path = "parity/risky.rs"]
 mod risky;
 
+#[path = "parity/resume.rs"]
+mod resume;
+
 /// A golden no test names is never replayed, and the exit audit in `support` cannot see it.
 #[test]
 fn every_golden_is_replayed_by_a_test() {

@@ -252,5 +252,6 @@ pub fn collect() -> Value {
         "rapl": {"available": rapl.is_some(), "package": package, "core": core, "gpu": gpu},
         "tweaks": tweaks(),
         "sleep": sleep(),
+        "resume": crate::resume::status(),
     })
 }
