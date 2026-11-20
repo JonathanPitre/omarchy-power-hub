@@ -5,6 +5,26 @@ All notable changes to this project are documented in this file.
 The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.60] - Unreleased
+
+### Added
+
+- **Keyboard brightness** with Auto, Off, Low, Medium and High. Auto turns the light off in daylight or with another keyboard or receiver, and otherwise follows the room light.
+- Lights off during system sleep, through a root `systemd-sleep` hook installed with the helper.
+- Cleanup on removal: a systemd path unit runs `ops-priv cleanup` and deletes the root files. `~/.config/omarchy/power-hub*`, `~/.config/omarchy/omarchy-power-hub.json` and `/var/log/battery-plus-sleep.log` stay.
+
+### Changed
+
+- The Framework 16 notes record BIOS 4.02: after a charge port switch, the EC now restores 240 W on its own within 13 to 40 s, but the 800 mA dip and its throttling remain.
+
+### Removed
+
+- The "Keyboard light off in daylight" switch. A saved choice becomes Auto.
+
+### Notes
+
+- Hibernate is untested with the sleep hook.
+
 ## [0.0.59] - 2026-11-11
 
 ### Added
