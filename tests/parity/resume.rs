@@ -158,6 +158,7 @@ fn test_away_threshold_only_for_displays_and_unlock() {
     s.config(json!({"onResume": {"triggers": ["wake", "displays"]}}));
     assert!(dispatched(&s, &["--source", "displays", "--away", "600"], false).is_empty());
     assert_eq!(dispatched(&s, &["--source", "displays", "--away", "1800"], true).len(), 1);
+    state(&s, json!({}));
     assert_eq!(dispatched(&s, &["--source", "wake", "--away", "0"], true).len(), 1);
 }
 
@@ -172,11 +173,23 @@ fn test_every_hours_limit() {
 #[test]
 fn test_running_pid_alive_skips() {
     let s = Sandbox::new();
-    state(&s, json!({"runningPid": std::process::id()}));
+    let mut run = std::process::Command::new("sh").args(["-c", "sleep 30; true", "resume-run"]).spawn().unwrap();
+    state(&s, json!({"runningPid": run.id()}));
     assert!(dispatched(&s, &["--source", "wake", "--away", "0"], false).is_empty());
     assert!(dispatched(&s, &["--now"], false).is_empty());
+    run.kill().unwrap();
+    run.wait().unwrap();
     state(&s, json!({"runningPid": 4_000_000}));
     assert_eq!(dispatched(&s, &["--source", "wake", "--away", "0"], true).len(), 1);
+    state(&s, json!({"runningPid": std::process::id()}));
+    assert_eq!(dispatched(&s, &["--now"], true).len(), 1);
+}
+
+#[test]
+fn test_second_trigger_right_behind_is_too_soon() {
+    let s = Sandbox::new();
+    assert_eq!(dispatched(&s, &["--source", "wake", "--away", "0"], true).len(), 1);
+    assert!(dispatched(&s, &["--source", "wake", "--away", "0"], false).is_empty());
 }
 
 #[test]

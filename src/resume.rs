@@ -130,7 +130,7 @@ pub fn gate(source: &str, away_secs: u64, now: bool) -> Result<(), &'static str>
     if !now && !settings["triggers"].as_array().is_some_and(|t| t.iter().any(|t| t == source)) {
         return Err("no trigger");
     }
-    if state.get("runningPid").and_then(Value::as_u64).is_some_and(|p| std::path::Path::new(&format!("/proc/{p}")).exists()) {
+    if state.get("runningPid").and_then(Value::as_u64).is_some_and(|p| fs::read(format!("/proc/{p}/cmdline")).is_ok_and(|c| String::from_utf8_lossy(&c).contains("resume-run"))) {
         return Err("running");
     }
     if now {
@@ -170,6 +170,10 @@ pub fn run(args: &[String]) -> i32 {
         return 2;
     }
     if gate(source, flag("--away").and_then(|a| a.parse().ok()).unwrap_or(0), has("--now")).is_ok() {
+        // Claim the run first, so a second trigger right behind this one hits "too soon".
+        let _ = update_state(|s| {
+            s.insert("lastRun".into(), json!(now()));
+        });
         dispatch();
     }
     0
