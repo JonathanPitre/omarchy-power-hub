@@ -700,3 +700,30 @@ fn test_hypr_persist_needs_the_class_filter() {
     s.stub("hypr-persist", "restore --help", 0, "usage: hypr-persist restore <name> --class <regex>");
     assert_eq!(status(&s)["installed"]["hyprPersist"], true);
 }
+
+/// Opening the lid brings the displays back, so it is a Displays back on trigger, away since the close.
+#[test]
+fn test_lid_open_is_displays_back_on() {
+    let s = Sandbox::new();
+    s.stub("uwsm-app", "", 0, "");
+    s.rust(&["lid-closed"]);
+    assert!(!s.target("~/.local/state/omarchy-power-hub/resume.json").exists());
+    s.config(json!({"onResume": {"triggers": ["displays"], "omarchy": false}}));
+    s.rust(&["lid-closed"]);
+    s.rust(&["lid-opened"]);
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    assert!(!fs::read_to_string(&s.calls_log).unwrap().contains("resume-run"), "away under 30 minutes");
+    s.rust(&["lid-closed"]);
+    let mut saved: Value = serde_json::from_str(&fs::read_to_string(s.target("~/.local/state/omarchy-power-hub/resume.json")).unwrap()).unwrap();
+    assert!(saved["lidClosedAt"].as_u64().is_some(), "{saved}");
+    saved["lidClosedAt"] = json!(saved["lidClosedAt"].as_u64().unwrap() - 3600);
+    state(&s, saved);
+    s.rust(&["lid-opened"]);
+    for _ in 0..100 {
+        if fs::read_to_string(&s.calls_log).unwrap().contains("resume-run --exec") {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    assert!(fs::read_to_string(&s.calls_log).unwrap().contains(&format!("uwsm-app -- {} resume-run --exec", bin(&s))));
+}

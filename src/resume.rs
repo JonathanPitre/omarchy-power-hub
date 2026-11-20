@@ -208,11 +208,36 @@ pub fn run(args: &[String]) -> i32 {
     if source.is_empty() && !has("--now") {
         return 2;
     }
-    let away = flag("--away").and_then(|a| a.parse().ok()).unwrap_or(0);
-    // Gate and claim under one lock, so a second trigger right behind this one hits "too soon".
-    let go = update_state(|s| gate(s, source, away, has("--now")).inspect(|()| _ = s.insert("lastRun".into(), json!(now()))).is_ok());
-    if go.unwrap_or(false) {
+    trigger(source, flag("--away").and_then(|a| a.parse().ok()).unwrap_or(0), has("--now"));
+    0
+}
+
+/// Starts a run when the gate allows. The claim is gated again under the state lock, so a second trigger
+/// right behind this one hits "too soon"; a refused trigger writes nothing.
+pub fn trigger(source: &str, away: u64, now: bool) {
+    let ok = |s: &Map<String, Value>| gate(s, source, away, now).is_ok();
+    let claim = |s: &mut Map<String, Value>| {
+        let go = ok(s);
+        if go {
+            s.insert("lastRun".into(), json!(self::now()));
+        }
+        go
+    };
+    if ok(&read_state()) && update_state(claim).unwrap_or(false) {
         dispatch();
     }
-    0
+}
+
+/// The lid's close time, kept only while Displays back on is a trigger, since opening the lid brings the displays back.
+pub fn lid_closed() {
+    if settings()["triggers"].as_array().is_some_and(|t| t.iter().any(|t| t == "displays")) {
+        let _ = update_state(|s| s.insert("lidClosedAt".into(), json!(now())));
+    }
+}
+
+pub fn lid_opened() {
+    if let Some(at) = read_state().get("lidClosedAt").and_then(Value::as_u64) {
+        let _ = update_state(|s| s.remove("lidClosedAt"));
+        trigger("displays", now().saturating_sub(at), false);
+    }
 }

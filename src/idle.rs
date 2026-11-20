@@ -109,6 +109,7 @@ pub fn lid_closed() {
     set_inputs(&hypr::devices(), false, hypr::eval_slow);
     let cfg = config::load();
     let systemctl = |verb: &str| exec::run(&["systemctl", verb], Duration::from_secs(8)).0;
+    crate::resume::lid_closed();
     match lid_action(&cfg) {
         "display-off" => {
             with_state_lock(|| {
@@ -141,6 +142,7 @@ pub fn lid_opened() {
         }
         sync_lights(false);
     });
+    crate::resume::lid_opened();
 }
 
 fn stay_awake() -> bool {
