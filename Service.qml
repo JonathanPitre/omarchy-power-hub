@@ -300,17 +300,7 @@ Item {
     }
   }
 
-  property bool keyboardAuto: false
-  FileView {
-    path: Quickshell.env("HOME") + "/.config/omarchy/power-hub-tweaks.json"
-    watchChanges: true
-    onFileChanged: reload()
-    onLoaded: {
-      var t
-      try { t = JSON.parse(text()) } catch (e) { return }
-      root.keyboardAuto = t.keyboard === "auto" || (t.keyboard === undefined && t.daylight === true)
-    }
-  }
+  // A no-op unless the keyboard is on Auto.
   Process { id: keyboardTickProc; command: [root.hub, "lights", "auto"] }
 
   Timer {
@@ -321,7 +311,7 @@ Item {
     onTriggered: {
       root.refresh()
       if (!boostProc.running) boostProc.running = true
-      if (root.keyboardAuto && !root.displaysOff && !root.parked && !keyboardTickProc.running) keyboardTickProc.running = true
+      if (!root.displaysOff && !root.parked && !keyboardTickProc.running) keyboardTickProc.running = true
     }
   }
 
