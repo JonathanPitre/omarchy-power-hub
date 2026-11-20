@@ -300,6 +300,19 @@ Item {
     }
   }
 
+  property bool keyboardAuto: false
+  FileView {
+    path: Quickshell.env("HOME") + "/.config/omarchy/power-hub-tweaks.json"
+    watchChanges: true
+    onFileChanged: reload()
+    onLoaded: {
+      var t
+      try { t = JSON.parse(text()) } catch (e) { return }
+      root.keyboardAuto = t.keyboard === "auto" || (t.keyboard === undefined && t.daylight === true)
+    }
+  }
+  Process { id: keyboardTickProc; command: [root.hub, "lights", "auto"] }
+
   Timer {
     interval: 30000
     running: true
@@ -308,6 +321,7 @@ Item {
     onTriggered: {
       root.refresh()
       if (!boostProc.running) boostProc.running = true
+      if (root.keyboardAuto && !root.displaysOff && !root.parked && !keyboardTickProc.running) keyboardTickProc.running = true
     }
   }
 
