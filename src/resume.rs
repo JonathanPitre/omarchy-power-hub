@@ -1,4 +1,4 @@
-use crate::{config, exec, paths};
+use crate::{config, exec, paths, resume_run};
 use serde_json::{Map, Value, json};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -14,7 +14,6 @@ pub fn state_file() -> PathBuf {
     paths::state_dir().join("omarchy-power-hub/resume.json")
 }
 
-#[allow(dead_code)] // the run in the next task writes it
 pub fn log_file() -> PathBuf {
     paths::state_dir().join("omarchy-power-hub/resume.log")
 }
@@ -123,6 +122,11 @@ pub fn status() -> Value {
     })
 }
 
+/// Whether `pid` is a live `resume-run`, not an unrelated process that reused the number.
+pub fn running(pid: u64) -> bool {
+    fs::read(format!("/proc/{pid}/cmdline")).is_ok_and(|c| String::from_utf8_lossy(&c).contains("resume-run"))
+}
+
 /// Why a resume must not start a run, or `Ok` when it should. `--now` skips every limit but a live run.
 pub fn gate(source: &str, away_secs: u64, now: bool) -> Result<(), &'static str> {
     let settings = settings();
@@ -130,7 +134,7 @@ pub fn gate(source: &str, away_secs: u64, now: bool) -> Result<(), &'static str>
     if !now && !settings["triggers"].as_array().is_some_and(|t| t.iter().any(|t| t == source)) {
         return Err("no trigger");
     }
-    if state.get("runningPid").and_then(Value::as_u64).is_some_and(|p| fs::read(format!("/proc/{p}/cmdline")).is_ok_and(|c| String::from_utf8_lossy(&c).contains("resume-run"))) {
+    if state.get("runningPid").and_then(Value::as_u64).is_some_and(running) {
         return Err("running");
     }
     if now {
@@ -163,7 +167,7 @@ pub fn run(args: &[String]) -> i32 {
     let flag = |f: &str| args.iter().position(|a| a == f).and_then(|i| args.get(i + 1));
     let has = |f: &str| args.iter().any(|a| a == f);
     if has("--exec") {
-        return 0;
+        return resume_run::exec();
     }
     let source = flag("--source").map_or("", String::as_str);
     if source.is_empty() && !has("--now") {

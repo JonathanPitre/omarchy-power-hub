@@ -221,3 +221,190 @@ fn test_resume_now_action_returns_data_and_dispatches() {
     }
     assert!(fs::read_to_string(&s.calls_log).unwrap().contains("resume-run --exec"));
 }
+
+/// Answers `probe` with `before` the first time and `after` from then on; any other call exits `other`.
+fn versioned(s: &Sandbox, tool: &str, probe: &str, before: &str, after: &str, other: i32) {
+    let n = s.calls_log.with_file_name(format!("{tool}.n")).display().to_string();
+    s.stateful(tool, &format!("case \"$*\" in\n  *{probe}*) c=$(cat {n} 2>/dev/null || echo 0); echo $((c+1)) > {n}; [ \"$c\" = 0 ] && echo '{before}' || echo '{after}';;\n  *) exit {other};;\nesac"));
+}
+
+/// Every tool installed and succeeding with unchanged versions.
+fn ready(s: &Sandbox) {
+    executable(&s.write("~/.local/bin/lean-ctx", ""), "#!/bin/sh\n");
+    s.stub("mise", "ls --json npm:rulesync", 0, r#"[{"version": "1"}]"#);
+    s.stub("mise", "up npm:rulesync", 0, "");
+    s.stub("lean-ctx", "update", 0, "");
+    s.stub("lean-ctx", "--version", 0, "lean-ctx 1.0.0");
+    for (tool, pattern) in [("omarchy", "update -y"), ("omarchy", "plugin update --yes"), ("omarchy", "restart shell"), ("sudo", "true"), ("notify-send", ""), ("skills-manager-refresh", ""), ("omarchy-system", "reboot")] {
+        s.stub(tool, pattern, 0, "");
+    }
+}
+
+fn exec(s: &Sandbox) -> crate::support::Outcome {
+    s.rust(&["resume-run", "--exec"])
+}
+
+fn at(o: &crate::support::Outcome, call: &str) -> usize {
+    o.calls.iter().position(|c| c.starts_with(call)).unwrap_or_else(|| panic!("no {call:?} in {:?}", o.calls))
+}
+
+fn called(o: &crate::support::Outcome, call: &str) -> bool {
+    o.calls.iter().any(|c| c.starts_with(call))
+}
+
+fn log(s: &Sandbox) -> String {
+    fs::read_to_string(s.target("~/.local/state/omarchy-power-hub/resume.log")).unwrap_or_default()
+}
+
+fn plugin(s: &Sandbox) {
+    s.write("~/.config/omarchy/plugins/p/manifest.json", "");
+}
+
+#[test]
+fn test_step_order_with_defaults() {
+    let s = Sandbox::new();
+    ready(&s);
+    let o = exec(&s);
+    assert!(at(&o, "omarchy update -y") < at(&o, "omarchy plugin update --yes") && at(&o, "omarchy plugin update --yes") < at(&o, "lean-ctx update"));
+    assert!(!called(&o, "mise up") && !called(&o, "skills-manager-refresh"));
+    let state = fs::read_to_string(s.target("~/.local/state/omarchy-power-hub/resume.json")).unwrap_or_default();
+    assert!(!state.contains("runningPid\": "), "{state}");
+    assert!(!s.target("~/.local/state/omarchy-power-hub/resume.lock").exists());
+}
+
+#[test]
+fn test_rulesync_and_skills_run_alone_when_omarchy_off() {
+    let s = Sandbox::new();
+    ready(&s);
+    s.config(json!({"onResume": {"omarchy": false, "plugins": false, "leanCtx": false}}));
+    let o = exec(&s);
+    assert!(at(&o, "mise up npm:rulesync") < at(&o, "skills-manager-refresh"));
+    assert!(!called(&o, "omarchy") && !called(&o, "sudo"));
+}
+
+#[test]
+fn test_failure_does_not_stop_later_steps() {
+    let s = Sandbox::new();
+    ready(&s);
+    s.config(json!({"onResume": {"omarchy": false}}));
+    s.stub("lean-ctx", "update", 1, "boom");
+    let o = exec(&s);
+    assert!(at(&o, "lean-ctx update") < at(&o, "mise up npm:rulesync") && called(&o, "skills-manager-refresh"));
+    let note = &o.calls[at(&o, "notify-send")];
+    assert!(note.contains("lean-ctx") && note.contains("resume.log"), "{note}");
+    assert!(log(&s).contains("boom"));
+    assert!(fs::read_to_string(s.target("~/.local/state/omarchy-power-hub/resume.json")).unwrap().contains("lean-ctx"));
+}
+
+#[test]
+fn test_nothing_changed_no_notification() {
+    let s = Sandbox::new();
+    ready(&s);
+    assert!(!called(&exec(&s), "notify-send"));
+}
+
+#[test]
+fn test_updates_listed_from_to() {
+    let s = Sandbox::new();
+    ready(&s);
+    versioned(&s, "pacman", "-Q", "omarchy 4.5.0-3", "omarchy 4.5.1-1", 1);
+    let note = exec(&s);
+    assert!(note.calls[at(&note, "notify-send")].contains("omarchy 4.5.0-3 → 4.5.1-1"), "{:?}", note.calls);
+}
+
+#[test]
+fn test_shell_restart_only_after_plugin_change() {
+    let changed = Sandbox::new();
+    ready(&changed);
+    plugin(&changed);
+    versioned(&changed, "git", "rev-parse", "aaa", "bbb", 1);
+    let o = exec(&changed);
+    assert!(called(&o, "omarchy restart shell") && o.calls[at(&o, "notify-send")].contains("p aaa → bbb"));
+    let same = Sandbox::new();
+    ready(&same);
+    plugin(&same);
+    versioned(&same, "git", "rev-parse", "aaa", "aaa", 1);
+    assert!(!called(&exec(&same), "omarchy restart shell"));
+    let omarchy_only = Sandbox::new();
+    ready(&omarchy_only);
+    versioned(&omarchy_only, "pacman", "-Q", "omarchy 1-1", "omarchy 2-1", 1);
+    assert!(!called(&exec(&omarchy_only), "omarchy restart shell"));
+}
+
+#[test]
+fn test_reboot_required_skips_restart_and_session_restore() {
+    let s = Sandbox::new();
+    ready(&s);
+    plugin(&s);
+    versioned(&s, "git", "rev-parse", "aaa", "bbb", 1);
+    s.write("~/.local/state/omarchy/reboot-required", "");
+    let o = exec(&s);
+    assert!(!called(&o, "omarchy restart shell") && !called(&o, "omarchy-system"));
+    assert!(o.calls[at(&o, "notify-send")].contains("-A reboot=Reboot"));
+    s.stub("notify-send", "", 0, "reboot");
+    assert!(called(&exec(&s), "omarchy-system reboot"));
+}
+
+#[test]
+fn test_reboot_checks() {
+    let s = Sandbox::new();
+    ready(&s);
+    s.stub("pacman", "-Qo", 0, "");
+    s.write("/usr/lib/modules/9.9.9/modules.builtin", "");
+    s.write("/proc/sys/kernel/osrelease", "9.9.9\n");
+    assert!(!called(&exec(&s), "notify-send"));
+    s.write("/proc/sys/kernel/osrelease", "1.0.0\n");
+    assert!(exec(&s).calls.iter().any(|c| c.starts_with("notify-send") && c.contains("-A reboot=Reboot")));
+    s.write("/proc/sys/kernel/osrelease", "9.9.9\n");
+    s.stub("pgrep", "-x Hyprland", 0, "123");
+    fs::create_dir_all(s.target("/proc/123")).unwrap();
+    std::os::unix::fs::symlink("/usr/bin/Hyprland (deleted)", s.target("/proc/123/exe")).unwrap();
+    assert!(exec(&s).calls.iter().any(|c| c.starts_with("notify-send") && c.contains("-A reboot=Reboot")));
+}
+
+#[test]
+fn test_custom_script_runs_alone() {
+    let s = Sandbox::new();
+    ready(&s);
+    s.stub("myscript", "", 0, "");
+    s.config(json!({"onResume": {"script": s.stubs.join("myscript")}}));
+    let o = exec(&s);
+    assert_eq!(o.calls.iter().filter(|c| !c.starts_with("mise ls")).collect::<Vec<_>>(), ["myscript "]);
+}
+
+#[test]
+fn test_missing_script_reports_failure() {
+    let s = Sandbox::new();
+    ready(&s);
+    s.config(json!({"onResume": {"script": "/nonexistent/x.sh"}}));
+    let o = exec(&s);
+    assert!(o.calls[at(&o, "notify-send")].contains("failed"));
+    assert!(log(&s).contains("/nonexistent/x.sh"));
+    assert!(!called(&o, "omarchy"));
+}
+
+#[test]
+fn test_terminal_header() {
+    let s = Sandbox::new();
+    ready(&s);
+    let o = exec(&s);
+    let (plan, reason) = (o.stdout.find("lean-ctx").unwrap(), o.stdout.find("Omarchy update installs system packages").unwrap());
+    assert!(o.stdout.find("Omarchy").unwrap() < reason && plan < reason);
+    assert_eq!(o.calls.iter().filter(|c| *c == "sudo true").count(), 1);
+    assert!(at(&o, "sudo true") < at(&o, "omarchy update -y"));
+}
+
+#[test]
+fn test_exec_lock_blocks_second_exec() {
+    let s = Sandbox::new();
+    ready(&s);
+    let mut holder = std::process::Command::new("sh").args(["-c", "sleep 30; true", "resume-run"]).spawn().unwrap();
+    s.write("~/.local/state/omarchy-power-hub/resume.lock", &holder.id().to_string());
+    assert!(exec(&s).calls.iter().all(|c| c.starts_with("mise ls")));
+    assert!(s.target("~/.local/state/omarchy-power-hub/resume.lock").exists());
+    holder.kill().unwrap();
+    holder.wait().unwrap();
+    s.write("~/.local/state/omarchy-power-hub/resume.lock", "4000000");
+    assert!(called(&exec(&s), "omarchy update -y"));
+    assert!(!s.target("~/.local/state/omarchy-power-hub/resume.lock").exists());
+}
