@@ -7,6 +7,9 @@ mod exec;
 mod hypr;
 mod idle;
 mod kblight;
+// Task 2 wires the Auto rules into the keyboard backlight path.
+#[allow(dead_code)]
+mod keyboard;
 mod monitor;
 mod names;
 mod paths;
