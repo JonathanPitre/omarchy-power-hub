@@ -220,6 +220,78 @@ function fmtAgo(iso) {
   return Math.round(hrs / 24) + "d ago";
 }
 
+// ---------- On resume ----------
+
+var RESUME_GROUPS = ["WHEN", "UPDATE", "AFTER", "SCRIPT"];
+var RESUME_LOG = "~/.local/state/omarchy-power-hub/resume.log";
+var RESUME_ROWS = [
+  { key: "wake", title: "Wake from sleep", kind: "switch", group: "WHEN" },
+  { key: "displays", title: "Displays back on", kind: "switch", group: "WHEN" },
+  { key: "unlock", title: "Unlock", kind: "switch", group: "WHEN" },
+  { key: "awayMinutes", title: "Away at least", kind: "spin", group: "WHEN", step: 5, max: 1440, unit: "min" },
+  { key: "everyHours", title: "At most every", kind: "spin", group: "WHEN", step: 1, max: 168, unit: "h" },
+  { key: "omarchy", title: "Omarchy", kind: "switch", group: "UPDATE" },
+  { key: "plugins", title: "Omarchy plugins", kind: "switch", group: "UPDATE" },
+  { key: "leanCtx", title: "lean-ctx", kind: "switch", group: "UPDATE", tool: "leanCtx" },
+  { key: "rulesync", title: "Rulesync", kind: "switch", group: "UPDATE", tool: "rulesync" },
+  { key: "skillsManager", title: "Skills Manager", kind: "switch", group: "UPDATE", tool: "skillsManager" },
+  { key: "t3code", title: "T3 Code", kind: "seg", group: "UPDATE", tool: "t3code" },
+  { key: "restartShell", title: "Restart shell", kind: "switch", group: "AFTER" },
+  { key: "sessionRestore", title: "Session Restore", kind: "switch", group: "AFTER", tool: "hyprPersist" },
+  { key: "script", title: "Run this script instead", kind: "text", group: "SCRIPT" }
+];
+
+// Updates a run would do: tools that are off, not installed, or covered by Omarchy update don't count.
+function resumeSummary(r) {
+  if (!r || !r.settings) return "";
+  var s = r.settings, i = r.installed || {};
+  if (!s.triggers.length) return "Off";
+  var when = "on " + s.triggers.join(", ");
+  if (s.script) return "script · " + when;
+  var n = [s.omarchy, s.plugins, s.leanCtx && i.leanCtx, !s.omarchy && s.rulesync && i.rulesync,
+           !s.omarchy && s.skillsManager && i.skillsManager, s.t3code !== "off" && i.t3code].filter(Boolean).length;
+  return n + (n === 1 ? " update" : " updates") + " · " + when;
+}
+
+function resumeRows(r) {
+  var s = r.settings, i = r.installed || {};
+  var off = !s.triggers.length;
+  var needs = {
+    awayMinutes: s.triggers.indexOf("displays") >= 0 || s.triggers.indexOf("unlock") >= 0,
+    restartShell: s.omarchy || s.plugins,
+    sessionRestore: s.t3code === "restart"
+  };
+  return RESUME_ROWS.map(function(d, n) {
+    var trigger = d.key === "wake" || d.key === "displays" || d.key === "unlock", when = d.group === "WHEN";
+    var enabled = trigger || (!off && (!s.script || when || d.group === "SCRIPT") && needs[d.key] !== false);
+    return {
+      key: d.key, title: d.title, kind: d.kind, group: d.group, first: n === 0 || RESUME_ROWS[n - 1].group !== d.group, step: d.step, max: d.max, unit: d.unit,
+      value: trigger && d.kind === "switch" ? s.triggers.indexOf(d.key) >= 0 : s[d.key],
+      visible: !d.tool || !!i[d.tool],
+      enabled: enabled,
+      locked: s.omarchy && (d.key === "rulesync" || d.key === "skillsManager")
+    };
+  });
+}
+
+// The comma list `resume triggers` takes after switching one trigger.
+function resumeTriggers(r, key, on) {
+  return ["wake", "displays", "unlock"].filter(function(t) {
+    return t === key ? on : r.settings.triggers.indexOf(t) >= 0;
+  }).join(",");
+}
+
+// A spin row's next value, one step either way.
+function resumeStep(row, dir) {
+  return clamp(row.value + dir * row.step, row.key === "awayMinutes" ? row.step : 1, row.max);
+}
+
+function resumeLast(r) {
+  if (!r) return "";
+  if (r.lastError) return "Last run failed · " + RESUME_LOG;
+  return r.lastRun ? "Last run " + fmtAgo(new Date(r.lastRun * 1000).toISOString()) : "";
+}
+
 // Null until at least one real sleep has been recorded.
 function sleepSummary(s) {
   if (!s || !s.samples) return null;
