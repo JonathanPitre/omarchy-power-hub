@@ -291,10 +291,40 @@ fn test_rulesync_and_skills_run_alone_when_omarchy_off() {
 fn test_failed_sudo_skips_the_steps_that_need_it() {
     let s = Sandbox::new();
     ready(&s);
+    s.config(json!({"onResume": {"omarchy": false}}));
     s.stub("sudo", "true", 1, "");
     let o = exec(&s);
-    assert!(!called(&o, "omarchy update") && called(&o, "omarchy plugin update") && called(&o, "lean-ctx update"));
-    assert!(o.calls[at(&o, "notify-send")].contains("Omarchy failed"));
+    assert!(!called(&o, "skills-manager-refresh") && called(&o, "omarchy plugin update") && called(&o, "mise up npm:rulesync"));
+    assert!(o.calls[at(&o, "notify-send")].contains("Skills Manager failed"));
+}
+
+/// `omarchy update` re-execs under `script`, a new tty whose sudo ticket is its own, so it asks for the password itself.
+#[test]
+fn test_terminal_step_gets_the_terminal() {
+    let s = Sandbox::new();
+    ready(&s);
+    s.stateful("omarchy", "case \"$*\" in\n  \"update -y\") read -r pw; printf 'got %s' \"$pw\";;\nesac");
+    s.stateful("timeout", "[ \"$1\" = --foreground ] && shift; shift; exec \"$@\"");
+    let mut c = std::process::Command::new(crate::support::RUST_BIN);
+    c.args(["resume-run", "--exec"]).env_clear().envs(s.env()).current_dir(&s.base).stdin(std::process::Stdio::piped());
+    let mut p = crate::support::spawn(&mut c);
+    std::io::Write::write_all(&mut p.stdin.take().unwrap(), b"hunter2\n").unwrap();
+    let out = String::from_utf8_lossy(&p.wait_with_output().unwrap().stdout).into_owned();
+    let calls = fs::read_to_string(&s.calls_log).unwrap();
+    assert!(out.contains("got hunter2") && log(&s).contains("got hunter2"), "{out}");
+    assert!(calls.contains("timeout --foreground 7200 omarchy update -y") && !calls.contains("sudo true"), "{calls}");
+}
+
+/// A prompt without a newline shows at once, and a byte that is not UTF-8 neither ends the echo nor stalls the step on a full pipe.
+#[test]
+fn test_terminal_output_streams_raw_bytes() {
+    let s = Sandbox::new();
+    ready(&s);
+    s.stateful("omarchy", "case \"$*\" in\n  \"update -y\") printf 'a\\377b\\n'; head -c 200000 /dev/zero | tr '\\0' x; printf 'Password: ';;\nesac");
+    let o = exec(&s);
+    assert!(o.stdout.contains(&format!("a\u{FFFD}b\n{}Password: ", "x".repeat(200000))) && called(&o, "lean-ctx update"));
+    let raw = fs::read(s.target("~/.local/state/omarchy-power-hub/resume.log")).unwrap();
+    assert!(raw.windows(4).any(|w| w == b"a\xffb\n") && String::from_utf8_lossy(&raw).contains("Password: \n"));
 }
 
 #[test]
@@ -416,8 +446,7 @@ fn test_terminal_header() {
     let o = exec(&s);
     let (plan, reason) = (o.stdout.find("lean-ctx").unwrap(), o.stdout.find("Omarchy update installs system packages").unwrap());
     assert!(o.stdout.find("Omarchy").unwrap() < reason && plan < reason);
-    assert_eq!(o.calls.iter().filter(|c| *c == "sudo true").count(), 1);
-    assert!(at(&o, "sudo true") < at(&o, "omarchy update -y"));
+    assert!(!called(&o, "sudo true") && called(&o, "omarchy update -y"));
 }
 
 #[test]

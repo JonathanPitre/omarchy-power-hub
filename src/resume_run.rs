@@ -2,7 +2,7 @@
 use crate::{exec, paths, resume, t3};
 use serde_json::{Value, json};
 use std::fs::{self, OpenOptions};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{Read, Write};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -37,21 +37,43 @@ pub fn log(text: &str) {
 pub fn sh(name: &str, argv: &[&str]) -> Result<(), String> {
     println!("{name}");
     let stamp = exec::run(&["date", "+%F %T"], Duration::from_secs(5)).1;
-    let (code, out) = if TERMINAL.load(Ordering::Relaxed) { stream(argv) } else { exec::run(argv, LONG) };
-    log(&format!("[{}] {name}: {}\n{}", stamp.trim(), argv.join(" "), out.trim_end()));
+    let head = format!("[{}] {name}: {}", stamp.trim(), argv.join(" "));
+    let code = if TERMINAL.load(Ordering::Relaxed) {
+        log(&head);
+        stream(argv)
+    } else {
+        let (code, out) = exec::run(argv, LONG);
+        log(&format!("{head}\n{}", out.trim_end()));
+        code
+    };
     if code == 0 { Ok(()) } else { Err(format!("exit {code}")) }
 }
 
-/// Like `exec::run`, but echoes each line of output as it arrives. `timeout` keeps the limit.
-fn stream(argv: &[&str]) -> (i32, String) {
-    let child = Command::new("sh").args(["-c", "exec timeout 7200 \"$@\" 2>&1", "sh"]).args(argv).stdin(Stdio::null()).stdout(Stdio::piped()).spawn();
-    let Ok(mut child) = child else { return (1, "could not start".into()) };
-    let mut out = String::new();
-    for line in BufReader::new(child.stdout.take().expect("piped")).lines().map_while(Result::ok) {
-        println!("{line}");
-        out += &(line + "\n");
+/// Gives the step the terminal, for sudo's prompt, and echoes its output to it and the log as the bytes arrive.
+/// `--foreground` keeps the step in the terminal's process group, where it may read; `timeout` keeps the limit.
+fn stream(argv: &[&str]) -> i32 {
+    let child = Command::new("sh").args(["-c", "exec timeout --foreground 7200 \"$@\" 2>&1", "sh"]).args(argv).stdout(Stdio::piped()).spawn();
+    let Ok(mut child) = child else { return 1 };
+    let (mut pipe, mut buf, mut last) = (child.stdout.take().expect("piped"), [0; 4096], b'\n');
+    let mut file = OpenOptions::new().append(true).open(resume::log_file()).ok();
+    loop {
+        match pipe.read(&mut buf) {
+            Ok(0) => break,
+            Ok(n) => {
+                let mut tty = std::io::stdout().lock();
+                let _ = tty.write_all(&buf[..n]).and_then(|()| tty.flush());
+                file.as_mut().map(|f| f.write_all(&buf[..n]));
+                last = buf[n - 1];
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(_) => break,
+        }
     }
-    (child.wait().ok().and_then(|s| s.code()).unwrap_or(1), out)
+    if last != b'\n' {
+        println!();
+        file.as_mut().map(|f| f.write_all(b"\n"));
+    }
+    child.wait().ok().and_then(|s| s.code()).unwrap_or(1)
 }
 
 fn probe(argv: &[&str]) -> String {
@@ -206,12 +228,15 @@ pub fn exec() -> i32 {
     if terminal {
         names.iter().for_each(|n| println!("- {n}"));
         println!("\n{}", if cfg["omarchy"] == true { "Omarchy update installs system packages" } else { "Skills Manager installs a system package" });
-        sudo = Command::new("sudo").arg("true").status().is_ok_and(|s| s.success());
-        if !sudo {
-            log("sudo true failed: skipping the steps that need it");
+        // `omarchy update` asks itself: it re-execs under `script`, a new tty that a ticket from here would not cover.
+        if names.contains(&"Skills Manager") {
+            sudo = Command::new("sudo").arg("true").status().is_ok_and(|s| s.success());
+            if !sudo {
+                log("sudo true failed: skipping Skills Manager");
+            }
         }
     }
-    let mut results: Vec<(&str, StepResult)> = names.iter().map(|n| (*n, if !sudo && ["Omarchy", "Skills Manager"].contains(n) { StepResult::Failed("sudo".into()) } else { step(n, &cfg) })).collect();
+    let mut results: Vec<(&str, StepResult)> = names.iter().map(|n| (*n, if !sudo && *n == "Skills Manager" { StepResult::Failed("sudo".into()) } else { step(n, &cfg) })).collect();
     let reboot = reboot_required();
     if cfg["restartShell"] == true && !reboot && results.iter().any(|(n, r)| *n == "Omarchy plugins" && matches!(r, StepResult::Updated(_))) {
         let r = sh("Restart shell", &["omarchy", "restart", "shell"]).map_or_else(StepResult::Failed, |()| StepResult::Current);
