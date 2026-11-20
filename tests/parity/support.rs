@@ -21,8 +21,8 @@ const REPO: &str = env!("CARGO_MANIFEST_DIR");
 const LED: &str = "sys/class/leds/chromeos:white:power";
 const STUBBED: &[&str] = &["busctl", "iw", "systemctl", "sudo", "pkexec", "upower", "omarchy", "powerprofilesctl",
     "omarchy-powerprofiles-list", "omarchy-powerprofiles-set", "omarchy-system-lock", "omarchy-shell",
-    "omarchy-launch-screensaver", "omarchy-launch-floating-terminal-with-presentation", "pkill"];
-pub const DROPPED: &[&str] = &["hyprctl", "busctl get-property net.hadess", "omarchy-powerprofiles-list"];
+    "omarchy-launch-screensaver", "omarchy-launch-floating-terminal-with-presentation", "pkill", "mise"];
+pub const DROPPED: &[&str] = &["hyprctl", "busctl get-property net.hadess", "omarchy-powerprofiles-list", "mise"];
 
 unsafe extern "C" {
     fn atexit(handler: extern "C" fn()) -> i32;

@@ -1,4 +1,4 @@
-use crate::{data, on, paths, tweaks};
+use crate::{data, on, paths, resume, tweaks};
 use serde_json::Value;
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -14,6 +14,7 @@ pub fn run(args: &[String]) -> Option<Value> {
         "daylight" => tweaks::daylight(arg(1) == "on"),
         "persist" => tweaks::apply_tweak(arg(1), on(arg(2)), true),
         "unpersist" => tweaks::unpin(arg(1)),
+        "resume" => resume::set(arg(1), arg(2)),
         "install-sleep-tracking" => {
             install_sleep_tracking();
             return None;

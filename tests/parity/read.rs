@@ -1023,7 +1023,7 @@ mod data_parity {
             assert!(!r.calls_text().contains(tool), "{tool}");
         }
         assert!(!r.calls.is_empty());
-        assert!(r.calls.iter().all(|c| ["busctl", "iw", "systemctl"].contains(&c.split(' ').next().unwrap())), "{:?}", r.calls);
+        assert!(r.calls.iter().all(|c| ["busctl", "iw", "systemctl", "mise"].contains(&c.split(' ').next().unwrap())), "{:?}", r.calls);
     }
 }
 
