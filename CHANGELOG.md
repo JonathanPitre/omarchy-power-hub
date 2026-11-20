@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **On resume** updates Omarchy, plugins, lean-ctx, Rulesync, Skills Manager and T3 Code after wake, displays on or unlock. It can restart the shell and T3 Code, restore T3 Code's windows with hypr-persist, or run your own script. Failed steps are logged to `resume.log` and never stop later steps.
+- **Run now** in the panel runs it by hand. Opening the lid counts as displays on.
+
 ## [0.0.60] - Unreleased
 
 ### Added

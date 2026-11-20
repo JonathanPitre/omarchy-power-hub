@@ -63,6 +63,10 @@ Panel {
   readonly property var tweaks: service.tweaks
   readonly property var sleepData: service.sleep
   property bool historyOpen: false
+  property bool resumeOpen: false
+  property bool editingScript: false
+  readonly property var resumeData: service.resume || null
+  readonly property var resumeRows: resumeData ? Model.resumeRows(resumeData) : []
   readonly property color healthColor: Model.healthTier(b.health) === "replace" ? root.urgent
     : Model.healthTier(b.health) === "worn" ? planSection.yellow : root.fg
   property var historyPts: []
@@ -213,6 +217,7 @@ Panel {
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
+      blocked: root.editingScript
       onCloseRequested: root.close()
       onTabRequested: function(direction) { root.switchPanel(direction) }
       onMoveRequested: function(dx, dy) {
@@ -603,6 +608,225 @@ Panel {
               StatPair {
                 label: "Avg · " + (parent.sum.samples || 0) + " sleeps"
                 value: (parent.sum.avgWatts || "—") + "  ·  " + (parent.sum.avgRate || "")
+              }
+            }
+          }
+
+          // ---------- On resume ----------
+          Column {
+            visible: !!root.resumeData
+            width: parent.width
+            spacing: Style.space(10)
+
+            PanelSeparator { foreground: root.fg }
+            Item {
+              width: parent.width
+              implicitHeight: resumeTitle.implicitHeight
+              PanelSectionHeader { id: resumeTitle; text: "ON RESUME"; foreground: root.fg; fontFamily: root.fontFamily }
+              Text {
+                anchors.right: resumeChev.left
+                anchors.rightMargin: Style.space(6)
+                anchors.verticalCenter: resumeTitle.verticalCenter
+                text: Model.resumeSummary(root.resumeData)
+                color: root.dim
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+                font.bold: true
+              }
+              Text {
+                id: resumeChev
+                anchors.right: parent.right
+                anchors.verticalCenter: resumeTitle.verticalCenter
+                text: root.resumeOpen ? "▾" : "▸"
+                color: root.dim
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+              }
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.resumeOpen = !root.resumeOpen
+              }
+            }
+
+            Column {
+              visible: root.resumeOpen
+              width: parent.width
+              spacing: Style.space(4)
+
+              // Indexed, not modelData, so a poll updates the rows in place and never rebuilds the script field mid-edit.
+              Repeater {
+                model: root.resumeRows.length
+
+                Column {
+                  id: rr
+                  required property int index
+                  readonly property var m: root.resumeRows[index]
+                  visible: m.visible
+                  width: parent.width
+                  spacing: Style.space(4)
+
+                  Text {
+                    visible: rr.m.first
+                    topPadding: Style.space(6)
+                    text: rr.m.group
+                    color: root.dim
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.caption
+                    font.bold: true
+                    font.letterSpacing: 1
+                  }
+
+                  Item {
+                    width: parent.width
+                    implicitHeight: Style.space(34)
+
+                    Text {
+                      anchors.left: parent.left
+                      anchors.verticalCenter: parent.verticalCenter
+                      visible: rr.m.kind !== "text"
+                      opacity: rr.m.enabled ? 1 : 0.35
+                      text: rr.m.title
+                      color: root.fg
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.body
+                      font.bold: true
+                    }
+                    TextField {
+                      id: scriptField
+                      visible: rr.m.kind === "text"
+                      enabled: rr.m.enabled
+                      opacity: enabled ? 1 : 0.35
+                      anchors.fill: parent
+                      placeholderText: rr.m.title
+                      color: root.fg
+                      placeholderTextColor: root.dim
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.body
+                      background: Rectangle { color: "transparent"; border.width: 1; border.color: root.faint }
+                      Binding on text { value: rr.m.value; when: !scriptField.activeFocus }
+                      onActiveFocusChanged: root.editingScript = activeFocus
+                      Keys.onEscapePressed: function(event) { keyCatcher.forceActiveFocus(); event.accepted = true }
+                      Component.onDestruction: root.editingScript = false
+                      onEditingFinished: if (text !== rr.m.value) service.act("resume", "script", text)
+                    }
+                    Text {
+                      anchors.right: parent.right
+                      anchors.verticalCenter: parent.verticalCenter
+                      visible: rr.m.locked
+                      opacity: rr.m.enabled ? 1 : 0.35
+                      text: "Included in Omarchy update"
+                      color: root.dim
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.bodySmall
+                    }
+                    AccentSwitch {
+                      anchors.right: parent.right
+                      anchors.verticalCenter: parent.verticalCenter
+                      visible: rr.m.kind === "switch" && !rr.m.locked
+                      enabled: rr.m.enabled
+                      checked: rr.m.value === true
+                      foreground: root.fg
+                      accent: Commons.Color.accent
+                      onToggled: {
+                        if (rr.m.group === "WHEN") service.act("resume", "triggers", Model.resumeTriggers(root.resumeData, rr.m.key, !rr.m.value))
+                        else service.act("resume", rr.m.key, rr.m.value ? "off" : "on")
+                      }
+                    }
+                    Row {
+                      anchors.right: parent.right
+                      anchors.verticalCenter: parent.verticalCenter
+                      visible: rr.m.kind === "spin"
+                      enabled: rr.m.enabled
+                      spacing: Style.space(8)
+                      AccentButton {
+                        width: Style.space(26)
+                        height: Style.space(26)
+                        text: "−"
+                        bordered: true
+                        foreground: root.fg
+                        fontFamily: root.fontFamily
+                        onClicked: service.act("resume", rr.m.key, String(Model.resumeStep(rr.m, -1)))
+                      }
+                      Text {
+                        width: Style.space(64)
+                        anchors.verticalCenter: parent.verticalCenter
+                        horizontalAlignment: Text.AlignHCenter
+                        text: rr.m.value + " " + rr.m.unit
+                        opacity: rr.m.enabled ? 1 : 0.35
+                        color: root.fg
+                        font.family: root.fontFamily
+                        font.pixelSize: Style.font.body
+                        font.bold: true
+                      }
+                      AccentButton {
+                        width: Style.space(26)
+                        height: Style.space(26)
+                        text: "+"
+                        bordered: true
+                        foreground: root.fg
+                        fontFamily: root.fontFamily
+                        onClicked: service.act("resume", rr.m.key, String(Model.resumeStep(rr.m, 1)))
+                      }
+                    }
+                    Row {
+                      anchors.right: parent.right
+                      anchors.verticalCenter: parent.verticalCenter
+                      visible: rr.m.kind === "seg"
+                      enabled: rr.m.enabled
+                      opacity: enabled ? 1 : 0.35
+
+                      Repeater {
+                        model: [["off", "Off"], ["update", "Update"], ["restart", "+ Restart"]]
+
+                        Rectangle {
+                          required property var modelData
+                          readonly property bool current: modelData[0] === rr.m.value
+                          width: segLabel.implicitWidth + Style.space(20)
+                          height: Style.space(26)
+                          color: current ? Commons.Color.accent : segMouse.containsMouse ? root.faint : "transparent"
+                          border.width: 1
+                          border.color: root.faint
+
+                          Text {
+                            id: segLabel
+                            anchors.centerIn: parent
+                            text: parent.modelData[1]
+                            color: parent.current ? Qt.darker(Commons.Color.accent, 4) : root.dim
+                            font.family: root.fontFamily
+                            font.pixelSize: Style.font.caption
+                            font.bold: parent.current
+                          }
+                          MouseArea {
+                            id: segMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: service.act("resume", "t3code", parent.modelData[0])
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+
+              AccentButton {
+                text: "Run now"
+                bordered: true
+                foreground: root.fg
+                fontFamily: root.fontFamily
+                fontSize: Style.font.bodySmall
+                onClicked: service.act("resume-now")
+              }
+              Text {
+                visible: text !== ""
+                width: parent.width
+                text: Model.resumeLast(root.resumeData)
+                color: root.dim
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+                wrapMode: Text.WrapAnywhere
               }
             }
           }

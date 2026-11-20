@@ -28,6 +28,7 @@ Item {
   readonly property var rapl: snapshot.rapl
   readonly property var tweaks: snapshot.tweaks
   readonly property var sleep: snapshot.sleep
+  readonly property var resume: snapshot.resume
 
   signal updated()
 

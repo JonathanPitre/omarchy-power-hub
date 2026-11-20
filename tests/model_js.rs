@@ -191,3 +191,92 @@ fn saver_menu_offers_only_times_before_displays_off() {
         unlimited: saverOptions(IDLE_STOPS, 60, 0).length
     }));"#, json!({"before": ["0", "60", "120"], "unlimited": 9}));
 }
+
+const RESUME: &str = r#"function resumeFixture(over, installed) {
+    var r = { settings: { triggers: ["wake"], awayMinutes: 30, everyHours: 4, omarchy: true, plugins: true, leanCtx: true,
+        rulesync: true, skillsManager: true, t3code: "restart", restartShell: true, sessionRestore: true, script: "" },
+      installed: { leanCtx: true, rulesync: true, skillsManager: true, t3code: true, hyprPersist: true },
+      lastRun: null, lastError: null, needsSudo: true };
+    Object.keys(over || {}).forEach(function(k) { r.settings[k] = over[k]; });
+    Object.keys(installed || {}).forEach(function(k) { r.installed[k] = installed[k]; });
+    return r;
+  }
+  function row(r, key) { return resumeRows(r).filter(function(x) { return x.key === key; })[0]; }
+"#;
+
+#[test]
+fn resume_summary_text() {
+    let body = format!(r#"{RESUME}console.log(JSON.stringify([
+        resumeSummary(resumeFixture()),
+        resumeSummary(resumeFixture({{ triggers: ["wake", "unlock"], omarchy: false, skillsManager: false }})),
+        resumeSummary(resumeFixture({{ script: "/x.sh" }})),
+        resumeSummary(resumeFixture({{ triggers: [] }})),
+        resumeSummary(resumeFixture({{ omarchy: false, plugins: false, leanCtx: false, rulesync: false, skillsManager: false, t3code: "off" }})),
+        resumeSummary(null)
+    ]));"#);
+    expect(&body, json!(["4 updates · on wake", "4 updates · on wake, unlock", "script · on wake", "Off", "0 updates · on wake", ""]));
+}
+
+#[test]
+fn resume_rows_follow_conditions() {
+    let body = format!(r#"{RESUME}
+    function on(rows) {{ return rows.filter(function(x) {{ return x.enabled; }}).map(function(x) {{ return x.key; }}); }}
+    var def = resumeFixture();
+    var bare = resumeFixture({{}}, {{ leanCtx: false, rulesync: false, skillsManager: false, t3code: false, hyprPersist: false }});
+    var noTrig = resumeRows(resumeFixture({{ triggers: [] }}));
+    var script = resumeRows(resumeFixture({{ script: "/x.sh" }}));
+    console.log(JSON.stringify({{
+        hidden: ["leanCtx", "rulesync", "skillsManager", "t3code", "sessionRestore"].map(function(k) {{ return row(bare, k).visible; }}),
+        shown: row(def, "leanCtx").visible && row(def, "sessionRestore").visible,
+        awayWake: row(def, "awayMinutes").enabled,
+        awayUnlock: row(resumeFixture({{ triggers: ["unlock"] }}), "awayMinutes").enabled,
+        awayDisplays: row(resumeFixture({{ triggers: ["wake", "displays"] }}), "awayMinutes").enabled,
+        lockedOn: [row(def, "rulesync").locked, row(def, "skillsManager").locked, row(def, "plugins").locked],
+        lockedOff: [row(resumeFixture({{ omarchy: false }}), "rulesync").locked, row(resumeFixture({{ omarchy: false }}), "skillsManager").locked],
+        shellOn: row(def, "restartShell").enabled,
+        shellPlugins: row(resumeFixture({{ omarchy: false }}), "restartShell").enabled,
+        shellOff: row(resumeFixture({{ omarchy: false, plugins: false }}), "restartShell").enabled,
+        restoreRestart: row(def, "sessionRestore").enabled,
+        restoreUpdate: row(resumeFixture({{ t3code: "update" }}), "sessionRestore").enabled,
+        scriptOn: on(script),
+        noTrigOn: on(noTrig),
+        defOn: on(resumeRows(def)).length
+    }}));"#);
+    expect(&body, json!({
+        "hidden": [false, false, false, false, false], "shown": true,
+        "awayWake": false, "awayUnlock": true, "awayDisplays": true,
+        "lockedOn": [true, true, false], "lockedOff": [false, false],
+        "shellOn": true, "shellPlugins": true, "shellOff": false,
+        "restoreRestart": true, "restoreUpdate": false,
+        "scriptOn": ["wake", "displays", "unlock", "everyHours", "script"],
+        "noTrigOn": ["wake", "displays", "unlock"],
+        "defOn": 13
+    }));
+}
+
+#[test]
+fn resume_rows_carry_values_and_group_captions() {
+    let body = format!(r#"{RESUME}console.log(JSON.stringify({{
+        values: ["wake", "displays", "awayMinutes", "everyHours", "t3code", "script"].map(function(k) {{ return row(resumeFixture(), k).value; }}),
+        kinds: resumeRows(resumeFixture()).map(function(x) {{ return x.kind; }}),
+        next: [resumeTriggers(resumeFixture(), "unlock", true), resumeTriggers(resumeFixture(), "wake", false), resumeStep(row(resumeFixture(), "awayMinutes"), 1), resumeStep(row(resumeFixture(), "everyHours"), -1), resumeStep(row(resumeFixture({{ everyHours: 1 }}), "everyHours"), -1)]
+    }}));"#);
+    expect(&body, json!({
+        "values": [true, false, 30, 4, "restart", ""],
+        "kinds": ["switch", "switch", "switch", "spin", "spin", "switch", "switch", "switch", "switch", "switch", "seg", "switch", "switch", "text"],
+        "next": ["wake,unlock", "", 35, 3, 1]
+    }));
+}
+
+#[test]
+fn resume_last_run_text() {
+    let body = format!(r#"{RESUME}
+    var now = Math.floor(Date.now() / 1000);
+    console.log(JSON.stringify([
+        resumeLast(resumeFixture()),
+        resumeLast(Object.assign(resumeFixture(), {{ lastRun: now - 7200 }})),
+        resumeLast(Object.assign(resumeFixture(), {{ lastRun: now - 60, lastError: "Omarchy: boom" }})),
+        resumeLast(null)
+    ]));"#);
+    expect(&body, json!(["", "Last run 2h ago", "Last run failed · ~/.local/state/omarchy-power-hub/resume.log", ""]));
+}
