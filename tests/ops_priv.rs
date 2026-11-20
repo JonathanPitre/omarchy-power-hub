@@ -269,22 +269,24 @@ impl Sandbox {
 #[test]
 fn cleanup_removes_nothing_while_the_plugin_folder_exists() {
     let s = Sandbox::new("cleanup-present");
-    s.installed("touch ran\n");
+    s.installed("touch \"$HOME/ran\"\n");
     fs::create_dir_all(s.home().join(".config/omarchy/plugins/omarchy-power-hub")).unwrap();
     s.cleanup();
     assert!(s.at("libexec/omarchy-power-hub/owner").exists() && s.at("etc/sudoers.d/omarchy-power-hub").exists());
     assert_eq!(s.calls(), "");
+    assert!(!s.home().join("ran").exists());
 }
 
 #[test]
 fn cleanup_treats_a_broken_symlink_as_present() {
     let s = Sandbox::new("cleanup-link");
-    s.installed("touch ran\n");
+    s.installed("touch \"$HOME/ran\"\n");
     let plugins = s.home().join(".config/omarchy/plugins");
     fs::create_dir_all(&plugins).unwrap();
     std::os::unix::fs::symlink(s.at("nowhere"), plugins.join("omarchy-power-hub")).unwrap();
     s.cleanup();
     assert!(s.at("libexec/omarchy-power-hub/owner").exists() && s.at("etc/sudoers.d/omarchy-power-hub").exists());
+    assert!(!s.home().join("ran").exists());
 }
 
 #[test]
@@ -298,8 +300,9 @@ fn cleanup_exits_ok_without_an_owner() {
 #[test]
 fn cleanup_removes_every_root_file_and_keeps_user_config() {
     let s = Sandbox::new("cleanup-all");
-    s.installed("touch ran\n");
+    s.installed("touch \"$HOME/ran\"\n");
     s.cleanup();
+    assert!(s.home().join("ran").exists());
     for gone in [
         "libexec/omarchy-power-hub",
         "etc/sudoers.d/omarchy-power-hub",
@@ -345,11 +348,13 @@ fn cleanup_user_removes_only_the_marked_lid_block() {
     s.write("cleanup-user", CLEANUP_USER);
     let lua = s.write("home/.config/hypr/bindings.lua", LUA);
     let unit = s.write("home/.config/systemd/user/omarchy-power-hub-tweaks.service", "x\n");
+    let wants = s.write("home/.config/systemd/user/default.target.wants/omarchy-power-hub-tweaks.service", "x\n");
     assert!(s.cleanup_user().status.success());
     assert_eq!(fs::read_to_string(lua).unwrap(), "before\nafter\n");
-    assert!(!unit.exists());
+    assert!(!unit.exists() && !wants.exists());
     let calls = s.calls();
     assert!(calls.contains("systemctl --user disable omarchy-power-hub-tweaks.service"));
+    assert!(calls.contains("hyprctl -i 0 reload"));
 }
 
 #[test]

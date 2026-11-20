@@ -7,6 +7,6 @@ if [ -f "$f" ] && grep -qxF -e "$b" "$f" && grep -qxF -e "$e" "$f"; then
   t=$(mktemp "$f.XXXXXX") && awk -v b="$b" -v e="$e" '$0 == b { s = 1 } !s { print } $0 == e { s = 0 }' "$f" > "$t" && mv "$t" "$f" || rm -f "$t"
 fi
 systemctl --user disable omarchy-power-hub-tweaks.service 2>/dev/null
-rm -f "$HOME/.config/systemd/user/omarchy-power-hub-tweaks.service"
-hyprctl version >/dev/null 2>&1 && hyprctl reload >/dev/null 2>&1
+rm -f "$HOME/.config/systemd/user/omarchy-power-hub-tweaks.service" "$HOME"/.config/systemd/user/*.wants/omarchy-power-hub-tweaks.service
+hyprctl -i 0 version >/dev/null 2>&1 && hyprctl -i 0 reload >/dev/null 2>&1
 exit 0
