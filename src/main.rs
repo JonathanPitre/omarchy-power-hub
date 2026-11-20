@@ -13,6 +13,7 @@ mod paths;
 mod power;
 mod resume;
 mod resume_run;
+mod t3;
 mod settings;
 mod state;
 mod system;

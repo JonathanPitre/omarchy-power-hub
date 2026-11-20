@@ -1,4 +1,4 @@
-use crate::{config, exec, paths, resume_run};
+use crate::{config, exec, paths, resume_run, t3};
 use serde_json::{Map, Value, json};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -160,6 +160,11 @@ pub fn dispatch() {
         argv.extend(terminal);
     }
     argv.extend([bin.as_str(), "resume-run", "--exec"]);
+    detach(&argv);
+}
+
+/// Starts `argv` in its own session with no stdio, without waiting.
+pub fn detach(argv: &[&str]) {
     let _ = Command::new("setsid").args(argv).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn();
 }
 
@@ -169,6 +174,9 @@ pub fn run(args: &[String]) -> i32 {
     let has = |f: &str| args.iter().any(|a| a == f);
     if has("--exec") {
         return resume_run::exec();
+    }
+    if has("--t3-restart") {
+        return i32::from(t3::wait_idle_then_restart(has("--restore")).is_err());
     }
     let source = flag("--source").map_or("", String::as_str);
     if source.is_empty() && !has("--now") {

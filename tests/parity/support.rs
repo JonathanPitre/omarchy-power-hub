@@ -576,6 +576,8 @@ if [ "$1" = eval ] && [[ "$out" == error* ]]; then exit 7; fi
             ("HYPRLAND_INSTANCE_SIGNATURE", "test".to_string()),
             ("POWER_HUB_ROOT", self.root.display().to_string()),
             ("POWER_HUB_BIN", self.bin.display().to_string()),
+            ("POWER_HUB_T3_POLL_MS", "50".to_string()),
+            ("POWER_HUB_T3_IDLE_SECS", "2".to_string()),
         ]
     }
 

@@ -434,3 +434,186 @@ fn test_exec_lock_blocks_second_exec() {
     assert!(called(&exec(&s), "omarchy update -y"));
     assert!(!s.target("~/.local/state/omarchy-power-hub/resume.lock").exists());
 }
+
+const CURRENT: &str = "version: 1\npath: T3-Code-1.AppImage\nsha512: AAA\n";
+const NIGHTLY: &str = "v0.1.11-nightly.20261119.4941";
+
+/// Only the T3 Code step is on; the feed's hash is `AAA` and the installed file hashes to `hash`.
+fn t3(s: &Sandbox, mode: &str, hash: &str) {
+    ready(s);
+    s.write("~/.local/share/t3code/T3-Code.AppImage", "");
+    s.config(json!({"onResume": {"omarchy": false, "plugins": false, "leanCtx": false, "rulesync": false, "skillsManager": false, "t3code": mode}}));
+    s.write("~/.t3/userdata/desktop-settings.json", r#"{"updateChannel":"latest"}"#);
+    s.stub("curl", "latest-linux.yml", 0, CURRENT);
+    s.stub("openssl", "", 0, "");
+    s.stub("base64", "", 0, hash);
+    s.stub("omarchy-install-t3code-app", "", 0, "");
+    s.stub("uwsm-app", "", 0, "");
+    s.stub("t3", "--version", 0, "t3 v1");
+}
+
+/// Waits for the detached restart to show in the calls log, or for the absence of one.
+fn spawned(s: &Sandbox, expect: bool) -> Option<String> {
+    for _ in 0..if expect { 100 } else { 10 } {
+        let log = fs::read_to_string(&s.calls_log).unwrap();
+        if let Some(l) = log.lines().find(|l| l.starts_with("uwsm-app")) {
+            return Some(l.into());
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    None
+}
+
+#[test]
+fn test_channel_from_settings_then_version() {
+    let s = Sandbox::new();
+    t3(&s, "update", "AAA");
+    assert!(called(&exec(&s), "curl -fsSL --max-time 30 https://github.com/pingdotgg/t3code/releases/latest/download/latest-linux.yml"));
+    fs::remove_file(s.target("~/.t3/userdata/desktop-settings.json")).unwrap();
+    s.stub("t3", "--version", 0, &format!("t3 {NIGHTLY}"));
+    s.stub("curl", "api.github.com", 0, &format!(r#"[{{"draft":true,"tag_name":"v9.9.9-nightly.1.1"}},{{"draft":false,"tag_name":"v0.2.0"}},{{"draft":false,"tag_name":"{NIGHTLY}"}}]"#));
+    s.stub("curl", "nightly-linux.yml", 0, CURRENT);
+    let o = exec(&s);
+    assert!(called(&o, &format!("curl -fsSL --max-time 30 https://github.com/pingdotgg/t3code/releases/download/{NIGHTLY}/nightly-linux.yml")), "{:?}", o.calls);
+}
+
+#[test]
+fn test_matching_hash_skips_install() {
+    let s = Sandbox::new();
+    t3(&s, "restart", "AAA");
+    let o = exec(&s);
+    assert!(!called(&o, "omarchy-install-t3code-app") && !called(&o, "notify-send"));
+    assert!(spawned(&s, false).is_none());
+}
+
+#[test]
+fn test_new_release_runs_installer_for_channel() {
+    let s = Sandbox::new();
+    t3(&s, "update", "BBB");
+    s.write("~/.t3/userdata/desktop-settings.json", r#"{"updateChannel":"nightly"}"#);
+    s.stub("curl", "api.github.com", 0, &format!(r#"[{{"draft":false,"tag_name":"{NIGHTLY}"}}]"#));
+    s.stub("curl", "nightly-linux.yml", 0, CURRENT);
+    versioned(&s, "t3", "--version", "t3 v1", "t3 v2", 1);
+    let o = exec(&s);
+    assert!(called(&o, "omarchy-install-t3code-app nightly"));
+    assert!(o.calls[at(&o, "notify-send")].contains("T3 Code v1 → v2"), "{:?}", o.calls);
+}
+
+#[test]
+fn test_feed_unreachable_fails_the_step() {
+    let s = Sandbox::new();
+    t3(&s, "update", "BBB");
+    s.stub("curl", "latest-linux.yml", 22, "");
+    let o = exec(&s);
+    assert!(!called(&o, "omarchy-install-t3code-app") && o.calls[at(&o, "notify-send")].contains("T3 Code failed"));
+    assert!(fs::read_to_string(s.target("~/.local/state/omarchy-power-hub/resume.json")).unwrap().contains("T3 Code: T3 Code feed unreachable"));
+}
+
+#[test]
+fn test_unknown_version_fails_the_step() {
+    let s = Sandbox::new();
+    t3(&s, "update", "BBB");
+    s.stub("t3", "--version", 1, "");
+    let o = exec(&s);
+    assert!(!called(&o, "omarchy-install-t3code-app") && o.calls[at(&o, "notify-send")].contains("T3 Code failed"));
+}
+
+#[test]
+fn test_update_only_never_restarts() {
+    let s = Sandbox::new();
+    t3(&s, "update", "BBB");
+    versioned(&s, "t3", "--version", "t3 v1", "t3 v2", 1);
+    let o = exec(&s);
+    assert!(called(&o, "omarchy-install-t3code-app stable") && !called(&o, "pkill"));
+    assert!(spawned(&s, false).is_none());
+}
+
+#[test]
+fn test_restart_is_spawned_detached_after_an_install() {
+    let s = Sandbox::new();
+    t3(&s, "restart", "BBB");
+    s.stub("hypr-persist", "", 0, "");
+    versioned(&s, "t3", "--version", "t3 v1", "t3 v2", 1);
+    exec(&s);
+    assert_eq!(spawned(&s, true).unwrap(), format!("uwsm-app -- {} resume-run --t3-restart --restore", bin(&s)));
+    assert!(!s.target("~/.local/state/omarchy-power-hub/resume.lock").exists());
+}
+
+#[test]
+fn test_restart_skips_restore_when_off_or_missing() {
+    let off = Sandbox::new();
+    t3(&off, "restart", "BBB");
+    off.stub("hypr-persist", "", 0, "");
+    off.config(json!({"onResume": {"omarchy": false, "plugins": false, "leanCtx": false, "t3code": "restart", "sessionRestore": false}}));
+    versioned(&off, "t3", "--version", "t3 v1", "t3 v2", 1);
+    exec(&off);
+    assert_eq!(spawned(&off, true).unwrap(), format!("uwsm-app -- {} resume-run --t3-restart", bin(&off)));
+    let missing = Sandbox::new();
+    t3(&missing, "restart", "BBB");
+    versioned(&missing, "t3", "--version", "t3 v1", "t3 v2", 1);
+    exec(&missing);
+    assert_eq!(spawned(&missing, true).unwrap(), format!("uwsm-app -- {} resume-run --t3-restart", bin(&missing)));
+    let o = missing.rust(&["resume-run", "--t3-restart"]);
+    assert!(!called(&o, "hypr-persist"));
+}
+
+#[test]
+fn test_reboot_required_skips_t3_restart() {
+    let s = Sandbox::new();
+    t3(&s, "restart", "BBB");
+    versioned(&s, "t3", "--version", "t3 v1", "t3 v2", 1);
+    s.write("~/.local/state/omarchy/reboot-required", "");
+    exec(&s);
+    assert!(spawned(&s, false).is_none());
+}
+
+/// A T3 server whose first thread list shows a running thread, and later ones an old idle one.
+fn busy_then_idle(s: &Sandbox) {
+    s.stub("sqlite3", "", 0, "p1\n");
+    let n = s.calls_log.with_file_name("t3.n").display().to_string();
+    s.stateful("t3", &format!("case \"$*\" in\n  *\"thread list\"*) c=$(cat {n} 2>/dev/null || echo 0); echo $((c+1)) > {n}\n    if [ \"$c\" = 0 ]; then echo '[{{\"status\":\"running\",\"updatedAt\":\"2020-01-01T00:00:00.000Z\"}}]'; else echo '[{{\"status\":\"completed\",\"updatedAt\":\"2020-01-01T00:00:00.000Z\"}}]'; fi;;\n  *) exit 1;;\nesac"));
+    for tool in ["notify-send", "hypr-persist", "uwsm-app"] {
+        s.stub(tool, "", 0, "");
+    }
+}
+
+#[test]
+fn test_restart_waits_for_idle() {
+    let s = Sandbox::new();
+    busy_then_idle(&s);
+    let o = s.rust(&["resume-run", "--t3-restart", "--restore"]);
+    assert_eq!(o.code, 0, "{:?}", o.calls);
+    let order = ["notify-send -a Power Hub T3 Code update ready, restarting when idle", "hypr-persist save power-hub-t3", "pkill -x t3code", &format!("uwsm-app -- {}/.local/share/t3code/T3-Code.AppImage", s.home.display()), "hypr-persist restore power-hub-t3 --class ^t3code$"];
+    let at: Vec<_> = order.iter().map(|c| o.calls.iter().position(|l| l.starts_with(c)).unwrap_or_else(|| panic!("no {c:?} in {:?}", o.calls))).collect();
+    assert!(at.windows(2).all(|w| w[0] < w[1]), "{:?}", o.calls);
+    assert_eq!(o.calls.iter().filter(|c| c.starts_with("t3 thread list")).count(), 2);
+}
+
+#[test]
+fn test_idle_check_failure_never_restarts() {
+    let s = Sandbox::new();
+    busy_then_idle(&s);
+    s.stub("sqlite3", "", 1, "");
+    let o = s.rust(&["resume-run", "--t3-restart", "--restore"]);
+    assert!(!called(&o, "pkill") && !called(&o, "hypr-persist") && !called(&o, "uwsm-app"), "{:?}", o.calls);
+    let notes: Vec<_> = o.calls.iter().filter(|c| c.starts_with("notify-send")).collect();
+    assert_eq!(notes.len(), 1);
+    assert!(notes[0].contains("T3 Code updated, restart it to finish"));
+}
+
+#[test]
+fn test_never_idle_gives_up_and_never_restarts() {
+    let s = Sandbox::new();
+    busy_then_idle(&s);
+    s.stub("t3", "thread list", 0, r#"[{"status":"running","updatedAt":"2020-01-01T00:00:00.000Z"}]"#);
+    let o = s.rust(&["resume-run", "--t3-restart"]);
+    assert!(!called(&o, "pkill") && o.calls.iter().any(|c| c.starts_with("notify-send") && c.contains("restart it to finish")), "{:?}", o.calls);
+}
+
+#[test]
+fn test_session_restore_off_or_missing() {
+    let s = Sandbox::new();
+    busy_then_idle(&s);
+    let o = s.rust(&["resume-run", "--t3-restart"]);
+    assert!(called(&o, "pkill -x t3code") && !called(&o, "hypr-persist"), "{:?}", o.calls);
+}

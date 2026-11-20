@@ -1,5 +1,5 @@
 //! The on-resume run: the update steps in order, one notification at the end.
-use crate::{exec, paths, resume};
+use crate::{exec, paths, resume, t3};
 use serde_json::{Value, json};
 use std::fs::{self, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
@@ -18,7 +18,6 @@ pub enum StepResult {
     Current,
     Updated(Vec<(String, String, String)>),
     Failed(String),
-    Skipped,
 }
 
 type Versions = Vec<(String, String)>;
@@ -27,7 +26,7 @@ fn dir() -> std::path::PathBuf {
     paths::state_dir().join("omarchy-power-hub")
 }
 
-fn log(text: &str) {
+pub fn log(text: &str) {
     let _ = fs::create_dir_all(dir());
     if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(resume::log_file()) {
         let _ = writeln!(f, "{text}");
@@ -35,7 +34,7 @@ fn log(text: &str) {
 }
 
 /// Runs one command, appending its output to the log under a timestamp.
-fn sh(name: &str, argv: &[&str]) -> Result<(), String> {
+pub fn sh(name: &str, argv: &[&str]) -> Result<(), String> {
     println!("{name}");
     let stamp = exec::run(&["date", "+%F %T"], Duration::from_secs(5)).1;
     let (code, out) = if TERMINAL.load(Ordering::Relaxed) { stream(argv) } else { exec::run(argv, LONG) };
@@ -92,11 +91,6 @@ fn tracked(name: &str, argv: &[&str], snap: impl Fn() -> Versions) -> StepResult
     if changed.is_empty() { StepResult::Current } else { StepResult::Updated(changed) }
 }
 
-/// Placeholder until the T3 Code step lands.
-fn t3_step(_mode: &str) -> StepResult {
-    StepResult::Skipped
-}
-
 fn script_step(path: &str) -> StepResult {
     if !exec::executable(std::path::Path::new(path)) {
         log(&format!("script is missing or not executable: {path}"));
@@ -130,7 +124,7 @@ fn step(name: &str, cfg: &Value) -> StepResult {
         "lean-ctx" => tracked(name, &["lean-ctx", "update"], || version("lean-ctx", &["lean-ctx", "--version"])),
         "Rulesync" => tracked(name, &["mise", "up", "npm:rulesync"], || version("rulesync", &["mise", "ls", "npm:rulesync"])),
         "Skills Manager" => tracked(name, &["skills-manager-refresh", "--noconfirm"], || packages(&["skills-manager-prebuilt"])),
-        "T3 Code" => t3_step(cfg["t3code"].as_str().unwrap_or("update")),
+        "T3 Code" => t3::step(cfg["t3code"].as_str().unwrap_or("update")),
         _ => script_step(cfg["script"].as_str().unwrap_or("")),
     }
 }
@@ -230,6 +224,11 @@ pub fn exec() -> i32 {
         s.insert("lastError".into(), last_error);
     });
     drop(held);
+    if cfg["t3code"] == "restart" && !reboot && results.iter().any(|(n, r)| *n == "T3 Code" && matches!(r, StepResult::Updated(_))) {
+        let restore = cfg["sessionRestore"] == true && status["installed"]["hyprPersist"] == true;
+        let bin = paths::bin_dir().join("power-hub").to_string_lossy().into_owned();
+        resume::detach(&["uwsm-app", "--", &bin, "resume-run", "--t3-restart"].into_iter().chain(restore.then_some("--restore")).collect::<Vec<_>>());
+    }
     if !updates.is_empty() || !failed.is_empty() || reboot {
         notify(&updates, &failed, reboot);
     }
