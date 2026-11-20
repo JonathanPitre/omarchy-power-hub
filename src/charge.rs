@@ -14,7 +14,7 @@ fn secs(n: u64) -> Duration {
 /// The passwordless sudo rule covers only the root-owned copy; a copy that differs from the plugin's counts as absent.
 pub fn helper_bin() -> Option<PathBuf> {
     let (src, dst) = (paths::bin_dir(), paths::helper_dir());
-    let same = [("ops-priv", dst.join("ops-priv")), ("sleep-hook", paths::root(SLEEP_HOOK))].iter().all(|(n, d)| matches!((fs::read(d), fs::read(src.join(n))), (Ok(a), Ok(b)) if a == b));
+    let same = [("ops-priv", dst.join("ops-priv")), ("sleep-hook", paths::root(SLEEP_HOOK)), ("cleanup-user", dst.join("cleanup-user"))].iter().all(|(n, d)| matches!((fs::read(d), fs::read(src.join(n))), (Ok(a), Ok(b)) if a == b));
     same.then(|| dst.join("ops-priv"))
 }
 

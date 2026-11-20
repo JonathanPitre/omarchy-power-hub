@@ -188,6 +188,7 @@ case "${1:-}" in
     rm -f "$dir/hid_wakeup.py"
     printf '%s\n' "$user" > "$dir/owner"
     chmod 644 "$dir/owner"
+    install -m 755 -o root -g root "$src/cleanup-user" "$dir/cleanup-user"
     install -m 755 -o root -g root "$src/sleep-hook" /usr/lib/systemd/system-sleep/omarchy-power-hub
     file=/etc/sudoers.d/omarchy-power-hub
     umask 177
@@ -195,6 +196,28 @@ case "${1:-}" in
     visudo -cf "$file.new" >/dev/null || { rm -f "$file.new"; exit 1; }
     chmod 440 "$file.new"
     mv "$file.new" "$file"
+    home=$(getent passwd "$user" | cut -d: -f6)
+    case "$home" in ""|*[\&\|\\]*) echo "bad home" >&2; exit 2 ;; esac
+    for u in path service; do
+      sed "s|@HOME@|$home|g" "$src/../extras/systemd/omarchy-power-hub-cleanup.$u" > "/etc/systemd/system/omarchy-power-hub-cleanup.$u"
+    done
+    systemctl daemon-reload && systemctl enable --now omarchy-power-hub-cleanup.path
+    ;;
+  cleanup)
+    set +e
+    dir=/usr/local/libexec/omarchy-power-hub
+    user=$(head -n1 "$dir/owner" 2>/dev/null)
+    case "$user" in ""|*[!a-z0-9_-]*) echo ok; exit 0 ;; esac
+    home=$(getent passwd "$user" | cut -d: -f6)
+    p="$home/.config/omarchy/plugins/omarchy-power-hub"
+    if [ -z "$home" ] || [ -e "$p" ] || [ -L "$p" ]; then echo ok; exit 0; fi
+    timeout 20 runuser -u "$user" -- env HOME="$home" sh "$dir/cleanup-user" || logger -t omarchy-power-hub "cleanup-user failed"
+    rm -rf "$dir"
+    rm -f /etc/sudoers.d/omarchy-power-hub /etc/sudoers.d/omarchy-power-hub-leds /etc/systemd/sleep.conf.d/90-omarchy-power-hub.conf \
+      /usr/lib/systemd/system-sleep/omarchy-power-hub /usr/lib/systemd/system-sleep/battery-plus-sleep /usr/lib/systemd/system-sleep/battery-plus-wifi-suspend-fix
+    systemctl disable --now omarchy-power-hub-cleanup.path
+    rm -f /etc/systemd/system/omarchy-power-hub-cleanup.path /etc/systemd/system/omarchy-power-hub-cleanup.service
+    systemctl daemon-reload
     ;;
   *) echo "unknown" >&2; exit 2 ;;
 esac

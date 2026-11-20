@@ -4,6 +4,8 @@ use std::process::{Command, Output};
 
 const SCRIPT: &str = include_str!("../bin/ops-priv");
 const HOOK: &str = include_str!("../bin/sleep-hook");
+const CLEANUP_USER: &str = include_str!("../bin/cleanup-user");
+const UNIT_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/extras/systemd");
 
 struct Sandbox(PathBuf);
 
@@ -120,31 +122,13 @@ fn bad_mode_exits_2() {
 fn helper_install_records_the_owner_and_installs_the_sleep_hook() {
     use std::os::unix::fs::PermissionsExt;
     let s = Sandbox::new("install");
-    let r = &s.0;
-    fs::create_dir_all(r.join("systemd/system-sleep")).unwrap();
-    fs::create_dir_all(r.join("etc/sudoers.d")).unwrap();
-    fs::write(r.join("sleep-hook"), HOOK).unwrap();
-    let fakes = r.join("fakes");
-    fs::create_dir_all(&fakes).unwrap();
-    let fake = |name: &str, body: &str| {
-        let p = fakes.join(name);
-        fs::write(&p, format!("#!/bin/bash\n{body}\n")).unwrap();
-        fs::set_permissions(&p, fs::Permissions::from_mode(0o755)).unwrap();
-    };
-    fake("install", r#"a=(); while [ $# -gt 0 ]; do case "$1" in -o|-g) shift 2 ;; *) a+=("$1"); shift ;; esac; done; exec /usr/bin/install "${a[@]}""#);
-    fake("visudo", "exit 0");
-    let uid = Command::new("id").arg("-u").output().unwrap().stdout;
-    let name = Command::new("id").arg("-nu").output().unwrap().stdout;
-    let out = Command::new("bash")
-        .arg(r.join("ops-priv"))
-        .arg("helper-install")
-        .env("PKEXEC_UID", String::from_utf8_lossy(&uid).trim())
-        .output()
-        .unwrap();
+    let out = s.install();
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
-    assert_eq!(fs::read(r.join("libexec/omarchy-power-hub/owner")).unwrap(), name);
-    assert_eq!(fs::metadata(r.join("libexec/omarchy-power-hub/owner")).unwrap().permissions().mode() & 0o777, 0o644);
-    assert_eq!(fs::read_to_string(r.join("systemd/system-sleep/omarchy-power-hub")).unwrap(), HOOK);
+    let name = Command::new("id").arg("-nu").output().unwrap().stdout;
+    let owner = s.at("libexec/omarchy-power-hub/owner");
+    assert_eq!(fs::read(&owner).unwrap(), name);
+    assert_eq!(fs::metadata(owner).unwrap().permissions().mode() & 0o777, 0o644);
+    assert_eq!(fs::read_to_string(s.at("systemd/system-sleep/omarchy-power-hub")).unwrap(), HOOK);
 }
 
 #[test]
@@ -175,4 +159,219 @@ fn epp_cpu_rejects_unsafe_arguments_before_sysfs_access() {
     let missing = s.run(&["epp-cpu", "999999", "power"]);
     assert_eq!(missing.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&missing.stderr).contains("no cpu preference"));
+}
+
+impl Sandbox {
+    fn fake(&self, name: &str, body: &str) {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = self.0.join("fakes");
+        fs::create_dir_all(&dir).unwrap();
+        let p = dir.join(name);
+        fs::write(&p, format!("#!/bin/bash\n{body}\n")).unwrap();
+        fs::set_permissions(&p, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    /// Logging fakes for the commands the root verbs call; each call lands in `calls.log`.
+    fn fake_commands(&self) {
+        let log = self.0.join("calls.log");
+        for name in ["systemctl", "logger", "hyprctl"] {
+            self.fake(name, &format!(r#"echo "{name} $*" >> {}"#, log.display()));
+        }
+    }
+
+    fn calls(&self) -> String {
+        fs::read_to_string(self.0.join("calls.log")).unwrap_or_default()
+    }
+
+    fn home(&self) -> PathBuf {
+        self.0.join("home")
+    }
+
+    fn at(&self, rel: &str) -> PathBuf {
+        self.0.join(rel)
+    }
+
+    fn write(&self, rel: &str, text: &str) -> PathBuf {
+        let p = self.at(rel);
+        fs::create_dir_all(p.parent().unwrap()).unwrap();
+        fs::write(&p, text).unwrap();
+        p
+    }
+
+    /// Lays out an installed helper for the current user, with the plugin folder absent.
+    fn installed(&self, cleanup_user: &str) {
+        self.fake_commands();
+        let user = String::from_utf8(Command::new("id").arg("-nu").output().unwrap().stdout).unwrap();
+        self.fake("getent", &format!(r#"echo "{}:x:1:1::{}:/bin/sh""#, user.trim(), self.home().display()));
+        self.fake("runuser", r#"shift 3; exec "$@""#);
+        self.write("libexec/omarchy-power-hub/owner", &user);
+        for f in ["ops-priv", "hid_wakeup.py"] {
+            self.write(&format!("libexec/omarchy-power-hub/{f}"), "x\n");
+        }
+        self.write("libexec/omarchy-power-hub/cleanup-user", cleanup_user);
+        for f in [
+            "etc/sudoers.d/omarchy-power-hub",
+            "etc/sudoers.d/omarchy-power-hub-leds",
+            "etc/sudoers.d/keep-me",
+            "etc/systemd/sleep.conf.d/90-omarchy-power-hub.conf",
+            "etc/systemd/system/omarchy-power-hub-cleanup.path",
+            "etc/systemd/system/omarchy-power-hub-cleanup.service",
+            "systemd/system-sleep/omarchy-power-hub",
+            "systemd/system-sleep/battery-plus-sleep",
+            "systemd/system-sleep/battery-plus-wifi-suspend-fix",
+            "systemd/system-sleep/keyboard-backlight",
+            "home/.config/omarchy/power-hub-tweaks.json",
+            "home/.config/omarchy/omarchy-power-hub.json",
+            "var-log/battery-plus-sleep.log",
+        ] {
+            self.write(f, "x\n");
+        }
+    }
+
+    /// Runs helper-install as the current user from a plugin-like `bin/` next to `extras/`.
+    fn install(&self) -> Output {
+        let r = &self.0;
+        self.fake_commands();
+        self.fake("install", r#"a=(); while [ $# -gt 0 ]; do case "$1" in -o|-g) shift 2 ;; *) a+=("$1"); shift ;; esac; done; exec /usr/bin/install "${a[@]}""#);
+        self.fake("visudo", "exit 0");
+        let name = String::from_utf8(Command::new("id").arg("-nu").output().unwrap().stdout).unwrap();
+        self.fake("getent", &format!(r#"echo "{}:x:1:1::{}:/bin/sh""#, name.trim(), self.home().display()));
+        for d in ["systemd/system-sleep", "etc/sudoers.d", "etc/systemd/system", "bin"] {
+            fs::create_dir_all(r.join(d)).unwrap();
+        }
+        fs::copy(r.join("ops-priv"), r.join("bin/ops-priv")).unwrap();
+        self.write("bin/sleep-hook", HOOK);
+        self.write("bin/cleanup-user", CLEANUP_USER);
+        for u in ["path", "service"] {
+            self.write(&format!("extras/systemd/omarchy-power-hub-cleanup.{u}"), &fs::read_to_string(format!("{UNIT_DIR}/omarchy-power-hub-cleanup.{u}")).unwrap());
+        }
+        let uid = Command::new("id").arg("-u").output().unwrap().stdout;
+        Command::new("bash").arg(r.join("bin/ops-priv")).arg("helper-install").env("PKEXEC_UID", String::from_utf8_lossy(&uid).trim()).output().unwrap()
+    }
+
+    fn cleanup(&self) -> Output {
+        let out = self.run(&["cleanup", "--anything", "x"]);
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        assert_eq!(String::from_utf8_lossy(&out.stdout), "ok\n");
+        out
+    }
+
+    fn cleanup_user(&self) -> Output {
+        Command::new("sh")
+            .arg(self.at("cleanup-user"))
+            .env("HOME", self.home())
+            .env("PATH", format!("{}:/usr/bin:/bin", self.at("fakes").display()))
+            .output()
+            .unwrap()
+    }
+}
+
+#[test]
+fn cleanup_removes_nothing_while_the_plugin_folder_exists() {
+    let s = Sandbox::new("cleanup-present");
+    s.installed("touch ran\n");
+    fs::create_dir_all(s.home().join(".config/omarchy/plugins/omarchy-power-hub")).unwrap();
+    s.cleanup();
+    assert!(s.at("libexec/omarchy-power-hub/owner").exists() && s.at("etc/sudoers.d/omarchy-power-hub").exists());
+    assert_eq!(s.calls(), "");
+}
+
+#[test]
+fn cleanup_treats_a_broken_symlink_as_present() {
+    let s = Sandbox::new("cleanup-link");
+    s.installed("touch ran\n");
+    let plugins = s.home().join(".config/omarchy/plugins");
+    fs::create_dir_all(&plugins).unwrap();
+    std::os::unix::fs::symlink(s.at("nowhere"), plugins.join("omarchy-power-hub")).unwrap();
+    s.cleanup();
+    assert!(s.at("libexec/omarchy-power-hub/owner").exists() && s.at("etc/sudoers.d/omarchy-power-hub").exists());
+}
+
+#[test]
+fn cleanup_exits_ok_without_an_owner() {
+    let s = Sandbox::new("cleanup-noowner");
+    s.fake_commands();
+    s.cleanup();
+    assert_eq!(s.calls(), "");
+}
+
+#[test]
+fn cleanup_removes_every_root_file_and_keeps_user_config() {
+    let s = Sandbox::new("cleanup-all");
+    s.installed("touch ran\n");
+    s.cleanup();
+    for gone in [
+        "libexec/omarchy-power-hub",
+        "etc/sudoers.d/omarchy-power-hub",
+        "etc/sudoers.d/omarchy-power-hub-leds",
+        "etc/systemd/sleep.conf.d/90-omarchy-power-hub.conf",
+        "etc/systemd/system/omarchy-power-hub-cleanup.path",
+        "etc/systemd/system/omarchy-power-hub-cleanup.service",
+        "systemd/system-sleep/omarchy-power-hub",
+        "systemd/system-sleep/battery-plus-sleep",
+        "systemd/system-sleep/battery-plus-wifi-suspend-fix",
+    ] {
+        assert!(!s.at(gone).exists(), "{gone}");
+    }
+    for kept in [
+        "home/.config/omarchy/power-hub-tweaks.json",
+        "home/.config/omarchy/omarchy-power-hub.json",
+        "var-log/battery-plus-sleep.log",
+        "etc/sudoers.d/keep-me",
+        "systemd/system-sleep/keyboard-backlight",
+    ] {
+        assert!(s.at(kept).exists(), "{kept}");
+    }
+    let calls = s.calls();
+    let at = |needle: &str| calls.find(needle).unwrap_or_else(|| panic!("{needle} in {calls}"));
+    assert!(at("systemctl disable --now omarchy-power-hub-cleanup.path") < at("systemctl daemon-reload"));
+}
+
+#[test]
+fn cleanup_continues_when_cleanup_user_fails() {
+    let s = Sandbox::new("cleanup-fails");
+    s.installed("exit 1\n");
+    s.cleanup();
+    assert!(!s.at("etc/sudoers.d/omarchy-power-hub").exists() && !s.at("libexec/omarchy-power-hub").exists());
+    assert!(s.calls().contains("logger -t omarchy-power-hub"));
+}
+
+const LUA: &str = "before\n-- BEGIN Omarchy Power Hub lid action override\nhl.unbind(1)\n-- END Omarchy Power Hub lid action override\nafter\n";
+
+#[test]
+fn cleanup_user_removes_only_the_marked_lid_block() {
+    let s = Sandbox::new("user-block");
+    s.fake_commands();
+    s.write("cleanup-user", CLEANUP_USER);
+    let lua = s.write("home/.config/hypr/bindings.lua", LUA);
+    let unit = s.write("home/.config/systemd/user/omarchy-power-hub-tweaks.service", "x\n");
+    assert!(s.cleanup_user().status.success());
+    assert_eq!(fs::read_to_string(lua).unwrap(), "before\nafter\n");
+    assert!(!unit.exists());
+    let calls = s.calls();
+    assert!(calls.contains("systemctl --user disable omarchy-power-hub-tweaks.service"));
+}
+
+#[test]
+fn cleanup_user_leaves_bindings_alone_without_both_markers() {
+    let s = Sandbox::new("user-markers");
+    s.fake_commands();
+    s.write("cleanup-user", CLEANUP_USER);
+    let half = LUA.replace("-- END Omarchy Power Hub lid action override\n", "");
+    let lua = s.write("home/.config/hypr/bindings.lua", &half);
+    assert!(s.cleanup_user().status.success());
+    assert_eq!(fs::read_to_string(lua).unwrap(), half);
+}
+
+#[test]
+fn helper_install_installs_and_enables_the_cleanup_units() {
+    let s = Sandbox::new("units");
+    assert!(s.install().status.success());
+    let path = fs::read_to_string(s.at("etc/systemd/system/omarchy-power-hub-cleanup.path")).unwrap();
+    assert!(path.contains(&format!("PathChanged={}/.config/omarchy/plugins\n", s.home().display())), "{path}");
+    assert!(!path.contains("@HOME@"));
+    let service = fs::read_to_string(s.at("etc/systemd/system/omarchy-power-hub-cleanup.service")).unwrap();
+    assert!(service.contains("ExecStart=/usr/local/libexec/omarchy-power-hub/ops-priv cleanup"));
+    assert_eq!(fs::read_to_string(s.at("libexec/omarchy-power-hub/cleanup-user")).unwrap(), CLEANUP_USER);
+    assert_eq!(s.calls(), "systemctl daemon-reload\nsystemctl enable --now omarchy-power-hub-cleanup.path\n");
 }
