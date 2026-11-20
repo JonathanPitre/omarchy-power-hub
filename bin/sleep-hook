@@ -1,0 +1,11 @@
+#!/bin/sh
+# systemd-sleep hook: lights off before sleep, back at wake, as the plugin's owner.
+dir=/usr/local/libexec/omarchy-power-hub
+case "$1" in pre) v=off ;; post) v=on ;; *) exit 0 ;; esac
+user=$(cat "$dir/owner" 2>/dev/null) || exit 0
+home=$(getent passwd "$user" | cut -d: -f6)
+bin=$home/.config/omarchy/plugins/omarchy-power-hub/bin/power-hub
+[ -n "$home" ] && [ -x "$bin" ] || exit 0
+uid=$(id -u "$user") || exit 0
+timeout 5 runuser -u "$user" -- env HOME="$home" XDG_RUNTIME_DIR="/run/user/$uid" "$bin" lights "$v"
+exit 0

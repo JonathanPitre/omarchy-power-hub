@@ -186,6 +186,9 @@ case "${1:-}" in
     install -d -m 755 -o root -g root "$dir"
     install -m 755 -o root -g root "$src/ops-priv" "$dir/ops-priv"
     rm -f "$dir/hid_wakeup.py"
+    printf '%s\n' "$user" > "$dir/owner"
+    chmod 644 "$dir/owner"
+    install -m 755 -o root -g root "$src/sleep-hook" /usr/lib/systemd/system-sleep/omarchy-power-hub
     file=/etc/sudoers.d/omarchy-power-hub
     umask 177
     printf '%s\n' "$user ALL=(root) NOPASSWD: $dir/ops-priv" > "$file.new"

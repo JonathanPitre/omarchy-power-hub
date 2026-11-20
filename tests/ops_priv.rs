@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
 const SCRIPT: &str = include_str!("../bin/ops-priv");
+const HOOK: &str = include_str!("../bin/sleep-hook");
 
 struct Sandbox(PathBuf);
 
@@ -11,8 +12,12 @@ impl Sandbox {
         let root = std::env::temp_dir().join(format!("ops-priv-{}-{name}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(root.join("sys")).unwrap();
-        let fake = format!("{}/sys/", root.display());
-        fs::write(root.join("ops-priv"), SCRIPT.replace("/sys/", &fake)).unwrap();
+        let at = |d: &str| format!("{}{d}", root.display());
+        let script = [("/sys/", "/sys/"), ("/usr/local/libexec/", "/libexec/"), ("/usr/lib/systemd/", "/systemd/"), ("/etc/", "/etc/")]
+            .iter()
+            .fold(SCRIPT.to_string(), |s, (from, to)| s.replace(from, &at(to)))
+            .replace("PATH=/usr/bin", &format!("PATH={}/fakes:/usr/bin", root.display()));
+        fs::write(root.join("ops-priv"), script).unwrap();
         Self(root)
     }
 
@@ -109,6 +114,50 @@ fn bad_mode_exits_2() {
     let s = Sandbox::new("bad");
     assert_eq!(s.run(&["hid-wakeup", "maybe"]).status.code(), Some(2));
     assert_eq!(s.run(&["hid-wakeup"]).status.code(), Some(2));
+}
+
+#[test]
+fn helper_install_records_the_owner_and_installs_the_sleep_hook() {
+    use std::os::unix::fs::PermissionsExt;
+    let s = Sandbox::new("install");
+    let r = &s.0;
+    fs::create_dir_all(r.join("systemd/system-sleep")).unwrap();
+    fs::create_dir_all(r.join("etc/sudoers.d")).unwrap();
+    fs::write(r.join("sleep-hook"), HOOK).unwrap();
+    let fakes = r.join("fakes");
+    fs::create_dir_all(&fakes).unwrap();
+    let fake = |name: &str, body: &str| {
+        let p = fakes.join(name);
+        fs::write(&p, format!("#!/bin/bash\n{body}\n")).unwrap();
+        fs::set_permissions(&p, fs::Permissions::from_mode(0o755)).unwrap();
+    };
+    fake("install", r#"a=(); while [ $# -gt 0 ]; do case "$1" in -o|-g) shift 2 ;; *) a+=("$1"); shift ;; esac; done; exec /usr/bin/install "${a[@]}""#);
+    fake("visudo", "exit 0");
+    let uid = Command::new("id").arg("-u").output().unwrap().stdout;
+    let name = Command::new("id").arg("-nu").output().unwrap().stdout;
+    let out = Command::new("bash")
+        .arg(r.join("ops-priv"))
+        .arg("helper-install")
+        .env("PKEXEC_UID", String::from_utf8_lossy(&uid).trim())
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(fs::read(r.join("libexec/omarchy-power-hub/owner")).unwrap(), name);
+    assert_eq!(fs::metadata(r.join("libexec/omarchy-power-hub/owner")).unwrap().permissions().mode() & 0o777, 0o644);
+    assert_eq!(fs::read_to_string(r.join("systemd/system-sleep/omarchy-power-hub")).unwrap(), HOOK);
+}
+
+#[test]
+fn sleep_hook_exits_zero_without_an_owner() {
+    let s = Sandbox::new("hook");
+    let empty = s.0.join("empty");
+    fs::create_dir_all(&empty).unwrap();
+    let script = s.0.join("hook");
+    fs::write(&script, HOOK.replace("/usr/local/libexec/omarchy-power-hub", &empty.display().to_string())).unwrap();
+    for arg in ["pre", "post"] {
+        let out = Command::new("sh").arg(&script).arg(arg).output().unwrap();
+        assert!(out.status.success() && out.stdout.is_empty() && out.stderr.is_empty(), "{arg}");
+    }
 }
 
 #[test]

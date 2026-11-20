@@ -210,6 +210,7 @@ impl Sandbox {
             fs::create_dir_all(d).unwrap();
         }
         fs::copy(Path::new(REPO).join("bin/ops-priv"), bin.join("ops-priv")).unwrap();
+        fs::copy(Path::new(REPO).join("bin/sleep-hook"), bin.join("sleep-hook")).unwrap();
         let sock_path = run.join("hypr/test/.socket.sock");
         let mut s = Self {
             calls_log: base.join("calls.log"),
@@ -400,6 +401,9 @@ if [ "$1" = eval ] && [[ "$out" == error* ]]; then exit 7; fi
         let dir = self.helper_dir();
         fs::create_dir_all(&dir).unwrap();
         fs::copy(self.bin.join("ops-priv"), dir.join("ops-priv")).unwrap();
+        let hook = self.root.join("usr/lib/systemd/system-sleep/omarchy-power-hub");
+        fs::create_dir_all(hook.parent().unwrap()).unwrap();
+        fs::copy(self.bin.join("sleep-hook"), hook).unwrap();
         if tamper {
             File::options().append(true).open(dir.join("ops-priv")).unwrap().write_all(b"# tampered\n").unwrap();
         }
