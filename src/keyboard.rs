@@ -3,8 +3,6 @@ use serde_json::{Value, json};
 use std::fs;
 use std::path::PathBuf;
 
-// Not read yet by the binary; the keyboard mode setting will use it.
-#[allow(dead_code)]
 /// Read levels in percent, with the mode name each one stands for.
 pub const LEVELS: [(&str, i64); 4] = [("off", 0), ("low", 33), ("medium", 67), ("high", 100)];
 
@@ -45,8 +43,6 @@ pub fn external_keyboard(devices: &str) -> bool {
     devices.split("\n\n").any(external_block)
 }
 
-// Not read yet by the binary; the keyboard mode setting will use it.
-#[allow(dead_code)]
 /// Mode name for a read level: below 33 off, below 67 low, below 100 medium, else high.
 pub fn name_of(level: i64) -> &'static str {
     match level {
@@ -79,7 +75,7 @@ pub fn read() -> Option<i64> {
     if !kblight::qmk_available() {
         return None;
     }
-    let (code, out) = kblight::call(&kblight::argv(&["qmk_hid", "via", "--backlight"]), None);
+    let (code, out) = kblight::call(&backlight(), None);
     kblight::tool_ok(code, &out).then(|| kblight::percent(&out)).flatten()
 }
 
@@ -104,9 +100,21 @@ fn save(wrote: Option<i64>, hold: bool) {
     let _ = fs::write(state_file(), json!({"wrote": wrote, "hold": hold}).to_string() + "\n");
 }
 
+/// The `qmk_hid` call that reads the backlight, and sets it with a value appended.
+pub(crate) fn backlight() -> Vec<String> {
+    kblight::argv(&["qmk_hid", "via", "--backlight"])
+}
+
+/// Sets the backlight to a read level; true when the keyboard took it.
+pub fn write_level(level: i64) -> bool {
+    let (code, out) = kblight::call(&[backlight(), vec![write_value(level).to_string()]].concat(), None);
+    kblight::tool_ok(code, &out)
+}
+
 fn write(level: i64) {
-    kblight::call(&[kblight::argv(&["qmk_hid", "via", "--backlight"]), vec![write_value(level).to_string()]].concat(), None);
-    save(Some(level), false);
+    if write_level(level) {
+        save(Some(level), false);
+    }
 }
 
 /// Takes the level back from the keys and sets it for the room.

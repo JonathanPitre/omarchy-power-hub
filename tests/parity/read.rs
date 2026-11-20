@@ -917,7 +917,7 @@ mod data_parity {
         let r = s.rust(&["data"]);
         let d = data_of(&s, "DataParity.test_tweaks_counts_and_pins");
         assert_eq!(d["tweaks"], json!({"wifi": true, "usb": false, "pcie": true, "audio": true, "abm": true,
-                                       "abmAvailable": true, "effects": true, "daylight": false, "daylightAvailable": false,
+                                       "abmAvailable": true, "effects": true, "keyboardAvailable": false,
                                        "powerButtonAvailable": false, "powerButton": "auto", "wifiPinned": true, "usbPinned": false, "audioPinned": 3}));
         assert_eq!(r.requests, ["getoption animations:enabled"]);
         assert!(r.calls_text().contains("iw dev wlan0 get power_save"));
@@ -931,19 +931,20 @@ mod data_parity {
         s.write("/sys/module/snd_hda_intel/parameters/power_save", "0\n");
         assert_eq!(data_of(&s, "DataParity.test_tweaks_default_off")["tweaks"], json!({
             "wifi": false, "usb": false, "pcie": false, "audio": false, "abm": false, "abmAvailable": true, "effects": false,
-            "daylight": false, "daylightAvailable": false, "powerButtonAvailable": false, "powerButton": "auto"}));
+            "keyboardAvailable": false, "powerButtonAvailable": false, "powerButton": "auto"}));
     }
 
     #[test]
-    fn test_daylight_option_needs_a_framework_with_a_sensor() {
+    fn test_keyboard_row_needs_a_module_that_answers() {
         let s = Sandbox::new();
         let tweaks = || j(&s.rust(&["data"]))["tweaks"].clone();
-        s.write("/sys/bus/iio/devices/iio:device0/in_illuminance_raw", "37\n");
-        assert_eq!(tweaks()["daylightAvailable"], false);
-        s.write("/sys/class/dmi/id/sys_vendor", "Framework\n");
-        assert_eq!(tweaks()["daylightAvailable"], true);
+        assert_eq!((tweaks()["keyboardAvailable"].clone(), tweaks().get("keyboard").cloned()), (json!(false), None));
+        s.dmi("Framework", "Laptop 16");
+        s.stub("qmk_hid", "via --backlight", 0, "Brightness: 67%\n");
+        s.set_path(&s.stubs.display().to_string());
+        assert_eq!((tweaks()["keyboardAvailable"].clone(), tweaks()["keyboard"].clone()), (json!(true), json!("medium")));
         s.write(TWEAKS_FILE, r#"{"daylight": true}"#);
-        assert_eq!(tweaks()["daylight"], true);
+        assert_eq!(tweaks()["keyboard"], "auto");
     }
 
     #[test]

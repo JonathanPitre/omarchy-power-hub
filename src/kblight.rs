@@ -243,6 +243,15 @@ fn save(path: &Path, state: &Map<String, Value>) {
     let _ = fs::write(path, Value::Object(state.clone()).to_string() + "\n");
 }
 
+/// Replaces the level a display-off saved, so the next wake restores the one just chosen.
+pub fn replace_saved_level(level: i64) {
+    let path = paths::plugin_run_dir().join("kblight.json");
+    if let (Some(_), Some(Value::Object(mut raw))) = (load_state(&path).level, fs::read_to_string(&path).ok().and_then(|t| serde_json::from_str(&t).ok())) {
+        raw.insert("level".into(), level.into());
+        save(&path, &raw);
+    }
+}
+
 /// Whether this machine is a Laptop 16 with `qmk_hid` to drive its keys.
 pub(crate) fn qmk_available() -> bool {
     model_of(&dmi("sys_vendor"), &dmi("product_name")) == "16" && exec::on_path("qmk_hid")
@@ -287,7 +296,7 @@ pub fn sync(off: bool, auto: bool) {
     if !qmk && !ec_keys && !fw && led.is_none() {
         return;
     }
-    let keys = if qmk { argv(&["qmk_hid", "via", "--backlight"]) } else { argv(&["framework_tool", "--kblight"]) };
+    let keys = if qmk { keyboard::backlight() } else { argv(&["framework_tool", "--kblight"]) };
     let key_call = |args: &[String]| call(args, if ec_keys { priv_argv(args, helper.as_deref()) } else { None });
     let fw_call = |args: &[String]| call(args, priv_argv(args, helper.as_deref()));
     let saved = load_state(&path);

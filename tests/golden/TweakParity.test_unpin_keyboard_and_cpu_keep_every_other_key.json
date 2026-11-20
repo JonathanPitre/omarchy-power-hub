@@ -12,24 +12,7 @@
    ],
    "home/.config/omarchy/power-hub-tweaks.json": [
     420,
-    "{\"z\": 1, \"wifi\": true, \"usbPinned\": true, \"daylight\": false, \"a\": [1]}"
-   ]
-  }
- },
- {
-  "code": 0,
-  "stdout": "ok\n",
-  "calls": [],
-  "evals": [],
-  "requests": [],
-  "files": {
-   "home/.config/omarchy/omarchy-power-hub.json": [
-    420,
-    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
-   ],
-   "home/.config/omarchy/power-hub-tweaks.json": [
-    420,
-    "{\"z\": 1, \"wifi\": true, \"usbPinned\": true, \"daylight\": false, \"a\": [1]}"
+    "{\"z\": 1, \"wifi\": true, \"usbPinned\": true, \"daylight\": true, \"a\": [1]}"
    ]
   }
  },
@@ -53,7 +36,10 @@
  {
   "code": 0,
   "stdout": "ok\n",
-  "calls": [],
+  "calls": [
+   "qmk_hid via --backlight",
+   "qmk_hid via --backlight 34"
+  ],
   "evals": [],
   "requests": [],
   "files": {
@@ -63,13 +49,41 @@
    ],
    "home/.config/omarchy/power-hub-tweaks.json": [
     420,
-    "{\"z\": 1, \"wifi\": true, \"usbPinned\": true, \"daylight\": false, \"a\": [1]}"
+    "{\"z\": 1, \"wifi\": true, \"usbPinned\": true, \"a\": [1], \"keyboard\": \"auto\"}"
+   ],
+   "run/omarchy-power-hub/kbauto.json": [
+    420,
+    "{\"wrote\": 33, \"hold\": false}"
    ]
   }
  },
  {
   "code": 0,
   "stdout": "ok\n",
+  "calls": [
+   "qmk_hid via --backlight",
+   "qmk_hid via --backlight 34"
+  ],
+  "evals": [],
+  "requests": [],
+  "files": {
+   "home/.config/omarchy/omarchy-power-hub.json": [
+    420,
+    "{\"ac\": {\"profile\": \"balanced\"}, \"battery\": {\"profile\": \"balanced\"}}"
+   ],
+   "home/.config/omarchy/power-hub-tweaks.json": [
+    420,
+    "{\"z\": 1, \"wifi\": true, \"usbPinned\": true, \"a\": [1]}"
+   ],
+   "run/omarchy-power-hub/kbauto.json": [
+    420,
+    "{\"wrote\": 33, \"hold\": false}"
+   ]
+  }
+ },
+ {
+  "code": 1,
+  "stdout": "The keyboard light cannot be set on this machine\n",
   "calls": [],
   "evals": [],
   "requests": [],
@@ -80,7 +94,11 @@
    ],
    "home/.config/omarchy/power-hub-tweaks.json": [
     420,
-    "{\"z\": 1, \"wifi\": true, \"usbPinned\": true, \"daylight\": false, \"a\": [1]}"
+    "{\"z\": 1, \"wifi\": true, \"usbPinned\": true, \"a\": [1]}"
+   ],
+   "run/omarchy-power-hub/kbauto.json": [
+    420,
+    "{\"wrote\": 33, \"hold\": false}"
    ]
   }
  }

@@ -710,6 +710,14 @@ mod lights_parity {
     }
 
     #[test]
+    fn test_auto_tick_records_nothing_when_the_write_fails() {
+        let reads_only: Tool = Box::new(|s| s.stateful("qmk_hid", r#"[ "$*" = "via --backlight" ] && echo "Brightness: 0%" || exit 1"#));
+        let (s, go) = start(&Lights { auto: true, lux: Some(5), ..lights(vec![reads_only]) }, "LightsParity.test_auto_tick_records_nothing_when_the_write_fails");
+        go(&s, &["lights", "auto"]);
+        assert_eq!(kbauto(&s), None);
+    }
+
+    #[test]
     fn test_auto_tick_does_nothing_in_manual_mode_or_with_displays_off() {
         const T: &str = "LightsParity.test_auto_tick_does_nothing_in_manual_mode_or_with_displays_off";
         let (s, go) = start(&Lights { lux: Some(5), ..lights(vec![qmk_keys(100)]) }, T);

@@ -97,7 +97,7 @@ fn main() {
         Some("apply-profile") => report(settings::apply_active().unwrap_or_else(|e| e.to_string())),
         Some("apply-tweaks") => report(tweaks::apply_saved_tweaks()),
         Some("unpin") if args.len() >= 2 => report(tweaks::unpin(&args[1])),
-        Some("daylight") if args.len() >= 2 => report(tweaks::daylight(args[1] == "on")),
+        Some("keyboard") if args.len() >= 2 => report(tweaks::keyboard(&args[1])),
         Some("cpu") if args.len() >= 3 => report(tweaks::cpu(&args[1], &args[2])),
         Some("helper-install") => {
             let (code, msg) = charge::helper_install();
