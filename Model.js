@@ -222,7 +222,6 @@ function fmtAgo(iso) {
 
 // ---------- On resume ----------
 
-var RESUME_GROUPS = ["WHEN", "UPDATE", "AFTER", "SCRIPT"];
 var RESUME_LOG = "~/.local/state/omarchy-power-hub/resume.log";
 var RESUME_ROWS = [
   { key: "wake", title: "Wake from sleep", kind: "switch", group: "WHEN" },

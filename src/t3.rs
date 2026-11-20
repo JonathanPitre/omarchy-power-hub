@@ -34,7 +34,7 @@ fn version() -> Option<String> {
 }
 
 /// `updateChannel` from T3 Code's settings, else the installed version's own channel.
-pub fn channel() -> &'static str {
+fn channel() -> &'static str {
     let saved = std::fs::read_to_string(paths::home().join(".t3/userdata/desktop-settings.json")).ok().and_then(|t| serde_json::from_str::<Value>(&t).ok());
     match saved.as_ref().and_then(|s| s["updateChannel"].as_str()) {
         Some("latest") => "stable",
@@ -74,7 +74,7 @@ fn installed_sha() -> Option<String> {
     Some(out.trim().to_owned()).filter(|s| code == 0 && !s.is_empty())
 }
 
-pub fn step(_mode: &str) -> StepResult {
+pub fn step() -> StepResult {
     let Some(before) = version() else { return StepResult::Failed("could not read the T3 Code version".into()) };
     let channel = channel();
     let latest = match feed_sha(channel) {

@@ -142,7 +142,7 @@ fn step(name: &str, cfg: &Value) -> StepResult {
         "lean-ctx" => tracked(name, &["lean-ctx", "update"], || version("lean-ctx", &["lean-ctx", "--version"])),
         "Rulesync" => tracked(name, &["mise", "up", "npm:rulesync"], || version("rulesync", &["mise", "ls", "npm:rulesync"])),
         "Skills Manager" => tracked(name, &["skills-manager-refresh", "--noconfirm"], || packages(&["skills-manager-prebuilt"])),
-        "T3 Code" => t3::step(cfg["t3code"].as_str().unwrap_or("update")),
+        "T3 Code" => t3::step(),
         _ => script_step(cfg["script"].as_str().unwrap_or("")),
     }
 }

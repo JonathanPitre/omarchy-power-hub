@@ -104,10 +104,10 @@ pub fn set(key: &str, value: &str) -> String {
 /// A probe answer cached for an hour, since every panel poll comes here. A failed or hung probe is cached too, so polls stay cheap.
 fn cached_probe(key: &str, probe: impl FnOnce() -> bool) -> bool {
     let cached = read_state().get(key).cloned().unwrap_or_default();
-    if let (Some(at), Some(found)) = (cached["at"].as_u64(), cached["installed"].as_bool()) {
-        if now().saturating_sub(at) < RULESYNC_TTL {
-            return found;
-        }
+    if let (Some(at), Some(found)) = (cached["at"].as_u64(), cached["installed"].as_bool())
+        && now().saturating_sub(at) < RULESYNC_TTL
+    {
+        return found;
     }
     let found = probe();
     let _ = update_state(|s| {

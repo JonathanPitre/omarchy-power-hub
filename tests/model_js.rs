@@ -257,13 +257,11 @@ fn resume_rows_follow_conditions() {
 #[test]
 fn resume_rows_carry_values_and_group_captions() {
     let body = format!(r#"{RESUME}console.log(JSON.stringify({{
-        groups: RESUME_GROUPS,
         values: ["wake", "displays", "awayMinutes", "everyHours", "t3code", "script"].map(function(k) {{ return row(resumeFixture(), k).value; }}),
         kinds: resumeRows(resumeFixture()).map(function(x) {{ return x.kind; }}),
         next: [resumeTriggers(resumeFixture(), "unlock", true), resumeTriggers(resumeFixture(), "wake", false), resumeStep(row(resumeFixture(), "awayMinutes"), 1), resumeStep(row(resumeFixture(), "everyHours"), -1), resumeStep(row(resumeFixture({{ everyHours: 1 }}), "everyHours"), -1)]
     }}));"#);
     expect(&body, json!({
-        "groups": ["WHEN", "UPDATE", "AFTER", "SCRIPT"],
         "values": [true, false, 30, 4, "restart", ""],
         "kinds": ["switch", "switch", "switch", "spin", "spin", "switch", "switch", "switch", "switch", "switch", "seg", "switch", "switch", "text"],
         "next": ["wake,unlock", "", 35, 3, 1]
