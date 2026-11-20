@@ -174,19 +174,37 @@ fn test_every_hours_limit() {
     assert_eq!(dispatched(&s, &["--now"], true).len(), 1);
 }
 
+/// An flock on `name` in the state dir, as a live holder would have it; `None` while someone else holds it.
+fn flock(s: &Sandbox, name: &str) -> Option<fs::File> {
+    let path = s.target(&format!("~/.local/state/omarchy-power-hub/{name}"));
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let f = fs::OpenOptions::new().write(true).create(true).truncate(false).open(path).unwrap();
+    f.try_lock().ok().map(|()| f)
+}
+
 #[test]
 fn test_running_pid_alive_skips() {
     let s = Sandbox::new();
-    let mut run = std::process::Command::new("sh").args(["-c", "sleep 30; true", "resume-run"]).spawn().unwrap();
-    state(&s, json!({"runningPid": run.id()}));
+    let held = flock(&s, "resume.lock").unwrap();
     assert!(dispatched(&s, &["--source", "wake", "--away", "0"], false).is_empty());
     assert!(dispatched(&s, &["--now"], false).is_empty());
-    run.kill().unwrap();
-    run.wait().unwrap();
-    state(&s, json!({"runningPid": 4_000_000}));
+    drop(held);
+    // A lock file nobody holds, as a crashed run leaves it, is no run.
+    s.write("~/.local/state/omarchy-power-hub/resume.lock", "4000000");
     assert_eq!(dispatched(&s, &["--source", "wake", "--away", "0"], true).len(), 1);
-    state(&s, json!({"runningPid": std::process::id()}));
-    assert_eq!(dispatched(&s, &["--now"], true).len(), 1);
+}
+
+#[test]
+fn test_gate_and_claim_wait_for_the_state_lock() {
+    let s = Sandbox::new();
+    s.stub("uwsm-app", "", 0, "");
+    let held = flock(&s, "resume.json.lock").unwrap();
+    let mut p = s.rust_start(&["resume-run", "--now"]);
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    assert!(p.try_wait().unwrap().is_none() && !s.target("~/.local/state/omarchy-power-hub/resume.json").exists());
+    drop(held);
+    assert!(p.wait().unwrap().success());
+    assert!(fs::read_to_string(s.target("~/.local/state/omarchy-power-hub/resume.json")).unwrap().contains("lastRun"));
 }
 
 #[test]
@@ -271,9 +289,7 @@ fn test_step_order_with_defaults() {
     let o = exec(&s);
     assert!(at(&o, "omarchy update -y") < at(&o, "omarchy plugin update --yes") && at(&o, "omarchy plugin update --yes") < at(&o, "lean-ctx update"));
     assert!(!called(&o, "mise up") && !called(&o, "skills-manager-refresh"));
-    let state = fs::read_to_string(s.target("~/.local/state/omarchy-power-hub/resume.json")).unwrap_or_default();
-    assert!(!state.contains("runningPid\": "), "{state}");
-    assert!(!s.target("~/.local/state/omarchy-power-hub/resume.lock").exists());
+    assert!(flock(&s, "resume.lock").is_some());
 }
 
 #[test]
@@ -453,15 +469,35 @@ fn test_terminal_header() {
 fn test_exec_lock_blocks_second_exec() {
     let s = Sandbox::new();
     ready(&s);
-    let mut holder = std::process::Command::new("sh").args(["-c", "sleep 30; true", "resume-run"]).spawn().unwrap();
-    s.write("~/.local/state/omarchy-power-hub/resume.lock", &holder.id().to_string());
+    let held = flock(&s, "resume.lock").unwrap();
     assert!(exec(&s).calls.iter().all(|c| c.starts_with("mise ls")));
-    assert!(s.target("~/.local/state/omarchy-power-hub/resume.lock").exists());
-    holder.kill().unwrap();
-    holder.wait().unwrap();
-    s.write("~/.local/state/omarchy-power-hub/resume.lock", "4000000");
+    drop(held);
+    // The steps run without the lock's fd, so a step that outlives the run cannot hold it.
+    s.stateful("omarchy", "case \"$*\" in\n  \"update -y\") ls -l /proc/$$/fd;;\nesac");
     assert!(called(&exec(&s), "omarchy update -y"));
-    assert!(!s.target("~/.local/state/omarchy-power-hub/resume.lock").exists());
+    assert!(log(&s).contains("->"), "{}", log(&s));
+    assert!(!log(&s).contains(".lock") && flock(&s, "resume.lock").is_some(), "{}", log(&s));
+}
+
+#[test]
+fn test_second_t3_waiter_exits() {
+    let s = Sandbox::new();
+    busy_then_idle(&s);
+    let held = flock(&s, "t3-restart.lock").unwrap();
+    let o = s.rust(&["resume-run", "--t3-restart"]);
+    assert!(o.code == 0 && o.calls.is_empty(), "{:?}", o.calls);
+    drop(held);
+    // The relaunched T3 Code outlives the waiter, so it must not inherit the lock's fd.
+    s.stateful("uwsm-app", &format!("ls -l /proc/$$/fd > {}", s.calls_log.with_file_name("fds").display()));
+    assert!(called(&s.rust(&["resume-run", "--t3-restart"]), "pkill -x t3code"));
+    let fds = s.calls_log.with_file_name("fds");
+    for _ in 0..100 {
+        if fds.exists() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    assert!(!fs::read_to_string(&fds).unwrap().contains(".lock") && flock(&s, "t3-restart.lock").is_some());
 }
 
 const CURRENT: &str = "version: 1\npath: T3-Code-1.AppImage\nsha512: AAA\n";
@@ -565,7 +601,7 @@ fn test_restart_is_spawned_detached_after_an_install() {
     versioned(&s, "t3", "--version", "t3 v1", "t3 v2", 1);
     exec(&s);
     assert_eq!(spawned(&s, true).unwrap(), format!("uwsm-app -- {} resume-run --t3-restart --restore", bin(&s)));
-    assert!(!s.target("~/.local/state/omarchy-power-hub/resume.lock").exists());
+    assert!(flock(&s, "resume.lock").is_some());
 }
 
 #[test]

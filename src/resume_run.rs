@@ -22,12 +22,8 @@ pub enum StepResult {
 
 type Versions = Vec<(String, String)>;
 
-fn dir() -> std::path::PathBuf {
-    paths::state_dir().join("omarchy-power-hub")
-}
-
 pub fn log(text: &str) {
-    let _ = fs::create_dir_all(dir());
+    let _ = fs::create_dir_all(resume::dir());
     if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(resume::log_file()) {
         let _ = writeln!(f, "{text}");
     }
@@ -166,34 +162,6 @@ pub fn reboot_required() -> bool {
     kernel || replaced || paths::home().join(".local/state/omarchy/reboot-required").exists()
 }
 
-/// Holds the run's lock and `runningPid`; dropping it, even in a panic, releases both.
-struct Held;
-
-impl Drop for Held {
-    fn drop(&mut self) {
-        let _ = resume::update_state(|s| {
-            s.remove("runningPid");
-        });
-        let _ = fs::remove_file(dir().join("resume.lock"));
-    }
-}
-
-/// Takes the run's exclusive lock, replacing one whose holder is gone.
-fn lock() -> Option<Held> {
-    let path = dir().join("resume.lock");
-    let _ = fs::create_dir_all(dir());
-    for _ in 0..2 {
-        match OpenOptions::new().write(true).create_new(true).open(&path) {
-            Ok(mut f) => return writeln!(f, "{}", std::process::id()).ok().map(|()| Held),
-            Err(_) if fs::read_to_string(&path).ok().and_then(|p| p.trim().parse().ok()).is_some_and(resume::running) => return None,
-            Err(_) => {
-                let _ = fs::remove_file(&path);
-            }
-        }
-    }
-    None
-}
-
 fn notify(updates: &[(String, String, String)], failed: &[(&str, String)], reboot: bool) {
     let mut lines: Vec<String> = updates.iter().take(MAX_LISTED).map(|(n, from, to)| format!("{n} {from} → {to}")).collect();
     if updates.len() > MAX_LISTED {
@@ -216,10 +184,13 @@ fn notify(updates: &[(String, String, String)], failed: &[(&str, String)], reboo
 
 /// `resume-run --exec`: runs the planned steps and reports once. Always 0.
 pub fn exec() -> i32 {
-    let Some(held) = lock() else { return 0 };
-    let _ = resume::update_state(|s| {
-        s.insert("runningPid".into(), json!(std::process::id()));
-    });
+    // A trigger's gate probes the lock for a moment, so a miss is retried briefly before it counts as a live run.
+    let Some(held) = (0..20).find_map(|i| {
+        std::thread::sleep(Duration::from_millis(if i == 0 { 0 } else { 50 }));
+        resume::try_lock("resume.lock")
+    }) else {
+        return 0;
+    };
     let (cfg, status) = (resume::settings(), resume::status());
     let names = plan(&cfg, &status["installed"]);
     let terminal = status["needsSudo"] == true;

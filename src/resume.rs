@@ -3,19 +3,24 @@ use serde_json::{Map, Value, json};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use std::{fs, io};
+use std::fs::{self, File, OpenOptions};
+use std::io;
 
 const TRIGGERS: [&str; 3] = ["wake", "displays", "unlock"];
 const T3CODE: [&str; 3] = ["off", "update", "restart"];
 const FLAGS: [&str; 7] = ["omarchy", "plugins", "leanCtx", "rulesync", "skillsManager", "restartShell", "sessionRestore"];
 const RULESYNC_TTL: u64 = 3600;
 
+pub fn dir() -> PathBuf {
+    paths::state_dir().join("omarchy-power-hub")
+}
+
 pub fn state_file() -> PathBuf {
-    paths::state_dir().join("omarchy-power-hub/resume.json")
+    dir().join("resume.json")
 }
 
 pub fn log_file() -> PathBuf {
-    paths::state_dir().join("omarchy-power-hub/resume.log")
+    dir().join("resume.log")
 }
 
 pub fn now() -> u64 {
@@ -26,15 +31,27 @@ fn read_state() -> Map<String, Value> {
     fs::read_to_string(state_file()).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
 }
 
-/// Read-modify-write of `resume.json`: every writer merges its keys, so none drops another's.
-pub fn update_state(change: impl FnOnce(&mut Map<String, Value>)) -> io::Result<()> {
-    let p = state_file();
-    fs::create_dir_all(p.parent().unwrap_or(&p))?;
+/// `name` in the state dir, opened for an flock. Rust opens it close-on-exec, so no child inherits the lock.
+fn lock_file(name: &str) -> io::Result<File> {
+    fs::create_dir_all(dir())?;
+    OpenOptions::new().write(true).create(true).truncate(false).open(dir().join(name))
+}
+
+/// An exclusive flock on `name`, held until dropped, or `None` while another process holds it.
+pub fn try_lock(name: &str) -> Option<File> {
+    lock_file(name).ok().filter(|f| f.try_lock().is_ok())
+}
+
+/// Read-modify-write of `resume.json` under its lock, so no writer drops another's keys.
+pub fn update_state<T>(change: impl FnOnce(&mut Map<String, Value>) -> T) -> io::Result<T> {
+    let lock = lock_file("resume.json.lock")?;
+    lock.lock()?;
     let mut state = read_state();
-    change(&mut state);
-    let tmp = p.with_extension(format!("json.{}.tmp", std::process::id()));
+    let out = change(&mut state);
+    let (p, tmp) = (state_file(), dir().join("resume.json.tmp"));
     fs::write(&tmp, serde_json::to_string_pretty(&state).map_err(io::Error::other)? + "\n")?;
-    fs::rename(tmp, p)
+    fs::rename(tmp, p)?;
+    Ok(out)
 }
 
 fn bounded(n: Option<i64>, max: i64) -> Option<i64> {
@@ -136,19 +153,13 @@ pub fn status() -> Value {
     })
 }
 
-/// Whether `pid` is a live `resume-run`, not an unrelated process that reused the number.
-pub fn running(pid: u64) -> bool {
-    fs::read(format!("/proc/{pid}/cmdline")).is_ok_and(|c| String::from_utf8_lossy(&c).contains("resume-run"))
-}
-
 /// Why a resume must not start a run, or `Ok` when it should. `--now` skips every limit but a live run.
-pub fn gate(source: &str, away_secs: u64, now: bool) -> Result<(), &'static str> {
+fn gate(state: &Map<String, Value>, source: &str, away_secs: u64, now: bool) -> Result<(), &'static str> {
     let settings = settings();
-    let state = read_state();
     if !now && !settings["triggers"].as_array().is_some_and(|t| t.iter().any(|t| t == source)) {
         return Err("no trigger");
     }
-    if state.get("runningPid").and_then(Value::as_u64).is_some_and(running) {
+    if try_lock("resume.lock").is_none() {
         return Err("running");
     }
     if now {
@@ -189,17 +200,18 @@ pub fn run(args: &[String]) -> i32 {
         return resume_run::exec();
     }
     if has("--t3-restart") {
+        // One waiter at a time: a second one exits.
+        let Some(_held) = try_lock("t3-restart.lock") else { return 0 };
         return i32::from(t3::wait_idle_then_restart(has("--restore")).is_err());
     }
     let source = flag("--source").map_or("", String::as_str);
     if source.is_empty() && !has("--now") {
         return 2;
     }
-    if gate(source, flag("--away").and_then(|a| a.parse().ok()).unwrap_or(0), has("--now")).is_ok() {
-        // Claim the run first, so a second trigger right behind this one hits "too soon".
-        let _ = update_state(|s| {
-            s.insert("lastRun".into(), json!(now()));
-        });
+    let away = flag("--away").and_then(|a| a.parse().ok()).unwrap_or(0);
+    // Gate and claim under one lock, so a second trigger right behind this one hits "too soon".
+    let go = update_state(|s| gate(s, source, away, has("--now")).inspect(|()| _ = s.insert("lastRun".into(), json!(now()))).is_ok());
+    if go.unwrap_or(false) {
         dispatch();
     }
     0
