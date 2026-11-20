@@ -39,6 +39,8 @@ are supported where they expose the required Linux controls. See
 - **Framework lighting:** controls supported keyboard and fingerprint power
   button lights, and can keep the keyboard light off when the displays wake in
   daylight.
+- **On resume:** updates Omarchy, plugins, lean-ctx, Rulesync, Skills Manager
+  and T3 Code after wake, displays on or unlock, then restores T3 Code's windows.
 - **Bar widget:** battery icon and optional percentage, configurable for
   battery and plugged-in states.
 
@@ -144,6 +146,63 @@ Quickshell 0.3.1 can lose idle notifications when a running timer changes.
 That may prevent automatic locking after displays turn off or wake. See
 [the idle timer diagnosis](docs/quickshell-idle-timer-failure.md) for the
 installed backport, rollback steps, and verification.
+
+## 🔄 On resume
+
+Power Hub can update your tools when the laptop wakes. Run it by hand with
+`power-hub resume-run --now`. Settings live under `onResume` in
+`~/.config/omarchy/omarchy-power-hub.json`.
+
+| Setting | Default | What it does |
+|---|---|---|
+| `triggers` | `["wake"]` | Events that start a run: `wake`, `displays` or `unlock`. |
+| `awayMinutes` | `30` | Minimum time away for `displays` and `unlock`. Wake always counts. |
+| `everyHours` | `4` | Minimum time between runs, for every trigger. |
+| `omarchy` | `true` | Runs `omarchy update -y`. |
+| `plugins` | `true` | Runs `omarchy plugin update --yes`. |
+| `leanCtx` | `true` | Runs `lean-ctx update`. |
+| `rulesync` | `true` | Runs `mise up npm:rulesync`, only when `omarchy` is off. |
+| `skillsManager` | `true` | Runs `skills-manager-refresh`, only when `omarchy` is off. |
+| `t3code` | `"restart"` | `off`, `update`, or `restart`. |
+| `restartShell` | `true` | Restarts the shell after a plugin update. |
+| `sessionRestore` | `true` | Restores T3 Code's windows after it restarts. |
+| `script` | `""` | A script to run instead of every built-in step. |
+
+Steps run in this order and a failed step never stops the next one. Tools that
+are not installed have no row. Omarchy update already covers Rulesync and
+Skills Manager.
+
+### 🔐 Sudo and the terminal
+
+If a step needs sudo, the run opens a floating terminal titled `Stack Refresh`.
+It lists the steps, says `Omarchy update installs system packages`, and asks
+for your password once. Otherwise the run stays in the background.
+
+### 📝 Log and notifications
+
+The log is at `~/.local/state/omarchy-power-hub/resume.log`. A run sends one
+notification with each from and to version, or one naming the failed tool.
+Nothing is sent when everything is current. Power Hub never reboots.
+
+### 🤖 T3 Code
+
+Power Hub reads `updateChannel` from `~/.t3/userdata/desktop-settings.json`.
+If it is missing, a `-nightly` version means nightly and anything else means
+latest. It installs a new build with `omarchy-install-t3code-app`.
+
+With `restart`, it restarts T3 Code only when no thread is running or recently
+updated. If that check fails, it falls back to `update` and sends
+`T3 Code updated, restart it to finish`.
+
+### 🪟 Session Restore
+
+Before T3 Code quits, Power Hub runs `hypr-persist save power-hub-t3`. After
+it relaunches, Power Hub runs
+`hypr-persist restore power-hub-t3 --class ^t3code$`.
+
+This needs a [hypr-session-restore](https://github.com/JonathanPitre/hypr-session-restore)
+build whose `restore` command supports `--class`. Without it, the setting is
+hidden.
 
 ## ⚡ Performance
 
