@@ -127,7 +127,7 @@ mod button_chrome {
     /// The script field is an inline editor: without `blocked` the key catcher eats its j, k, space and Enter.
     #[test]
     fn script_field_blocks_the_key_catcher() {
-        has_all(&file("Panel.qml"), "Panel.qml", &["blocked: root.editingScript", "root.editingScript = activeFocus"]);
+        has_all(&file("Panel.qml"), "Panel.qml", &["blocked: root.editingScript", "root.editingScript = activeFocus", "Keys.onEscapePressed: function(event) { keyCatcher.forceActiveFocus()"]);
     }
 
     #[test]

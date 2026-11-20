@@ -705,6 +705,7 @@ Panel {
                       background: Rectangle { color: "transparent"; border.width: 1; border.color: root.faint }
                       Binding on text { value: rr.m.value; when: !scriptField.activeFocus }
                       onActiveFocusChanged: root.editingScript = activeFocus
+                      Keys.onEscapePressed: function(event) { keyCatcher.forceActiveFocus(); event.accepted = true }
                       Component.onDestruction: root.editingScript = false
                       onEditingFinished: if (text !== rr.m.value) service.act("resume", "script", text)
                     }
@@ -712,6 +713,7 @@ Panel {
                       anchors.right: parent.right
                       anchors.verticalCenter: parent.verticalCenter
                       visible: rr.m.locked
+                      opacity: rr.m.enabled ? 1 : 0.35
                       text: "Included in Omarchy update"
                       color: root.dim
                       font.family: root.fontFamily
