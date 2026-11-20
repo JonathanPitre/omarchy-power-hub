@@ -201,6 +201,7 @@ impl Sandbox {
     /// Lays out an installed helper for the current user, with the plugin folder absent.
     fn installed(&self, cleanup_user: &str) {
         self.fake_commands();
+        fs::create_dir_all(self.home().join(".config/omarchy/plugins")).unwrap();
         let user = String::from_utf8(Command::new("id").arg("-nu").output().unwrap().stdout).unwrap();
         self.fake("getent", &format!(r#"echo "{}:x:1:1::{}:/bin/sh""#, user.trim(), self.home().display()));
         self.fake("runuser", r#"shift 3; exec "$@""#);
@@ -379,4 +380,25 @@ fn helper_install_installs_and_enables_the_cleanup_units() {
     assert!(service.contains("ExecStart=/usr/local/libexec/omarchy-power-hub/ops-priv cleanup"));
     assert_eq!(fs::read_to_string(s.at("libexec/omarchy-power-hub/cleanup-user")).unwrap(), CLEANUP_USER);
     assert_eq!(s.calls(), "systemctl daemon-reload\nsystemctl enable --now omarchy-power-hub-cleanup.path\n");
+}
+
+#[test]
+fn cleanup_user_keeps_the_rest_when_end_comes_before_begin() {
+    let s = Sandbox::new("user-order");
+    s.fake_commands();
+    s.write("cleanup-user", CLEANUP_USER);
+    let text = "a\n-- END Omarchy Power Hub lid action override\nb\n-- BEGIN Omarchy Power Hub lid action override\nc\n";
+    let lua = s.write("home/.config/hypr/bindings.lua", text);
+    assert!(s.cleanup_user().status.success());
+    assert_eq!(fs::read_to_string(lua).unwrap(), text);
+}
+
+#[test]
+fn cleanup_removes_nothing_when_the_plugins_folder_is_unreadable() {
+    let s = Sandbox::new("cleanup-noplugins");
+    s.installed("touch \"$HOME/ran\"\n");
+    fs::remove_dir(s.home().join(".config/omarchy/plugins")).unwrap();
+    s.cleanup();
+    assert!(s.at("libexec/omarchy-power-hub/owner").exists() && s.at("etc/sudoers.d/omarchy-power-hub").exists());
+    assert!(!s.home().join("ran").exists());
 }

@@ -4,8 +4,7 @@
   "stdout": "",
   "calls": [
    "qmk_hid via --backlight",
-   "qmk_hid via --backlight 34",
-   "sudo -n qmk_hid via --backlight 34"
+   "qmk_hid via --backlight 34"
   ],
   "evals": [],
   "requests": [],

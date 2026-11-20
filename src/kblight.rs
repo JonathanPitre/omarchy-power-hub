@@ -12,7 +12,7 @@ pub(crate) fn argv(parts: &[&str]) -> Argv {
     parts.iter().map(|s| s.to_string()).collect()
 }
 
-fn run(args: &[String]) -> (i32, String) {
+pub(crate) fn run(args: &[String]) -> (i32, String) {
     exec::run(&args.iter().map(String::as_str).collect::<Vec<_>>(), Duration::from_secs(4))
 }
 

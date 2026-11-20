@@ -75,7 +75,7 @@ pub fn read() -> Option<i64> {
     if !kblight::qmk_available() {
         return None;
     }
-    let (code, out) = kblight::call(&backlight(), None);
+    let (code, out) = kblight::run(&backlight());
     kblight::tool_ok(code, &out).then(|| kblight::percent(&out)).flatten()
 }
 
@@ -107,7 +107,7 @@ pub(crate) fn backlight() -> Vec<String> {
 
 /// Sets the backlight to a read level; true when the keyboard took it.
 pub fn write_level(level: i64) -> bool {
-    let (code, out) = kblight::call(&[backlight(), vec![write_value(level).to_string()]].concat(), None);
+    let (code, out) = kblight::run(&[backlight(), vec![write_value(level).to_string()]].concat());
     kblight::tool_ok(code, &out)
 }
 
@@ -132,7 +132,7 @@ pub fn tick() {
         return save(wrote, true);
     }
     let want = target();
-    if want != level {
+    if want != level && !paths::plugin_run_dir().join("kblight.json").exists() {
         write(want);
     }
 }

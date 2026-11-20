@@ -37,14 +37,16 @@ are supported where they expose the required Linux controls. See
   and display settings, depending on available tools and hardware.
 - **GPU status:** shows whether a supported discrete GPU is asleep or awake.
 - **Framework lighting:** controls supported fingerprint power button lights.
-- **Keyboard brightness:** Auto, Off, Low, Medium or High. Auto turns the light
+- **Keyboard brightness (Laptop 16 only):** Auto, Off, Low, Medium or High. Auto turns the light
   off in daylight or when another keyboard or receiver is connected. Otherwise
   it picks Low, Medium or High from the room light. A change with Fn+Space holds
   until the displays wake.
 - **Lights through sleep:** keyboard and power button lights go off for system
   sleep and return at wake. A root hook installed with the helper does this.
 - **Cleanup on removal:** removing the plugin deletes its root files, sudoers
-  rules, sleep hook and user unit. It keeps `~/.config/omarchy/power-hub*`,
+  rules, sleep hook and user unit. It also restores the lid binding in
+  `bindings.lua` and removes the login service. It needs the helper install
+  from the panel. It keeps `~/.config/omarchy/power-hub*`,
   `~/.config/omarchy/omarchy-power-hub.json` and
   `/var/log/battery-plus-sleep.log`.
 - **Bar widget:** battery icon and optional percentage, configurable for

@@ -12,6 +12,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - **Keyboard brightness** with Auto, Off, Low, Medium and High. Auto turns the light off in daylight or with another keyboard or receiver, and otherwise follows the room light.
 - Lights off during system sleep, through a root `systemd-sleep` hook installed with the helper.
 - Cleanup on removal: a systemd path unit runs `ops-priv cleanup` and deletes the root files. `~/.config/omarchy/power-hub*`, `~/.config/omarchy/omarchy-power-hub.json` and `/var/log/battery-plus-sleep.log` stay.
+- The panel asks for the helper install once after updating.
 
 ### Changed
 

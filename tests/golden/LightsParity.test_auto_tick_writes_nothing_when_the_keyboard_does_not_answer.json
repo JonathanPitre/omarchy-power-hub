@@ -3,8 +3,7 @@
   "code": 0,
   "stdout": "",
   "calls": [
-   "qmk_hid via --backlight",
-   "sudo -n qmk_hid via --backlight"
+   "qmk_hid via --backlight"
   ],
   "evals": [],
   "requests": [],
