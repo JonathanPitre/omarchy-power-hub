@@ -71,7 +71,7 @@ fn test_installed_detection() {
     executable(&lean, "#!/bin/sh\n");
     s.write("~/.local/share/t3code/T3-Code.AppImage", "");
     s.write_stub("skills-manager-refresh");
-    s.write_stub("hypr-persist");
+    s.stub("hypr-persist", "restore --help", 0, "restore <name> --class <regex>");
     s.stub("mise", "ls --json npm:rulesync", 0, r#"[{"version": "1.2.3"}]"#);
     assert_eq!(installed(&s), json!({"leanCtx": true, "rulesync": true, "skillsManager": true, "t3code": true, "hyprPersist": true}));
 }
@@ -532,7 +532,7 @@ fn test_update_only_never_restarts() {
 fn test_restart_is_spawned_detached_after_an_install() {
     let s = Sandbox::new();
     t3(&s, "restart", "BBB");
-    s.stub("hypr-persist", "", 0, "");
+    s.stub("hypr-persist", "restore --help", 0, "--class");
     versioned(&s, "t3", "--version", "t3 v1", "t3 v2", 1);
     exec(&s);
     assert_eq!(spawned(&s, true).unwrap(), format!("uwsm-app -- {} resume-run --t3-restart --restore", bin(&s)));
@@ -624,4 +624,14 @@ fn test_status_carries_the_triggers_the_service_polls_for() {
     assert_eq!(status(&s)["settings"]["triggers"], json!(["wake"]));
     s.config(json!({"onResume": {"triggers": ["unlock"]}}));
     assert_eq!(status(&s)["settings"]["triggers"], json!(["unlock"]));
+}
+
+#[test]
+fn test_hypr_persist_needs_the_class_filter() {
+    let s = Sandbox::new();
+    s.stub("hypr-persist", "restore --help", 0, "usage: hypr-persist restore <name>");
+    assert_eq!(status(&s)["installed"]["hyprPersist"], false);
+    let s = Sandbox::new();
+    s.stub("hypr-persist", "restore --help", 0, "usage: hypr-persist restore <name> --class <regex>");
+    assert_eq!(status(&s)["installed"]["hyprPersist"], true);
 }

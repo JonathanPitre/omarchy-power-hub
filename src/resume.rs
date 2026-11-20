@@ -84,24 +84,37 @@ pub fn set(key: &str, value: &str) -> String {
     config::save(&cfg).err().map(|e| e.to_string()).unwrap_or_default()
 }
 
-/// Whether `mise` has Rulesync, asked at most once an hour since every panel poll comes here.
-fn rulesync() -> bool {
-    if !exec::on_path("mise") {
-        return false;
-    }
-    let cached = read_state().get("rulesync").cloned().unwrap_or_default();
+/// A probe answer cached for an hour, since every panel poll comes here. A failed or hung probe is cached too, so polls stay cheap.
+fn cached_probe(key: &str, probe: impl FnOnce() -> bool) -> bool {
+    let cached = read_state().get(key).cloned().unwrap_or_default();
     if let (Some(at), Some(found)) = (cached["at"].as_u64(), cached["installed"].as_bool()) {
         if now().saturating_sub(at) < RULESYNC_TTL {
             return found;
         }
     }
-    // Stdout only: a warning on stderr must not read as an install. A failed or hung probe is cached too, so polls stay cheap.
-    let (code, out) = exec::run(&["/bin/sh", "-c", "exec mise ls --json npm:rulesync 2>/dev/null"], Duration::from_secs(3));
-    let found = code == 0 && serde_json::from_str::<Value>(&out).is_ok_and(|v| v.as_array().is_some_and(|a| !a.is_empty()));
+    let found = probe();
     let _ = update_state(|s| {
-        s.insert("rulesync".into(), json!({"at": now(), "installed": found}));
+        s.insert(key.into(), json!({"at": now(), "installed": found}));
     });
     found
+}
+
+/// Whether `mise` has Rulesync. Stdout only: a warning on stderr must not read as an install.
+fn rulesync() -> bool {
+    exec::on_path("mise")
+        && cached_probe("rulesync", || {
+            let (code, out) = exec::run(&["/bin/sh", "-c", "exec mise ls --json npm:rulesync 2>/dev/null"], Duration::from_secs(3));
+            code == 0 && serde_json::from_str::<Value>(&out).is_ok_and(|v| v.as_array().is_some_and(|a| !a.is_empty()))
+        })
+}
+
+/// Whether `hypr-persist restore` has the `--class` filter that Session Restore needs.
+fn hypr_persist() -> bool {
+    exec::on_path("hypr-persist")
+        && cached_probe("hyprPersist", || {
+            let (_, out) = exec::run(&["/bin/sh", "-c", "exec hypr-persist restore --help 2>&1"], Duration::from_secs(3));
+            out.contains("--class")
+        })
 }
 
 pub fn status() -> Value {
@@ -115,7 +128,7 @@ pub fn status() -> Value {
             "rulesync": rulesync(),
             "skillsManager": skills,
             "t3code": paths::home().join(".local/share/t3code/T3-Code.AppImage").is_file(),
-            "hyprPersist": exec::on_path("hypr-persist"),
+            "hyprPersist": hypr_persist(),
         },
         "lastRun": state.get("lastRun").cloned().unwrap_or_default(),
         "lastError": state.get("lastError").cloned().unwrap_or_default(),
