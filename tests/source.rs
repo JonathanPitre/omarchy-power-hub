@@ -124,6 +124,12 @@ mod button_chrome {
         has_all(&file("AccentButton.qml"), "AccentButton.qml", &["bordered: true", "hot || selected || active"]);
     }
 
+    /// The script field is an inline editor: without `blocked` the key catcher eats its j, k, space and Enter.
+    #[test]
+    fn script_field_blocks_the_key_catcher() {
+        has_all(&file("Panel.qml"), "Panel.qml", &["blocked: root.editingScript", "root.editingScript = activeFocus"]);
+    }
+
     #[test]
     fn switches_use_accent_switch() {
         for name in ["PlanSection.qml", "Panel.qml"] {

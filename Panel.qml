@@ -64,6 +64,7 @@ Panel {
   readonly property var sleepData: service.sleep
   property bool historyOpen: false
   property bool resumeOpen: false
+  property bool editingScript: false
   readonly property var resumeData: service.resume || null
   readonly property var resumeRows: resumeData ? Model.resumeRows(resumeData) : []
   readonly property color healthColor: Model.healthTier(b.health) === "replace" ? root.urgent
@@ -215,6 +216,7 @@ Panel {
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
+      blocked: root.editingScript
       onCloseRequested: root.close()
       onTabRequested: function(direction) { root.switchPanel(direction) }
       onMoveRequested: function(dx, dy) {
@@ -662,7 +664,6 @@ Panel {
                   visible: m.visible
                   width: parent.width
                   spacing: Style.space(4)
-                  opacity: m.enabled ? 1 : 0.35
 
                   Text {
                     visible: rr.m.first
@@ -683,6 +684,7 @@ Panel {
                       anchors.left: parent.left
                       anchors.verticalCenter: parent.verticalCenter
                       visible: rr.m.kind !== "text"
+                      opacity: rr.m.enabled ? 1 : 0.35
                       text: rr.m.title
                       color: root.fg
                       font.family: root.fontFamily
@@ -693,6 +695,7 @@ Panel {
                       id: scriptField
                       visible: rr.m.kind === "text"
                       enabled: rr.m.enabled
+                      opacity: enabled ? 1 : 0.35
                       anchors.fill: parent
                       placeholderText: rr.m.title
                       color: root.fg
@@ -701,6 +704,8 @@ Panel {
                       font.pixelSize: Style.font.body
                       background: Rectangle { color: "transparent"; border.width: 1; border.color: root.faint }
                       Binding on text { value: rr.m.value; when: !scriptField.activeFocus }
+                      onActiveFocusChanged: root.editingScript = activeFocus
+                      Component.onDestruction: root.editingScript = false
                       onEditingFinished: if (text !== rr.m.value) service.act("resume", "script", text)
                     }
                     Text {
@@ -745,6 +750,7 @@ Panel {
                         anchors.verticalCenter: parent.verticalCenter
                         horizontalAlignment: Text.AlignHCenter
                         text: rr.m.value + " " + rr.m.unit
+                        opacity: rr.m.enabled ? 1 : 0.35
                         color: root.fg
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.body
@@ -765,6 +771,7 @@ Panel {
                       anchors.verticalCenter: parent.verticalCenter
                       visible: rr.m.kind === "seg"
                       enabled: rr.m.enabled
+                      opacity: enabled ? 1 : 0.35
 
                       Repeater {
                         model: [["off", "Off"], ["update", "Update"], ["restart", "+ Restart"]]
