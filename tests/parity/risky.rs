@@ -401,11 +401,12 @@ struct Lights {
     led: Option<(&'static str, &'static str, &'static str)>,
     lux: Option<u32>,
     scale: Option<&'static str>,
-    daylight: bool,
+    auto: bool,
+    devices: Option<&'static str>,
 }
 
 fn lights(tools: Vec<Tool>) -> Lights {
-    Lights { tools, model: "Laptop 16", vendor: "Framework", led: None, lux: None, scale: None, daylight: false }
+    Lights { tools, model: "Laptop 16", vendor: "Framework", led: None, lux: None, scale: None, auto: false, devices: None }
 }
 
 impl Setup for Lights {
@@ -422,8 +423,11 @@ impl Setup for Lights {
         if let Some(lux) = self.lux {
             s.light_sensor(lux, self.scale);
         }
-        if self.daylight {
-            s.write(TWEAKS_FILE, &json!({"daylight": true}).to_string());
+        if self.auto {
+            s.write(TWEAKS_FILE, &json!({"keyboard": "auto"}).to_string());
+        }
+        if let Some(devices) = self.devices {
+            s.write("proc/bus/input/devices", devices);
         }
     }
 }
@@ -655,42 +659,66 @@ mod lights_parity {
         go(&s, ON);
     }
 
+    const RECEIVER: &str = "I: Bus=0003 Vendor=046d Product=0001 Version=0111\nN: Name=\"receiver\"\nH: Handlers=sysrq kbd leds event2\nB: KEY=1000000000007 ff9f207ac14057ff febeffdfffefffff fffffffffffffffe\n\n";
+
+    fn auto_keys(lux: Option<u32>) -> Lights {
+        Lights { auto: true, lux, ..lights(vec![qmk_keys(100)]) }
+    }
+
+    fn kbauto(s: &Sandbox) -> Option<Value> {
+        let p = s.target("run/omarchy-power-hub/kbauto.json");
+        p.exists().then(|| parsed(&fs::read_to_string(p).unwrap()))
+    }
+
     #[test]
-    fn test_daylight_keeps_the_keys_off_from_100_lux_up() {
-        let cases = [(Some(3355), None, true, true), (Some(100), None, true, true), (Some(99), None, true, false), (None, None, true, false),
-                     (Some(3355), None, false, false), (Some(50), Some("2.5"), true, true), (Some(49), Some("2.0"), true, false)];
-        for (lux, scale, daylight, kept) in cases {
-            let (s, go) = start(&Lights { led: AUTO_LED, lux, scale, daylight, ..lights(vec![qmk_keys(67)]) }, "LightsParity.test_daylight_keeps_the_keys_off_from_100_lux_up");
+    fn test_auto_wake_picks_the_level_from_the_room() {
+        for (lux, want) in [(Some(3355), 0), (Some(40), 67), (Some(5), 33), (None, 33)] {
+            let (s, go) = start(&auto_keys(lux), "LightsParity.test_auto_wake_picks_the_level_from_the_room");
             go(&s, OFF);
             go(&s, ON);
-            let want = if kept { (0, "0", Some(json!({"level": 67, "held": true}))) } else { (67, "0", None) };
-            assert_eq!((keys_level(&s), led_file(&s, "brightness"), kblight_saved(&s)), (want.0, want.1.to_string(), want.2), "{lux:?} {scale:?} {daylight}");
+            assert_eq!((keys_level(&s), kblight_saved(&s)), (want, None), "{lux:?}");
         }
     }
 
     #[test]
-    fn test_a_bright_wake_keeps_the_level_for_the_next_wake_in_a_darker_room() {
-        let (s, go) = start(&Lights { led: AUTO_LED, lux: Some(3355), daylight: true, ..lights(vec![qmk_keys(67)]) }, "LightsParity.test_a_bright_wake_keeps_the_level_for_the_next_wake_in_a_darker_room");
+    fn test_auto_wake_stays_dark_with_another_keyboard() {
+        let (s, go) = start(&Lights { devices: Some(RECEIVER), ..auto_keys(Some(5)) }, "LightsParity.test_auto_wake_stays_dark_with_another_keyboard");
         go(&s, OFF);
         go(&s, ON);
-        assert_eq!((keys_level(&s), kblight_saved(&s)), (0, Some(json!({"level": 67, "held": true}))));
-        go(&s, OFF);
-        assert_eq!(led_file(&s, "brightness"), "0");
-        s.light_sensor(37, None);
-        go(&s, ON);
-        assert_eq!((keys_level(&s), led_file(&s, "brightness"), kblight_saved(&s)), (67, "0".to_string(), None));
+        assert_eq!((keys_level(&s), kblight_saved(&s)), (0, None));
     }
 
     #[test]
-    fn test_a_level_set_by_hand_in_daylight_replaces_the_saved_one() {
-        let (s, go) = start(&Lights { lux: Some(3355), daylight: true, ..lights(vec![qmk_keys(67)]) }, "LightsParity.test_a_level_set_by_hand_in_daylight_replaces_the_saved_one");
+    fn test_auto_tick_respects_fn_space_until_the_next_wake() {
+        let (s, go) = start(&auto_keys(Some(5)), "LightsParity.test_auto_tick_respects_fn_space_until_the_next_wake");
+        let tick = &["lights", "auto"];
+        go(&s, tick);
+        assert_eq!((keys_level(&s), kbauto(&s)), (33, Some(json!({"wrote": 33, "hold": false}))));
+        fs::write(s.base.join("keys.state"), "100\n").unwrap();
+        go(&s, tick);
+        assert_eq!((keys_level(&s), kbauto(&s)), (100, Some(json!({"wrote": 33, "hold": true}))));
         go(&s, OFF);
         go(&s, ON);
-        fs::write(s.base.join("keys.state"), "33\n").unwrap();
+        assert_eq!((keys_level(&s), kbauto(&s)), (33, Some(json!({"wrote": 33, "hold": false}))));
+    }
+
+    #[test]
+    fn test_auto_tick_writes_nothing_when_the_keyboard_does_not_answer() {
+        let (s, go) = start(&Lights { auto: true, lux: Some(5), ..lights(vec![failing("qmk_hid")]) }, "LightsParity.test_auto_tick_writes_nothing_when_the_keyboard_does_not_answer");
+        go(&s, &["lights", "auto"]);
+        assert_eq!((light_calls(&s).iter().any(|c| c.contains("--backlight ")), kbauto(&s)), (false, None));
+    }
+
+    #[test]
+    fn test_auto_tick_does_nothing_in_manual_mode_or_with_displays_off() {
+        const T: &str = "LightsParity.test_auto_tick_does_nothing_in_manual_mode_or_with_displays_off";
+        let (s, go) = start(&Lights { lux: Some(5), ..lights(vec![qmk_keys(100)]) }, T);
+        go(&s, &["lights", "auto"]);
+        assert_eq!((keys_level(&s), kbauto(&s)), (100, None));
+        let (s, go) = start(&auto_keys(Some(5)), T);
         go(&s, OFF);
-        s.light_sensor(37, None);
-        go(&s, ON);
-        assert_eq!(keys_level(&s), 33);
+        go(&s, &["lights", "auto"]);
+        assert_eq!((keys_level(&s), kbauto(&s)), (0, None));
     }
 
     /// A second off would read the darkened lights and lose the levels to restore.

@@ -1,5 +1,10 @@
-use serde_json::Value;
+use crate::{config, kblight, paths};
+use serde_json::{Value, json};
+use std::fs;
+use std::path::PathBuf;
 
+// Not read yet by the binary; the keyboard mode setting will use it.
+#[allow(dead_code)]
 /// Read levels in percent, with the mode name each one stands for.
 pub const LEVELS: [(&str, i64); 4] = [("off", 0), ("low", 33), ("medium", 67), ("high", 100)];
 
@@ -40,6 +45,8 @@ pub fn external_keyboard(devices: &str) -> bool {
     devices.split("\n\n").any(external_block)
 }
 
+// Not read yet by the binary; the keyboard mode setting will use it.
+#[allow(dead_code)]
 /// Mode name for a read level: below 33 off, below 67 low, below 100 medium, else high.
 pub fn name_of(level: i64) -> &'static str {
     match level {
@@ -64,6 +71,61 @@ pub fn is_auto(prefs: &Value) -> bool {
     match prefs.get("keyboard") {
         Some(mode) => mode == "auto",
         None => prefs.get("daylight") == Some(&Value::Bool(true)),
+    }
+}
+
+/// The backlight level the keyboard reports, or None off a Laptop 16, without `qmk_hid`, or when it does not answer.
+pub fn read() -> Option<i64> {
+    if !kblight::qmk_available() {
+        return None;
+    }
+    let (code, out) = kblight::call(&kblight::argv(&["qmk_hid", "via", "--backlight"]), None);
+    kblight::tool_ok(code, &out).then(|| kblight::percent(&out)).flatten()
+}
+
+/// The level Auto wants now.
+pub fn target() -> i64 {
+    let devices = fs::read_to_string(paths::root("/proc/bus/input/devices")).unwrap_or_default();
+    auto_level(kblight::lux(), external_keyboard(&devices))
+}
+
+fn state_file() -> PathBuf {
+    paths::plugin_run_dir().join("kbauto.json")
+}
+
+/// What Auto last wrote and whether a key press has since taken the level over.
+fn load() -> (Option<i64>, bool) {
+    let raw = fs::read_to_string(state_file()).ok().and_then(|t| serde_json::from_str::<Value>(&t).ok()).unwrap_or_default();
+    (raw["wrote"].as_i64(), raw["hold"] == true)
+}
+
+fn save(wrote: Option<i64>, hold: bool) {
+    let _ = fs::create_dir_all(paths::plugin_run_dir());
+    let _ = fs::write(state_file(), json!({"wrote": wrote, "hold": hold}).to_string() + "\n");
+}
+
+fn write(level: i64) {
+    kblight::call(&[kblight::argv(&["qmk_hid", "via", "--backlight"]), vec![write_value(level).to_string()]].concat(), None);
+    save(Some(level), false);
+}
+
+/// Takes the level back from the keys and sets it for the room.
+pub fn apply_auto() {
+    write(target());
+}
+
+/// The `lights auto` refresh tick: follows the room until a key press sets the level by hand.
+pub fn tick() {
+    if !is_auto(&config::saved_prefs()) || paths::plugin_run_dir().join("kblight.json").exists() {
+        return;
+    }
+    let (Some(level), (wrote, false)) = (read(), load()) else { return };
+    if wrote.is_some_and(|w| w != level) {
+        return save(wrote, true);
+    }
+    let want = target();
+    if want != level {
+        write(want);
     }
 }
 
