@@ -7,7 +7,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
-## [0.0.61] - Unreleased
+## [0.0.61] - 2026-11-21
 
 ### Added
 
@@ -19,7 +19,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 - The Framework 16 notes record a BIOS 4.02 case with no recovery: after a hand replug, the adapter stayed at 0 W until power-off and the battery drained to 2%.
 
-## [0.0.60] - Unreleased
+## [0.0.60] - 2026-11-21
 
 ### Added
 
