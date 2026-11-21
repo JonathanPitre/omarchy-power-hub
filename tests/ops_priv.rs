@@ -371,11 +371,13 @@ fn cleanup_user_leaves_bindings_alone_without_both_markers() {
 
 #[test]
 fn helper_install_installs_and_enables_the_cleanup_units() {
+    use std::os::unix::fs::PermissionsExt;
     let s = Sandbox::new("units");
     assert!(s.install().status.success());
     let path = fs::read_to_string(s.at("etc/systemd/system/omarchy-power-hub-cleanup.path")).unwrap();
     assert!(path.contains(&format!("PathChanged={}/.config/omarchy/plugins\n", s.home().display())), "{path}");
     assert!(!path.contains("@HOME@"));
+    assert_eq!(fs::metadata(s.at("etc/systemd/system/omarchy-power-hub-cleanup.path")).unwrap().permissions().mode() & 0o777, 0o644);
     let service = fs::read_to_string(s.at("etc/systemd/system/omarchy-power-hub-cleanup.service")).unwrap();
     assert!(service.contains("ExecStart=/usr/local/libexec/omarchy-power-hub/ops-priv cleanup"));
     assert_eq!(fs::read_to_string(s.at("libexec/omarchy-power-hub/cleanup-user")).unwrap(), CLEANUP_USER);
