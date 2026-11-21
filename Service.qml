@@ -388,6 +388,14 @@ Item {
   // already plugged in sees no such transition and stays on.
   property int lastBatteryState: -1
   Process { id: travelOffProc; command: [root.hub, "travel", "off"]; onExited: root.refresh() }
+  // Framework EC firmware can leave a replugged adapter at 0 W while AC still reads online.
+  Timer {
+    id: acDrainTimer
+    interval: 180000
+    onTriggered: if (UPower.displayDevice.state === UPowerDeviceState.Discharging && !UPower.onBattery)
+      Quickshell.execDetached(["notify-send", "-a", "Power Hub", "-u", "critical", "Plugged in but discharging",
+                               "Unplug the USB-C monitor, then replug the adapter."])
+  }
   Connections {
     target: UPower.displayDevice
     function onStateChanged() {
@@ -400,6 +408,8 @@ Item {
               || s === UPowerDeviceState.PendingCharge)
           && !travelOffProc.running)
         travelOffProc.running = true
+      if (s === UPowerDeviceState.Discharging) acDrainTimer.restart()
+      else acDrainTimer.stop()
       root.lastBatteryState = s
     }
   }

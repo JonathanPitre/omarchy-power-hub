@@ -7,10 +7,17 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [0.0.61] - Unreleased
+
 ### Added
 
 - **On resume** updates Omarchy, plugins, lean-ctx, Rulesync, Skills Manager and T3 Code after wake, displays on or unlock. It can restart the shell and T3 Code, restore T3 Code's windows with hypr-persist, or run your own script. Failed steps are logged to `resume.log` and never stop later steps.
 - **Run now** in the panel runs it by hand. Opening the lid counts as displays on.
+- A critical notification when the battery discharges for 3 minutes while AC reads online. On the Framework Laptop 16, a replugged adapter can stay at 0 W until power-off.
+
+### Changed
+
+- The Framework 16 notes record a BIOS 4.02 case with no recovery: after a hand replug, the adapter stayed at 0 W until power-off and the battery drained to 2%.
 
 ## [0.0.60] - Unreleased
 

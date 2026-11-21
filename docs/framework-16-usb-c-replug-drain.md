@@ -193,6 +193,23 @@ Healthy state after the flash, brick and FlipGo attached:
 
 framework_tool prints ports 0-3 here, while the EC log quoted above says `port 2` and `prev:4`. The two labels do not line up, so compare port maps by reading `--pdports`, not by EC port number.
 
+### No recovery on 2026-11-21
+
+On 4.02 the port did not always recover. The FlipGo stayed attached throughout. The timeline below comes from the UPower 1 Hz voltage history for `BAT1`:
+
+| Time | `BAT1` | What happened |
+| --- | --- | --- |
+| 17:02:20 | Pending charge to discharging (16.725 V to 16.197 V) | Unattended, screen locked; no physical event known |
+| 17:15:50 | Discharging to charging, 36-58 W | Adapter replugged by hand; FlipGo USB link reset |
+| 17:17:38 | Charging to discharging | Adapter replugged by hand, same middle-left port |
+| 17:18 to 19:33 | Discharging, 75% to 2% at ~17-35 W | Adapter seated; no AC, UCSI or typec event in the kernel log |
+| 19:33:56 | 2% | UPower critical action: suspend-then-hibernate |
+| 22:13 | 80% | Charged with the laptop off, after hibernation |
+
+Input from the adapter was zero, not the 800 mA floor. In `s2idle` (suspend to idle) at 2%, the pack still lost 1.0 W over 302 s (`/var/log/battery-plus-sleep.log`). A 16 W input would have charged it. Only a full power-off restored charging. Charge control is ruled out: every `ops-priv charge-limit` call that boot was a read, and the limit was 80%.
+
+The plugin now sends a critical notification when the battery has been discharging for 3 minutes while AC reads online.
+
 ## Capture commands
 
 Omit serial numbers in public posts. EC commands need root.
