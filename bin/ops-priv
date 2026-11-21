@@ -198,6 +198,7 @@ case "${1:-}" in
     mv "$file.new" "$file"
     home=$(getent passwd "$user" | cut -d: -f6)
     case "$home" in ""|*[\&\|\\]*) echo "bad home" >&2; exit 2 ;; esac
+    umask 022
     for u in path service; do
       sed "s|@HOME@|$home|g" "$src/../extras/systemd/omarchy-power-hub-cleanup.$u" > "/etc/systemd/system/omarchy-power-hub-cleanup.$u"
     done
