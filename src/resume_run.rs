@@ -39,7 +39,7 @@ pub fn sh(name: &str, argv: &[&str]) -> Result<(), String> {
         stream(argv)
     } else {
         let (code, out) = exec::run(argv, LONG);
-        log(&format!("{head}\n{}", out.trim_end()));
+        log(&format!("{head}\n{}", String::from_utf8_lossy(&squash(&mut Vec::new(), format!("{out}\n").as_bytes())).trim_end()));
         code
     };
     if code == 0 { Ok(()) } else { Err(format!("exit {code}")) }
@@ -50,7 +50,7 @@ pub fn sh(name: &str, argv: &[&str]) -> Result<(), String> {
 fn stream(argv: &[&str]) -> i32 {
     let child = Command::new("sh").args(["-c", "exec timeout --foreground 7200 \"$@\" 2>&1", "sh"]).args(argv).stdout(Stdio::piped()).spawn();
     let Ok(mut child) = child else { return 1 };
-    let (mut pipe, mut buf, mut last) = (child.stdout.take().expect("piped"), [0; 4096], b'\n');
+    let (mut pipe, mut buf, mut last, mut pending) = (child.stdout.take().expect("piped"), [0; 4096], b'\n', Vec::new());
     let mut file = OpenOptions::new().append(true).open(resume::log_file()).ok();
     loop {
         match pipe.read(&mut buf) {
@@ -58,7 +58,7 @@ fn stream(argv: &[&str]) -> i32 {
             Ok(n) => {
                 let mut tty = std::io::stdout().lock();
                 let _ = tty.write_all(&buf[..n]).and_then(|()| tty.flush());
-                file.as_mut().map(|f| f.write_all(&buf[..n]));
+                file.as_mut().map(|f| f.write_all(&squash(&mut pending, &buf[..n])));
                 last = buf[n - 1];
             }
             Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
@@ -67,9 +67,27 @@ fn stream(argv: &[&str]) -> i32 {
     }
     if last != b'\n' {
         println!();
-        file.as_mut().map(|f| f.write_all(b"\n"));
+    }
+    if !pending.is_empty() {
+        file.as_mut().map(|f| f.write_all(&squash(&mut pending, b"\n")));
     }
     child.wait().ok().and_then(|s| s.code()).unwrap_or(1)
+}
+
+/// Returns the finished lines as a terminal would leave them, without the progress a carriage return redrew.
+/// The unfinished line stays in `pending` for the next chunk.
+fn squash(pending: &mut Vec<u8>, chunk: &[u8]) -> Vec<u8> {
+    pending.extend_from_slice(chunk);
+    let Some(end) = pending.iter().rposition(|&b| b == b'\n') else { return Vec::new() };
+    let rest = pending.split_off(end + 1);
+    std::mem::replace(pending, rest)
+        .split_inclusive(|&b| b == b'\n')
+        .flat_map(|line| {
+            let line = &line[..line.len() - 1];
+            let line = line.strip_suffix(b"\r").unwrap_or(line);
+            line[line.iter().rposition(|&b| b == b'\r').map_or(0, |i| i + 1)..].iter().copied().chain(*b"\n")
+        })
+        .collect()
 }
 
 fn probe(argv: &[&str]) -> String {
@@ -229,4 +247,17 @@ pub fn exec() -> i32 {
         notify(&updates, &failed, reboot);
     }
     0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::squash;
+
+    #[test]
+    fn a_progress_bar_logs_only_its_last_state() {
+        let mut pending = Vec::new();
+        assert_eq!(squash(&mut pending, b"Downloading\n#  1.0%\r## 5"), b"Downloading\n");
+        assert_eq!(squash(&mut pending, b"0.0%\r### 100.0%\nDone\r\nnext"), b"### 100.0%\nDone\n");
+        assert_eq!(pending, b"next");
+    }
 }
