@@ -150,11 +150,6 @@ pub fn panel_power_savings() -> Option<bool> {
         .map(|f| cat(f).is_some_and(|s| int(&s) > 0))
 }
 
-/// The keyboard light is only ours to control on a Framework.
-fn light_sensor() -> bool {
-    power::framework() && sorted_dir(paths::root("/sys/bus/iio/devices")).iter().any(|d| d.join("in_illuminance_raw").exists())
-}
-
 fn tweaks() -> Value {
     let abm = panel_power_savings();
     let saved = config::tweak_state();
@@ -168,10 +163,13 @@ fn tweaks() -> Value {
         ("abm", abm == Some(true)),
         ("abmAvailable", abm.is_some()),
         ("effects", animations.is_some_and(|r| r.lines().next() == Some("bool: false"))),
-        ("daylight", saved["daylight"] == true),
-        ("daylightAvailable", light_sensor()),
     ] {
         t.insert(k.into(), Value::Bool(v));
+    }
+    let level = crate::keyboard::read();
+    t.insert("keyboardAvailable".into(), level.is_some().into());
+    if let Some(level) = level {
+        t.insert("keyboard".into(), if crate::keyboard::is_auto(&saved) { "auto" } else { crate::keyboard::name_of(level) }.into());
     }
     t.insert("powerButtonAvailable".into(), Value::Bool(crate::kblight::power_button_available()));
     t.insert("powerButton".into(), saved["powerButton"].as_str().filter(|l| crate::kblight::FP_LEVELS.contains(l)).unwrap_or("auto").into());

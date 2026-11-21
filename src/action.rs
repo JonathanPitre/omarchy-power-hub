@@ -1,4 +1,4 @@
-use crate::{data, on, paths, resume, tweaks};
+use crate::{data, keyboard, on, paths, resume, tweaks};
 use serde_json::Value;
 use std::path::Path;
 
@@ -10,7 +10,11 @@ pub fn run(args: &[String]) -> Option<Value> {
         verb @ ("turbo" | "epp") => tweaks::cpu(verb, arg(1)),
         verb @ ("wifi" | "usb" | "pcie" | "audio" | "abm" | "effects") => tweaks::apply_tweak(verb, on(arg(1)), false),
         "powerbutton" => tweaks::power_button(arg(1)),
-        "daylight" => tweaks::daylight(arg(1) == "on"),
+        "keyboard" => tweaks::keyboard(arg(1)),
+        "keyboard-tick" => {
+            keyboard::tick();
+            String::new()
+        }
         "persist" => tweaks::apply_tweak(arg(1), on(arg(2)), true),
         "unpersist" => tweaks::unpin(arg(1)),
         "resume" => resume::set(arg(1), arg(2)),

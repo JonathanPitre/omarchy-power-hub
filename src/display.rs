@@ -2,7 +2,7 @@ use crate::config::truthy;
 use crate::monitor::{or_default, py_str, restore_lua, selector};
 use crate::names::{laptop_monitor, safe_name, safe_name_v, safe_output};
 use crate::state::py_int;
-use crate::{config, exec, hypr, idle, kblight, paths, power, settings};
+use crate::{config, exec, hypr, idle, kblight, keyboard, paths, power, settings};
 use serde_json::{Map, Value, json};
 use std::fs::{self, OpenOptions};
 use std::path::{Path, PathBuf};
@@ -295,9 +295,9 @@ fn idle_for_blank(blank: bool) {
     }
 }
 
-/// Keyboard and power-LED lights follow the displays; `daylight` keeps the keys off in a bright room.
+/// Keyboard and power-LED lights follow the displays; Auto sets the keys by the room on wake.
 pub fn sync_lights(off: bool) {
-    kblight::sync(off, config::saved_prefs()["daylight"] == true);
+    kblight::sync(off, keyboard::is_auto(&config::saved_prefs()));
 }
 
 /// `displays on|off|disable`: the idle timers and the heads under the state lock, then the lights. None when the lock is unavailable.

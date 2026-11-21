@@ -113,6 +113,7 @@ Panel {
 
   onOpenedChanged: {
     service.live = opened
+    if (opened && root.tweaks.keyboard === "auto") service.act("keyboard-tick")
     if (opened) {
       service.refresh()
       planSection.reload()
@@ -886,6 +887,74 @@ Panel {
                 on: root.tweaks[modelData.key] === true
                 pinnable: !modelData.setting
                 onSetOn: function(next) { service.act(tweakKey, next ? "on" : "off") }
+              }
+            }
+
+            Item {
+              id: keyboardRow
+              readonly property var levels: ["auto", "off", "low", "medium", "high"]
+              readonly property var labels: ["Auto", "Off", "Low", "Medium", "High"]
+              width: parent.width
+              implicitHeight: Style.space(34)
+              visible: root.tweaks.keyboardAvailable === true
+
+              Row {
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: Style.space(6)
+
+                Text {
+                  text: "Keyboard brightness"
+                  color: root.fg
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.body
+                  font.bold: true
+                  anchors.verticalCenter: parent.verticalCenter
+                }
+                PanelActionButton {
+                  iconText: ""
+                  tooltipText: "Auto turns the light off in daylight or when another keyboard or receiver is connected. Otherwise it picks Low, Medium or High from the room light. A change with Fn+Space holds until the displays wake."
+                  foreground: root.dim
+                  hoverColor: root.fg
+                  fontFamily: root.fontFamily
+                  anchors.verticalCenter: parent.verticalCenter
+                }
+              }
+              Row {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+
+                Repeater {
+                  model: keyboardRow.levels
+
+                  Rectangle {
+                    required property string modelData
+                    required property int index
+                    readonly property bool current: modelData === root.tweaks.keyboard
+                    width: kbText.implicitWidth + Style.space(20)
+                    height: Style.space(26)
+                    color: current ? Commons.Color.accent : kbHit.containsMouse ? root.faint : "transparent"
+                    border.width: 1
+                    border.color: root.faint
+
+                    Text {
+                      id: kbText
+                      anchors.centerIn: parent
+                      text: keyboardRow.labels[index]
+                      color: current ? Qt.darker(Commons.Color.accent, 4) : root.dim
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                      font.bold: current
+                    }
+                    MouseArea {
+                      id: kbHit
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: service.act("keyboard", modelData)
+                    }
+                  }
+                }
               }
             }
 

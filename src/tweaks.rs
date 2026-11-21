@@ -1,5 +1,6 @@
 use crate::config::{save_tweaks, saved_prefs, truthy};
 use crate::state::{cpu_owned, energy_lock};
+use crate::keyboard::LEVELS;
 use crate::{charge::privileged, data::panel_power_savings, exec, hypr, paths};
 use serde_json::{Map, Value, json};
 use std::{fs, io, time::Duration};
@@ -159,10 +160,29 @@ pub fn unpin(key: &str) -> String {
     save(&prefs)
 }
 
-pub fn daylight(on: bool) -> String {
+/// The keyboard brightness mode: Auto follows the room, a level is set now and kept for the next wake.
+pub fn keyboard(mode: &str) -> String {
+    let level = LEVELS.iter().find(|l| l.0 == mode).map(|l| l.1);
+    if (mode != "auto" && level.is_none()) || crate::keyboard::read().is_none() {
+        return "The keyboard light cannot be set on this machine".into();
+    }
+    if level.is_some_and(|l| !crate::keyboard::write_level(l)) {
+        return "The keyboard light could not be set".into();
+    }
     let mut prefs = saved_prefs();
-    prefs["daylight"] = json!(on);
-    save(&prefs)
+    if let Some(p) = prefs.as_object_mut() {
+        p.shift_remove("daylight");
+        p.shift_remove("keyboard");
+    }
+    match level {
+        Some(l) => crate::kblight::replace_saved_level(l),
+        None => prefs["keyboard"] = json!("auto"),
+    }
+    let err = save(&prefs);
+    if level.is_none() && err.is_empty() {
+        crate::keyboard::apply_auto();
+    }
+    err
 }
 
 /// The power button light level: applied now, saved, and reapplied at login.

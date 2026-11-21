@@ -1,19 +1,18 @@
 //! Keyboard and power-button lights. Laptop 16 keys are USB; 12 and 13 use the EC.
-use crate::{charge, exec, paths};
+use crate::{charge, exec, keyboard, paths};
 use serde_json::{Map, Value};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-const DAYLIGHT_LUX: f64 = 100.0;
 pub const FP_LEVELS: [&str; 5] = ["auto", "high", "medium", "low", "ultra-low"];
 type Argv = Vec<String>;
 
-fn argv(parts: &[&str]) -> Argv {
+pub(crate) fn argv(parts: &[&str]) -> Argv {
     parts.iter().map(|s| s.to_string()).collect()
 }
 
-fn run(args: &[String]) -> (i32, String) {
+pub(crate) fn run(args: &[String]) -> (i32, String) {
     exec::run(&args.iter().map(String::as_str).collect::<Vec<_>>(), Duration::from_secs(4))
 }
 
@@ -22,12 +21,12 @@ fn sudo(args: &[String]) -> Argv {
 }
 
 /// The exit code and message a tool must not show for its call to count.
-fn tool_ok(code: i32, out: &str) -> bool {
+pub(crate) fn tool_ok(code: i32, out: &str) -> bool {
     code == 0 && !["[ERROR]", "Failed to communicate", "Not a Framework Laptop"].iter().any(|bad| out.contains(bad))
 }
 
 /// The tool as the user, then through `sudo -n`, then through the privileged helper.
-fn call(tool: &[String], helper: Option<Argv>) -> (i32, String) {
+pub(crate) fn call(tool: &[String], helper: Option<Argv>) -> (i32, String) {
     let (code, out) = run(tool);
     if tool_ok(code, &out) {
         return (0, out);
@@ -59,7 +58,7 @@ fn in_range(n: i64) -> Option<i64> {
     (0..=100).contains(&n).then_some(n)
 }
 
-fn percent(text: &str) -> Option<i64> {
+pub(crate) fn percent(text: &str) -> Option<i64> {
     level_after(text, &["Brightness:", "Keyboard backlight:"]).and_then(in_range)
 }
 
@@ -129,7 +128,6 @@ fn trigger(text: &str) -> Option<String> {
 
 #[derive(Default, Debug, PartialEq)]
 struct Saved {
-    held: bool,
     level: Option<i64>,
     fp: Option<Fp>,
 }
@@ -152,7 +150,7 @@ fn load_state(path: &Path) -> Saved {
         trigger: fp.get("trigger").and_then(Value::as_str).filter(|t| name_ok(t)).map(String::from),
         brightness: level(fp.get("brightness")),
     });
-    Saved { held: raw.get("held") == Some(&Value::Bool(true)), level: level(raw.get("level")), fp: fp.filter(|f| !f.is_empty()) }
+    Saved { level: level(raw.get("level")), fp: fp.filter(|f| !f.is_empty()) }
 }
 
 fn dmi(name: &str) -> String {
@@ -194,8 +192,8 @@ fn power_led() -> Option<PathBuf> {
 }
 
 /// Ambient light, or None when no sensor can be read.
-fn lux() -> Option<f64> {
-    let read = |p: PathBuf| fs::read_to_string(p).ok()?.trim().parse::<f64>().ok();
+pub(crate) fn lux() -> Option<f64> {
+    let read = |p: PathBuf| fs::read_to_string(p).ok()?.trim().parse::<f64>().ok().filter(|v| v.is_finite());
     sorted_entries(&paths::root("/sys/bus/iio/devices"), |n| n.starts_with("iio:device")).into_iter().find_map(|dev| {
         let value = read(dev.join("in_illuminance_raw"))?;
         Some(read(dev.join("in_illuminance_scale")).map_or(value, |scale| value * scale))
@@ -245,6 +243,20 @@ fn save(path: &Path, state: &Map<String, Value>) {
     let _ = fs::write(path, Value::Object(state.clone()).to_string() + "\n");
 }
 
+/// Replaces the level a display-off saved, so the next wake restores the one just chosen.
+pub fn replace_saved_level(level: i64) {
+    let path = paths::plugin_run_dir().join("kblight.json");
+    if let (Some(_), Some(Value::Object(mut raw))) = (load_state(&path).level, fs::read_to_string(&path).ok().and_then(|t| serde_json::from_str(&t).ok())) {
+        raw.insert("level".into(), level.into());
+        save(&path, &raw);
+    }
+}
+
+/// Whether this machine is a Laptop 16 with `qmk_hid` to drive its keys.
+pub(crate) fn qmk_available() -> bool {
+    model_of(&dmi("sys_vendor"), &dmi("product_name")) == "16" && exec::on_path("qmk_hid")
+}
+
 /// Whether this machine is a Framework whose power button light `framework_tool` can set.
 pub fn power_button_available() -> bool {
     !model_of(&dmi("sys_vendor"), &dmi("product_name")).is_empty() && exec::on_path("framework_tool")
@@ -269,8 +281,8 @@ pub fn set_power_button(level: &str) -> String {
     String::new()
 }
 
-/// Dark lights for `off`, or the saved ones back for a wake; `daylight` keeps the keys off in a bright room.
-pub fn sync(off: bool, daylight: bool) {
+/// Dark lights for `off`, or the saved ones back for a wake; Auto sets the keys by the room instead of restoring them.
+pub fn sync(off: bool, auto: bool) {
     let path = paths::plugin_run_dir().join("kblight.json");
     let helper = charge::helper_bin().or_else(|| Some(paths::ops_priv()).filter(|p| p.is_file()));
     let kind = model_of(&dmi("sys_vendor"), &dmi("product_name"));
@@ -284,7 +296,7 @@ pub fn sync(off: bool, daylight: bool) {
     if !qmk && !ec_keys && !fw && led.is_none() {
         return;
     }
-    let keys = if qmk { argv(&["qmk_hid", "via", "--backlight"]) } else { argv(&["framework_tool", "--kblight"]) };
+    let keys = if qmk { keyboard::backlight() } else { argv(&["framework_tool", "--kblight"]) };
     let key_call = |args: &[String]| call(args, if ec_keys { priv_argv(args, helper.as_deref()) } else { None });
     let fw_call = |args: &[String]| call(args, priv_argv(args, helper.as_deref()));
     let saved = load_state(&path);
@@ -292,8 +304,10 @@ pub fn sync(off: bool, daylight: bool) {
         if saved.is_empty() {
             return;
         }
-        let held = (qmk || ec_keys) && saved.level.is_some() && daylight && lux().is_some_and(|l| l >= DAYLIGHT_LUX);
-        if let (true, Some(level), false) = (qmk || ec_keys, saved.level, held) {
+        let auto = auto && qmk;
+        if auto {
+            keyboard::apply_auto();
+        } else if let (true, Some(level)) = (qmk || ec_keys, saved.level) {
             // The Laptop 16 keyboard rounds down, so writing its reported 33 back gives 0.
             let level = if qmk { (level + 1).min(100) } else { level };
             key_call(&[keys.clone(), vec![level.to_string()]].concat());
@@ -307,17 +321,11 @@ pub fn sync(off: bool, daylight: bool) {
             }
             _ => {}
         }
-        match saved.level {
-            // Kept so the next wake in a darker room can still restore the level.
-            Some(level) if held => save(&path, &Map::from_iter([("level".into(), level.into()), ("held".into(), true.into())])),
-            _ => {
-                let _ = fs::remove_file(&path);
-            }
-        }
+        let _ = fs::remove_file(&path);
         return;
     }
     // A second off would read the darkened lights and lose the levels to restore.
-    if !saved.is_empty() && !saved.held {
+    if !saved.is_empty() {
         return;
     }
     let mut state = Map::new();
@@ -454,8 +462,8 @@ mod tests {
             assert_eq!(load_state(&tmp(&format!("empty{i}"), text)), Saved::default(), "{text:?}");
         }
         assert_eq!(load_state(Path::new("/nonexistent/kblight.json")), Saved::default());
-        let saved = load_state(&tmp("full", r#"{"held": true, "level": 40, "fp": {"sys": true, "requested": "custom", "trigger": "a b", "brightness": 200}}"#));
-        assert_eq!(saved, Saved { held: true, level: Some(40), fp: Some(Fp { sys: true, requested: Some("custom".into()), ..Fp::default() }) });
+        let saved = load_state(&tmp("full", r#"{"level": 40, "fp": {"sys": true, "requested": "custom", "trigger": "a b", "brightness": 200}}"#));
+        assert_eq!(saved, Saved { level: Some(40), fp: Some(Fp { sys: true, requested: Some("custom".into()), ..Fp::default() }) });
     }
 
     #[test]

@@ -350,6 +350,9 @@ Item {
     }
   }
 
+  // A no-op unless the keyboard is on Auto.
+  Process { id: keyboardTickProc; command: [root.hub, "lights", "auto"] }
+
   Timer {
     interval: 30000
     running: true
@@ -358,6 +361,7 @@ Item {
     onTriggered: {
       root.refresh()
       if (!boostProc.running) boostProc.running = true
+      if (!root.displaysOff && !root.parked && !keyboardTickProc.running) keyboardTickProc.running = true
     }
   }
 

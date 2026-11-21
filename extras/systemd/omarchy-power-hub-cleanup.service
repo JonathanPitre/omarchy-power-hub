@@ -1,0 +1,6 @@
+[Unit]
+Description=Remove Omarchy Power Hub root files after the plugin is removed
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/omarchy-power-hub/ops-priv cleanup

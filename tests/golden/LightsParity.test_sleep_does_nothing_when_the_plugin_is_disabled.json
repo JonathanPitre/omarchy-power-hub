@@ -1,0 +1,26 @@
+[
+  {
+    "code": 0,
+    "stdout": "",
+    "calls": [],
+    "evals": [],
+    "requests": [],
+    "files": {
+      "home/.config/hypr/.keep": [
+        420,
+        ""
+      ],
+      "home/.config/omarchy/omarchy-power-hub.json": [
+        420,
+        "{\"ac\":{\"profile\":\"balanced\"},\"battery\":{\"profile\":\"balanced\"}}"
+      ],
+      "home/.config/omarchy/shell.json": [
+        420,
+        "{\"disabledPlugins\":[\"omarchy-power-hub\"]}"
+      ]
+    },
+    "side": {
+      "keys.state": "67\n"
+    }
+  }
+]

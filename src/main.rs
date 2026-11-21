@@ -7,6 +7,7 @@ mod exec;
 mod hypr;
 mod idle;
 mod kblight;
+mod keyboard;
 mod monitor;
 mod names;
 mod paths;
@@ -15,6 +16,7 @@ mod resume;
 mod resume_run;
 mod t3;
 mod settings;
+mod sleep;
 mod state;
 mod system;
 mod travel;
@@ -56,6 +58,8 @@ fn main() {
         Some("led-sudo-needed") => out(system::led_sudo_needed()),
         Some("battery-history") => out(system::battery_history()),
         Some("idle-wake-poll") => out(idle::poll(matches!(args.get(1).map(String::as_str), Some("blanked" | "off")))),
+        Some("lights") if args.get(1).is_some_and(|a| a == "auto") => keyboard::tick(),
+        Some("lights") if matches!(args.get(1).map(String::as_str), Some("off" | "on")) => sleep::lights_sleep(args[1] == "off"),
         Some("lid-closed") => idle::lid_closed(),
         Some("lid-opened") => idle::lid_opened(),
         Some("idle-lock") => idle::idle_lock(),
@@ -100,7 +104,7 @@ fn main() {
         Some("apply-profile") => report(settings::apply_active().unwrap_or_else(|e| e.to_string())),
         Some("apply-tweaks") => report(tweaks::apply_saved_tweaks()),
         Some("unpin") if args.len() >= 2 => report(tweaks::unpin(&args[1])),
-        Some("daylight") if args.len() >= 2 => report(tweaks::daylight(args[1] == "on")),
+        Some("keyboard") if args.len() >= 2 => report(tweaks::keyboard(&args[1])),
         Some("cpu") if args.len() >= 3 => report(tweaks::cpu(&args[1], &args[2])),
         Some("helper-install") => {
             let (code, msg) = charge::helper_install();
@@ -113,7 +117,7 @@ fn main() {
             std::process::exit(code);
         }
         _ => {
-            eprintln!("usage: power-hub status|data|action|resume-status|resume-run|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|set|profile|charge|boost|health|quick-dim|travel|tweak|apply|apply-profile|apply-tweaks|unpin|daylight|cpu|helper-install|boost-check|idle-wake-poll|displays|lid-closed|lid-opened|idle-lock|saver-past-inhibitor|recover-ucsi");
+            eprintln!("usage: power-hub status|data|action|resume-status|resume-run|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|set|profile|charge|boost|health|quick-dim|travel|tweak|apply|apply-profile|apply-tweaks|unpin|cpu|helper-install|boost-check|idle-wake-poll|displays|lights|lid-closed|lid-opened|idle-lock|saver-past-inhibitor|recover-ucsi");
             std::process::exit(2);
         }
     }

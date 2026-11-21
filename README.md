@@ -36,9 +36,19 @@ are supported where they expose the required Linux controls. See
 - **Power tweaks:** optional device power saving for Wi-Fi, PCIe, USB, audio,
   and display settings, depending on available tools and hardware.
 - **GPU status:** shows whether a supported discrete GPU is asleep or awake.
-- **Framework lighting:** controls supported keyboard and fingerprint power
-  button lights, and can keep the keyboard light off when the displays wake in
-  daylight.
+- **Framework lighting:** controls supported fingerprint power button lights.
+- **Keyboard brightness (Laptop 16 only):** Auto, Off, Low, Medium or High. Auto turns the light
+  off in daylight or when another keyboard or receiver is connected. Otherwise
+  it picks Low, Medium or High from the room light. A change with Fn+Space holds
+  until the displays wake.
+- **Lights through sleep:** keyboard and power button lights go off for system
+  sleep and return at wake. A root hook installed with the helper does this.
+- **Cleanup on removal:** removing the plugin deletes its root files, sudoers
+  rules, sleep hook and user unit. It also restores the lid binding in
+  `bindings.lua` and removes the login service. It needs the helper install
+  from the panel. It keeps `~/.config/omarchy/power-hub*`,
+  `~/.config/omarchy/omarchy-power-hub.json` and
+  `/var/log/battery-plus-sleep.log`.
 - **On resume:** updates Omarchy, plugins, lean-ctx, Rulesync, Skills Manager
   and T3 Code after wake, displays on or unlock. It restores T3 Code's windows
   when hypr-persist supports `--class`.

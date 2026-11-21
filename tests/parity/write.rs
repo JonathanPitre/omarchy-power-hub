@@ -713,7 +713,7 @@ mod action_parity {
 
     const ROWS: [&[&str]; 6] = [
         &["action", "turbo", "off"], &["action", "epp", "power"], &["action", "wifi", "on"],
-        &["action", "persist", "wifi", "on"], &["action", "unpersist", "wifi"], &["action", "daylight", "on"],
+        &["action", "persist", "wifi", "on"], &["action", "unpersist", "wifi"], &["action", "keyboard", "auto"],
     ];
 
     #[test]
@@ -872,10 +872,17 @@ mod tweak_parity {
     }
 
     #[test]
-    fn test_unpin_daylight_and_cpu_keep_every_other_key() {
-        let prefs = json!({"z": 1, "wifi": true, "wifiPinned": true, "usbPinned": true, "daylight": false, "a": [1]});
-        tweak_both("TweakParity.test_unpin_daylight_and_cpu_keep_every_other_key", &Tweaks::default().prefs(prefs),
-                   &[&["unpin", "wifi"], &["unpin", "missing"], &["daylight", "on"], &["daylight", "off"], &["daylight", "x"]]);
+    fn test_unpin_keyboard_and_cpu_keep_every_other_key() {
+        let prefs = json!({"z": 1, "wifi": true, "wifiPinned": true, "usbPinned": true, "daylight": true, "a": [1]});
+        let setup = |s: &Sandbox| {
+            Tweaks::default().prefs(prefs.clone()).setup(s);
+            s.dmi("Framework", "Laptop 16");
+            s.stub("qmk_hid", "via --backlight", 0, "Brightness: 67%\n");
+            s.set_path(&s.stubs.display().to_string());
+        };
+        let (s, _) = tweak_both("TweakParity.test_unpin_keyboard_and_cpu_keep_every_other_key", &setup,
+                                &[&["unpin", "wifi"], &["unpin", "missing"], &["keyboard", "auto"], &["keyboard", "low"], &["keyboard", "x"]]);
+        assert_eq!(parsed(&read(&s, TWEAKS_FILE)), json!({"z": 1, "wifi": true, "usbPinned": true, "a": [1]}));
     }
 
     #[test]
