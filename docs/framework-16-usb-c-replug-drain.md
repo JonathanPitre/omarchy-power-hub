@@ -16,7 +16,7 @@ With a bus-powered USB-C monitor connected, unplugging the Framework **240 W** a
 
 Unplugging the monitor and reconnecting the adapter restores several amps input (~9 A seen) and charging. A 90% charge limit does not explain this; discharge continued from ~82% toward ~50% with the brick in.
 
-On BIOS 4.02 the port no longer stays there: it retries for 13-40 s and returns to 240 W EPR on its own. The dip, and the throttling during it, remain. See [BIOS 4.02](#bios-402).
+On BIOS 4.02 the port often retries for 13-40 s and returns to 240 W EPR on its own, but it can also stay stuck for minutes or until power-off. See [BIOS 4.02](#bios-402).
 
 ## System (reporter)
 
@@ -140,7 +140,7 @@ FlipGo partner PDOs: 5 V/3 A, 9 V/560 mA, 12 V/420 mA.
 
 ## Omarchy Power Hub (plugin)
 
-When the hero line shows **ON AC · DISCHARGING**, that matches EC/UPower: mains present (including FlipGo backfeed or brick) while `BAT1` is discharging. The plugin uses USB-C contract **≥15 W** for “AC” detection and applies the **battery** power profile while discharging to reduce replug freezes; it does **not** fix the 800 mA EC cap.
+When the hero line shows **DISCHARGING** with the adapter in, that matches EC/UPower: mains present while `BAT1` is discharging. The plugin uses USB-C contract **≥15 W** for “AC” detection and applies the **battery** power profile while discharging to reduce replug freezes; it does **not** fix the 800 mA EC cap.
 
 ## BIOS 4.02
 
@@ -208,7 +208,18 @@ On 4.02 the port did not always recover. The FlipGo stayed attached throughout. 
 
 Input from the adapter was zero, not the 800 mA floor. In `s2idle` (suspend to idle) at 2%, the pack still lost 1.0 W over 302 s (`/var/log/battery-plus-sleep.log`). A 16 W input would have charged it. Only a full power-off restored charging. Charge control is ruled out: every `ops-priv charge-limit` call that boot was a read, and the limit was 80%.
 
-The plugin now sends a critical notification when the battery has been discharging for 3 minutes while AC reads online.
+The plugin now sends a critical notification when two checks 3 minutes apart both find the battery discharging while UCSI shows an adapter of at least 15 W, unless it is draining to the charge limit. No UCSI reading was captured on 2026-11-21, so it may miss a 0 W case where UCSI drops the adapter.
+
+### Back and right ports on 2026-11-24
+
+The adapter was on the back port, then the right port, and the FlipGo on the right controller (typec `port0`, backfeeding 9 V × 0.33 A). Several replugs on both ports kept the floor:
+
+- `--power`: `Chg Input Current: 800mA`, battery discharging at 71%, about 37 W draw, limit 80%
+- `--pdports` lists only the Right and Left controllers (ports 0-3), so it cannot show the back port or its EPR state; `Sink Active: No` there says nothing about the adapter
+- UCSI read 20 V × 5 A on the back port during the floor, so UCSI shows the adapter online but cannot tell the floor apart
+- Tell-tale without root: with the adapter in, the laptop's typec port for the FlipGo shows `power_role` `[sink]` instead of `[source]`
+
+About 5 minutes in, the FlipGo's USB hub re-enumerated and the EC returned to `9000mA` with the FlipGo still attached.
 
 ## Capture commands
 
