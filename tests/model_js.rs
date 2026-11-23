@@ -32,19 +32,22 @@ fn battery_icon_shows_full_only_at_100() {
         d15: batteryIcon(15, "Discharging") === DISCHARGE[0],
         d25: batteryIcon(25, "Discharging") === DISCHARGE[1],
         alert: batteryIcon(8, "Discharging") === ALERT_ICON,
-        full: batteryIcon(97, "Full") === FULL_ICON
-    }));"#, json!({"d95": true, "d100": true, "c95": true, "d15": true, "d25": true, "alert": true, "full": true}));
+        full: batteryIcon(97, "Full") === FULL_ICON,
+        drain: batteryIcon(91, "Discharging", pluggedIn({ status: "Discharging", drainTo: 80, acOnline: 1 })) === CHARGE[8],
+        idleAc: pluggedIn({ status: "Not charging", acOnline: 1 }),
+        monitor: pluggedIn({ status: "Discharging", drainTo: 0, acOnline: 1 })
+    }));"#, json!({"drain": true, "idleAc": true, "monitor": false, "d95": true, "d100": true, "c95": true, "d15": true, "d25": true, "alert": true, "full": true}));
 }
 
 #[test]
 fn bar_percent_toggles_on_battery_too() {
     expect(r#"var on = { showOnBattery: true, showOnAc: false };
     console.log(JSON.stringify({
-        battery: barPercentKey("Discharging"),
-        ac: barPercentKey("Charging"),
-        shownOnBattery: showBarPercent("Discharging", on),
-        hiddenOnAc: showBarPercent("Full", on),
-        hiddenOnBattery: showBarPercent("Discharging", { showOnBattery: false, showOnAc: false })
+        battery: barPercentKey(true),
+        ac: barPercentKey(false),
+        shownOnBattery: showBarPercent(true, on),
+        hiddenOnAc: showBarPercent(false, on),
+        hiddenOnBattery: showBarPercent(true, { showOnBattery: false, showOnAc: false })
     }));"#, json!({"battery": "showPercentageOnBattery", "ac": "alwaysShowPercentage", "shownOnBattery": true, "hiddenOnAc": false, "hiddenOnBattery": false}));
 }
 

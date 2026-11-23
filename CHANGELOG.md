@@ -7,6 +7,17 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [0.0.64] - 2026-11-24
+
+### Changed
+
+- **B** focuses the Boost button, replacing the **C** shortcut for the removed CPU option.
+
+### Fixed
+
+- The bar shows the charging glyph while plugged in and the battery drains to the charge limit or sits at it. Before, it showed the on-battery glyph.
+- While the battery drains to the charge limit, the bar percentage follows **Show percentage when plugged in**, and right-click toggles that setting.
+
 ## [0.0.63] - 2026-11-24
 
 ### Changed

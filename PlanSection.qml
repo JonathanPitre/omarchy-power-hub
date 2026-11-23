@@ -97,7 +97,8 @@ Column {
 
   function focusEnergy(which) {
     var item = which === "travel" ? energyTravelButton
-      : which === "quickDim" ? energyDimButton : null
+      : which === "quickDim" ? energyDimButton
+      : which === "boost" && chargeRow.visible && chargeRow.ready ? boostButton : null
     if (item && item.enabled) item.forceActiveFocus()
     return item && item.enabled ? item : null
   }
@@ -105,6 +106,7 @@ Column {
   function activateEnergyFocus() {
     if (energyTravelButton.activeFocus && energyTravelButton.enabled) energyTravelButton.clicked()
     else if (energyDimButton.activeFocus && energyDimButton.enabled) energyDimButton.clicked()
+    else if (boostButton.activeFocus && boostButton.enabled) boostButton.clicked()
   }
 
   function next() {
@@ -408,6 +410,7 @@ Column {
         height: chargeRow.side
         id: boostButton
         bordered: true
+        focusable: true
         selected: chargeRow.boosting
         foreground: root.fg
         fontFamily: root.fontFamily

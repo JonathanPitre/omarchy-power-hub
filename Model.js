@@ -11,22 +11,22 @@ var ALERT_ICON = "󰂃";      // 󰂃
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
 // Glyph i shows (i+1)*10%, rounded down, so "full" means 100% and 95% reads as 90%.
-function batteryIcon(percent, status) {
+function batteryIcon(percent, status, plugged) {
   var p = Number(percent) || 0;
   var i = p >= 100 ? 9 : clamp(Math.floor(p / 10) - 1, 0, 8);
   if (status === "Full" || status === "FullyCharged") return FULL_ICON;
-  if (status === "Charging") return CHARGE[i];
+  if (status === "Charging" || plugged) return CHARGE[i];
   if (status === "Discharging" && percent <= 10) return ALERT_ICON;
   return DISCHARGE[i];
 }
 
 // The bar percentage has one switch per power state; right-click flips the current one.
-function barPercentKey(status) {
-  return status === "Discharging" ? "showPercentageOnBattery" : "alwaysShowPercentage";
+function barPercentKey(onBattery) {
+  return onBattery ? "showPercentageOnBattery" : "alwaysShowPercentage";
 }
 
-function showBarPercent(status, s) {
-  return status === "Discharging" ? s.showOnBattery !== false : !!s.showOnAc;
+function showBarPercent(onBattery, s) {
+  return onBattery ? s.showOnBattery !== false : !!s.showOnAc;
 }
 
 function fmtWatts(w) {
@@ -45,6 +45,12 @@ function fmtDuration(mins) {
 // The charge limit the EC is discharging to on AC, or 0. UPower updates sooner than the poll.
 function drainTarget(b) {
   return b && b.status === "Discharging" ? Number(b.drainTo) || 0 : 0;
+}
+
+// On AC, including the EC draining to the charge limit. A Discharging battery with no
+// drain target is unplugged even when a bus-powered monitor keeps ACAD online.
+function pluggedIn(b) {
+  return !!drainTarget(b) || !!(b && b.acOnline && b.status !== "Discharging");
 }
 
 // Hero meta line as { state, time }: the state is dimmed, the time is highlighted.
