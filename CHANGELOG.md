@@ -21,6 +21,12 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 - Display commands wait while Hyprland reports that displays are still connecting. Before, they saw no monitors and turned nothing on.
 
+## [0.0.62] - 2026-11-24
+
+### Fixed
+
+- The plugged-in-but-discharging notification no longer fires on battery with a USB-C monitor attached, or while the battery drains to the charge limit. It now also catches an adapter plugged in later while the battery is discharging, and waits for two checks 3 minutes apart so a short EC retry does not alert. It may miss a 0 W case where UCSI drops the adapter.
+
 ## [0.0.61] - 2026-11-21
 
 ### Added

@@ -343,13 +343,36 @@ Item {
   // already plugged in sees no such transition and stays on.
   property int lastBatteryState: -1
   Process { id: travelOffProc; command: [root.hub, "travel", "off"]; onExited: root.refresh() }
-  // Framework EC firmware can leave a replugged adapter at 0 W while AC still reads online.
+  // Framework EC firmware can leave a replugged adapter at the 800 mA floor or 0 W.
+  // acOnline needs at least 15 W on UCSI, which a monitor's backfeed does not reach.
+  // It repeats because plugging into that state never changes the battery state, and
+  // needs two hits in a row so a plug-in or a 13-40 s EC retry does not alert.
+  property int acDrainHits: 0
+  property bool acDrainWarned: false
   Timer {
     id: acDrainTimer
     interval: 180000
-    onTriggered: if (UPower.displayDevice.state === UPowerDeviceState.Discharging && !UPower.onBattery)
-      Quickshell.execDetached(["notify-send", "-a", "Power Hub", "-u", "critical", "Plugged in but discharging",
-                               "Unplug the USB-C monitor, then replug the adapter."])
+    repeat: true
+    running: UPower.displayDevice.state === UPowerDeviceState.Discharging && !root.acDrainWarned
+    onTriggered: if (!acDrainProc.running) acDrainProc.running = true
+  }
+  Process {
+    id: acDrainProc
+    command: [root.hub, "data"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var b
+        try { b = JSON.parse(text).battery } catch (e) { return }
+        var hit = b && b.acOnline && b.status === "Discharging" && !Model.drainTarget(b)
+                  && UPower.displayDevice.state === UPowerDeviceState.Discharging
+        root.acDrainHits = hit ? root.acDrainHits + 1 : 0
+        if (root.acDrainHits < 2) return
+        root.acDrainWarned = true
+        Quickshell.execDetached(["notify-send", "-a", "Power Hub", "-u", "critical", "Plugged in but discharging",
+                                 "Unplug the USB-C monitor, then replug the adapter."])
+      }
+    }
   }
   Connections {
     target: UPower.displayDevice
@@ -363,8 +386,8 @@ Item {
               || s === UPowerDeviceState.PendingCharge)
           && !travelOffProc.running)
         travelOffProc.running = true
-      if (s === UPowerDeviceState.Discharging) acDrainTimer.restart()
-      else acDrainTimer.stop()
+      root.acDrainHits = 0
+      root.acDrainWarned = false
       root.lastBatteryState = s
     }
   }
