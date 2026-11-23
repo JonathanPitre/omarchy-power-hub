@@ -73,8 +73,10 @@ Panel {
 
   readonly property bool vertical: bar ? bar.vertical : false
   // "On battery" follows UPower's live state, not the polled ACAD flag: a
-  // bus-powered USB-C monitor keeps ACAD online after unplug.
-  readonly property bool showBarPercent: !vertical && Model.showBarPercent(batStatus, {
+  // bus-powered USB-C monitor keeps ACAD online after unplug. Draining to the
+  // charge limit counts as plugged in.
+  readonly property bool onBattery: batStatus === "Discharging" && !Model.drainTarget(b)
+  readonly property bool showBarPercent: !vertical && Model.showBarPercent(onBattery, {
     showOnBattery: setting("showPercentageOnBattery", true) === true,
     showOnAc: setting("alwaysShowPercentage", false) === true
   })
@@ -85,7 +87,7 @@ Panel {
   // Right-click hides or shows the percentage for the current power state only.
   function togglePercentage() {
     var patch = {}
-    patch[Model.barPercentKey(root.batStatus)] = !root.showBarPercent
+    patch[Model.barPercentKey(root.onBattery)] = !root.showBarPercent
     root.settings = Object.assign({}, root.settings, patch)
     if (bar && bar.shell && bar.shell.updateEntryInline) bar.shell.updateEntryInline(moduleName, root.settings)
   }
@@ -170,6 +172,7 @@ Panel {
           : root.b.status === "Discharging"
           ? "  ·  " + (root.estimating ? "calculating…" : Model.fmtDuration(root.b.minutes) + " remaining") : ""))
     : "Plugged in"
+  readonly property string barIcon: Model.batteryIcon(root.b.percent, root.b.status, Model.pluggedIn(root.b))
   readonly property Item barButton: root.showBarPercent ? percentButton : button
 
   function barPressed(btn) {
@@ -183,7 +186,7 @@ Panel {
     visible: !root.showBarPercent
     anchors.fill: parent
     bar: root.bar
-    text: Model.batteryIcon(root.b.percent, root.b.status)
+    text: root.barIcon
     tooltipText: root.barTooltip
     onPressed: function(btn) { root.barPressed(btn) }
   }
@@ -196,7 +199,7 @@ Panel {
     visible: root.showBarPercent
     anchors.fill: parent
     bar: root.bar
-    text: Model.batteryIcon(root.b.percent, root.b.status) + " " + root.b.percent + "%"
+    text: root.barIcon + " " + root.b.percent + "%"
     tooltipText: root.barTooltip
     onPressed: function(btn) { root.barPressed(btn) }
   }
@@ -229,6 +232,7 @@ Panel {
         if (t === "r" || t === "R") service.refresh()
         else if (t === "t" || t === "T") root.focusEnergy("travel")
         else if (t === "d" || t === "D") root.focusEnergy("quickDim")
+        else if (t === "b" || t === "B") root.focusEnergy("boost")
       }
       onActivateRequested: planSection.activateEnergyFocus()
 
@@ -290,7 +294,7 @@ Panel {
               id: heroIcon
               anchors.left: parent.left
               anchors.verticalCenter: parent.verticalCenter
-              text: Model.batteryIcon(root.b.percent, root.b.status)
+              text: root.barIcon
               color: root.charging ? root.fg : (root.b.percent <= 10 ? root.urgent : root.fg)
               font.family: root.fontFamily
               font.pixelSize: Style.font.display
@@ -1019,7 +1023,7 @@ Panel {
           // ---------- Footer ----------
           Text {
             width: parent.width
-            text: "R refresh · T travel · D dim · C CPU option · J/K scroll · Esc close"
+            text: "R refresh · T travel · D dim · B boost · J/K scroll · Esc close"
             wrapMode: Text.WordWrap
             color: root.dim
             font.family: root.fontFamily
