@@ -2,7 +2,7 @@
 //! same test names.
 use crate::read::{TWEAKS_FILE, merged, parsed};
 use crate::support::{Outcome, RUST_BIN, Replay, Sandbox, replay, spawn_with};
-use crate::write::{ApplyEnv, BOTH, Setup, Settings, called, checked, checked_each, chmod, has_call, read, starting};
+use crate::write::{ApplyEnv, BOTH, Setup, Settings, called, checked_each, chmod, has_call, read, starting};
 use serde_json::{Value, json};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -11,13 +11,10 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-const STATE_FILE: &str = "run/omarchy-power-hub/display-off.json";
-const DROPPERS_FILE: &str = "home/.local/state/omarchy-power-hub/bus-droppers.json";
 const KBLIGHT_FILE: &str = "run/omarchy-power-hub/kblight.json";
 const LOCK_FILE: &str = "run/omarchy-power-hub/display-off.lock";
 const FLIP: &str = "RTK FlipGo-A2 8R33926O00QS";
 const SAVER_CLEARED: &str = "hl.config({ cursor = { invisible = false } })";
-const REQ: Replay = Replay { requests: true, ..BOTH };
 
 fn head(name: &str, lit: bool, extra: Value) -> Value {
     merged(json!({"name": name, "dpmsStatus": lit, "width": 2560, "height": 1600, "refreshRate": 60, "x": 0, "y": 0, "scale": 1.6}), extra)
@@ -38,37 +35,14 @@ fn described(name: &str, description: &str) -> Value {
 /// A non-Framework machine, so the lights are a no-op.
 struct Displays {
     monitors: Vec<Value>,
-    state: Option<String>,
-    droppers: Option<String>,
-    lid: &'static str,
     keys: Value,
 }
 
 fn displays(monitors: Vec<Value>) -> Displays {
-    Displays { monitors, state: None, droppers: None, lid: "open", keys: json!({}) }
+    Displays { monitors, keys: json!({}) }
 }
 
 impl Displays {
-    fn state(self, state: Value) -> Self {
-        Self { state: Some(state.to_string()), ..self }
-    }
-
-    fn state_text(self, text: &str) -> Self {
-        Self { state: Some(text.into()), ..self }
-    }
-
-    fn droppers(self, droppers: Option<Value>) -> Self {
-        Self { droppers: droppers.map(|d| d.to_string()), ..self }
-    }
-
-    fn droppers_text(self, text: &str) -> Self {
-        Self { droppers: Some(text.into()), ..self }
-    }
-
-    fn lid(self, lid: &'static str) -> Self {
-        Self { lid, ..self }
-    }
-
     fn keys(self, keys: Value) -> Self {
         Self { keys, ..self }
     }
@@ -78,22 +52,16 @@ impl Setup for Displays {
     fn setup(&self, s: &Sandbox) {
         Settings { keys: self.keys.clone(), ..Settings::default() }.setup(s);
         s.monitors(&self.monitors);
-        s.lid(self.lid);
-        if let Some(state) = &self.state {
-            s.write(STATE_FILE, state);
-        }
-        if let Some(droppers) = &self.droppers {
-            s.write(DROPPERS_FILE, droppers);
-        }
+        s.lid("open");
     }
-}
-
-fn state_names(s: &Sandbox) -> Vec<String> {
-    s.read_state()["disabled"].as_array().unwrap().iter().map(|h| h["name"].as_str().unwrap().to_string()).collect()
 }
 
 fn dpms(action: &str, names: &[&str]) -> Vec<String> {
     names.iter().map(|n| format!("dispatch hl.dsp.dpms({{ action = \"{action}\", monitor = \"{n}\" }})")).collect()
+}
+
+fn dispatched(r: &Outcome) -> Vec<String> {
+    r.requests.iter().filter(|q| q.starts_with("dispatch")).cloned().collect()
 }
 
 fn log_lines(s: &Sandbox) -> Vec<String> {
@@ -110,25 +78,17 @@ type Seen = Arc<Mutex<Vec<(String, Vec<String>)>>>;
 mod display_parity {
     use super::*;
 
+    /// Only DPMS: which heads exist and where they sit is hyprmoncfg's job, so no head is ever disabled or re-added.
     #[test]
-    fn test_on_restores_parked_heads_then_enables_every_monitor_and_clears_state() {
-        let parked = json!([{"name": "DP-1", "output": format!("desc:{FLIP}"), "width": 2560, "height": 1600, "refreshRate": 60, "x": 0, "y": 0, "scale": 1.6},
-                            {"name": "DP-2", "width": 1920, "height": 1080}, "HDMI-A-1", {"name": "bad name"}]);
-        let mons = vec![head("eDP-1", false, json!({})), head("DP-1", false, json!({})), head("DP-2", false, json!({"disabled": true})), lit("bad name")];
-        let setup = displays(mons).state(json!({"disabled": parked}));
-        let (s, r) = checked("DisplayParity.test_on_restores_parked_heads_then_enables_every_monitor_and_clears_state", &setup, &[&["displays", "on"]], REQ);
-        assert_eq!(s.read_state(), json!({"disabled": []}));
-        assert_eq!(r.evals[0], SAVER_CLEARED);
-        assert_eq!(r.evals.last().unwrap(), r#"hl.monitor({ output = "HDMI-A-1", disabled = false })"#);
-        assert!(r.requests.contains(&dpms("enable", &["eDP-1"])[0]));
-        assert!(!r.requests.contains(&dpms("enable", &["bad name"])[0]));
-    }
-
-    #[test]
-    fn test_on_applies_the_saver_the_displays_off_setting_allows() {
-        for keys in [json!({"screensaver": 150, "displaysOff": 200}), json!({"screensaver": 300, "displaysOff": 200}), json!({"displaysOff": 0})] {
-            let setup = displays(vec![lit("eDP-1")]).keys(json!({"ac": merged(json!({"profile": "balanced", "lock": 60}), keys)}));
-            checked("DisplayParity.test_on_applies_the_saver_the_displays_off_setting_allows", &setup, &[&["displays", "on"], &["displays", "off"], &["displays", "on"]], BOTH);
+    fn test_on_and_off_only_switch_dpms_on_safe_heads() {
+        let mons = vec![dark("eDP-1"), described("DP-1", FLIP), head("DP-2", true, json!({"disabled": true})), lit("bad name")];
+        let s = Sandbox::new();
+        displays(mons).setup(&s);
+        for (mode, action, names) in [("off", "disable", &["eDP-1", "DP-1"][..]), ("on", "enable", &["eDP-1", "DP-1", "DP-2"])] {
+            let r = s.rust(&["displays", mode]);
+            assert_eq!((r.code, r.stdout.as_str()), (0, "ok\n"), "{mode}");
+            assert_eq!((r.evals.as_slice(), dispatched(&r)), (&[SAVER_CLEARED.to_string()][..], dpms(action, names)), "{mode}");
+            assert!(!s.target("run/omarchy-power-hub/display-off.json").exists(), "{mode}");
         }
     }
 
@@ -149,139 +109,46 @@ mod display_parity {
     }
 
     #[test]
-    fn test_off_blanks_every_head_and_parks_the_ones_dpms_cannot_reach() {
-        let flip = json!({"description": FLIP});
-        let with_flip = |name: &str| head(name, true, flip.clone());
-        let droppers = || Some(json!([FLIP]));
-        let shapes: Vec<(Vec<Value>, Option<Value>)> = vec![
-            (vec![lit("eDP-1")], None),
-            (vec![lit("eDP-1"), lit("DP-1")], None),
-            (vec![lit("eDP-1"), lit("DP-1"), lit("DP-2")], None),
-            (vec![lit("eDP-1"), with_flip("DP-1")], droppers()),
-            (vec![lit("eDP-1"), lit("DP-1")], droppers()),
-            (vec![with_flip("DP-1"), with_flip("DP-2")], droppers()),
-            (vec![lit("eDP-1"), described("DP-1", "bad\" desc")], Some(json!(["bad\" desc"]))),
-            (vec![lit("DP-1"), lit("eDP-1")], None),
-            (vec![lit("eDP-1"), lit("DP-1"), dark("DP-2")], None),
-            (vec![dark("eDP-1"), head("DP-1", true, json!({"disabled": true})), lit("DP-2")], None),
-            (vec![lit("eDP-1"), lit("bad name"), with_flip("DP-2")], droppers()),
-            (vec![], droppers()),
-        ];
-        for (mons, dropper_list) in shapes {
-            for verb in ["off", "disable"] {
-                let setup = displays(mons.clone()).droppers(dropper_list.clone());
-                checked("DisplayParity.test_off_blanks_every_head_and_parks_the_ones_dpms_cannot_reach", &setup, &[&["displays", verb]], REQ);
-            }
-        }
-    }
-
-    #[test]
-    fn test_off_keeps_heads_that_were_already_parked() {
-        let parked = json!([{"name": "DP-9", "width": 100, "height": 100}, "DP-8", {"name": "DP-2", "width": 1}]);
-        let setup = displays(vec![lit("eDP-1"), described("DP-2", FLIP), lit("DP-3")]).state(json!({"disabled": parked})).droppers(Some(json!([FLIP])));
-        checked("DisplayParity.test_off_keeps_heads_that_were_already_parked", &setup, &[&["displays", "off"], &["displays", "off"], &["displays", "on"]], REQ);
-    }
-
-    /// Rust-only: no recorded case has two direct disables. Expected values were observed from the old implementation on this
-    /// system; the eval order follows the monitor list, whatever order the droppers file has.
-    #[test]
-    fn test_off_with_two_droppers_disables_them_in_monitor_order() {
-        let (flip, other) = (r#"hl.monitor({ output = "desc:RTK FlipGo-A2 8R33926O00QS", disabled = true })"#, r#"hl.monitor({ output = "desc:b", disabled = true })"#);
-        for droppers in [json!([FLIP, "b"]), json!(["b", FLIP])] {
-            let s = Sandbox::new();
-            displays(vec![lit("eDP-1"), described("DP-1", FLIP), described("DP-2", "b")]).droppers(Some(droppers)).setup(&s);
-            let r = s.rust(&["displays", "off"]);
-            assert_eq!((r.code, r.stdout.trim()), (0, "ok"));
-            assert_eq!(r.evals, [SAVER_CLEARED, flip, other, flip, other]);
-            assert_eq!(state_names(&s), ["DP-1", "DP-2"]);
-        }
-    }
-
-    #[test]
-    fn test_off_writes_the_parked_heads_with_the_eight_snapshot_keys() {
-        let odd = head("DP-1", true, json!({"description": FLIP, "width": 0, "scale": 0, "refreshRate": null}));
-        let setup = displays(vec![lit("eDP-1"), odd]).droppers(Some(json!([FLIP])));
-        let (s, _) = checked("DisplayParity.test_off_writes_the_parked_heads_with_the_eight_snapshot_keys", &setup, &[&["displays", "off"]], BOTH);
-        let state = s.read_state();
-        let keys: Vec<&str> = state["disabled"][0].as_object().unwrap().keys().map(String::as_str).collect();
-        assert_eq!(keys, ["name", "output", "width", "height", "refreshRate", "x", "y", "scale"]);
-    }
-
-    #[test]
     fn test_screensaver_is_dismissed_before_anything_else() {
         let pkills = ["pkill -x ttfx", "pkill -f [o]rg.omarchy.screensaver"];
         for verb in ["on", "off"] {
             let seen: Seen = Arc::default();
-            let setup = |s: &Sandbox| {
-                displays(vec![lit("eDP-1")]).setup(s);
-                // What the pkill stub had logged when the cursor eval arrived.
-                let (log, seen) = (s.calls_log.clone(), seen.clone());
-                s.hypr().on_eval = Some(Box::new(move |_, lua| {
-                    let logged: Vec<String> = fs::read_to_string(&log).unwrap().split('\n').filter(|c| c.starts_with("pkill")).map(String::from).collect();
-                    seen.lock().unwrap().push((lua.to_string(), logged));
-                }));
-            };
-            checked_each("DisplayParity.test_screensaver_is_dismissed_before_anything_else", &setup, &[&["displays", verb]], BOTH, &mut |s, r| {
-                assert_eq!(r.evals[0], SAVER_CLEARED);
-                assert_eq!(log_starting(s, "pkill"), pkills);
-            });
+            let s = Sandbox::new();
+            displays(vec![lit("eDP-1")]).setup(&s);
+            // What the pkill stub had logged when the cursor eval arrived.
+            let (log, seen2) = (s.calls_log.clone(), seen.clone());
+            s.hypr().on_eval = Some(Box::new(move |_, lua| {
+                let logged: Vec<String> = fs::read_to_string(&log).unwrap().split('\n').filter(|c| c.starts_with("pkill")).map(String::from).collect();
+                seen2.lock().unwrap().push((lua.to_string(), logged));
+            }));
+            let r = s.rust(&["displays", verb]);
+            assert_eq!(r.evals[0], SAVER_CLEARED);
+            assert_eq!(log_starting(&s, "pkill"), pkills);
             let seen = seen.lock().unwrap();
-            assert_eq!(seen[0].0, SAVER_CLEARED);
-            assert!(seen.iter().take(2).all(|(_, p)| p == &pkills), "{seen:?}");
+            assert_eq!(seen[0], (SAVER_CLEARED.to_string(), pkills.map(String::from).to_vec()), "{verb}");
         }
-    }
-
-    #[test]
-    fn test_park_a_head_that_came_back_lit_while_the_others_sleep() {
-        let mons = vec![dark("eDP-1"), described("DP-1", FLIP), described("DP-2", "b")];
-        let mut after_each = vec![(vec!["DP-1"], json!([FLIP])), (vec!["DP-1"], json!([FLIP])), (vec!["DP-1", "DP-2"], json!([FLIP, "b"]))].into_iter();
-        checked_each("DisplayParity.test_park_a_head_that_came_back_lit_while_the_others_sleep", &displays(mons), &[&["displays", "park", "DP-1"], &["displays", "park", "DP-1"], &["displays", "park", "DP-2"]], REQ, &mut |s, _| {
-            let (names, droppers) = after_each.next().unwrap();
-            assert_eq!((state_names(s), parsed(&read(s, DROPPERS_FILE))), (names.iter().map(|n| n.to_string()).collect::<Vec<_>>(), droppers));
-        });
-    }
-
-    #[test]
-    fn test_park_skips() {
-        let cases: Vec<(&str, Vec<Value>, &str, &str)> = vec![
-            ("all lit", vec![lit("eDP-1"), lit("DP-1")], "open", "DP-1"),
-            ("unknown", vec![dark("eDP-1"), lit("DP-1")], "open", "DP-7"),
-            ("unsafe name", vec![dark("eDP-1"), lit("bad name")], "open", "bad name"),
-            ("last head", vec![head("eDP-1", true, json!({"disabled": true})), lit("DP-1")], "open", "DP-1"),
-            ("already disabled", vec![dark("eDP-1"), head("DP-1", true, json!({"disabled": true}))], "open", "DP-1"),
-            ("lid closed", vec![dark("eDP-1"), lit("DP-1")], "closed", "DP-1"),
-            ("no monitors", vec![], "open", "DP-1"),
-        ];
-        for (_, mons, lid, name) in cases {
-            checked_each("DisplayParity.test_park_skips", &displays(mons).lid(lid), &[&["displays", "park", name]], REQ, &mut |s, r| {
-                let parked = if s.target(STATE_FILE).exists() { s.read_state()["disabled"].clone() } else { json!([]) };
-                assert_eq!((r.evals.as_slice(), parked), (&[][..], json!([])), "{name}");
-            });
-        }
-    }
-
-    #[test]
-    fn test_park_prints_parked() {
-        let (s, _) = checked("DisplayParity.test_park_prints_parked", &displays(vec![dark("eDP-1"), lit("DP-1")]), &[&["displays", "park", "DP-1"]], BOTH);
-        assert_eq!(s.read_state()["disabled"][0]["name"], "DP-1");
     }
 
     #[test]
     fn test_dpms_is_an_alias() {
-        checked("DisplayParity.test_dpms_is_an_alias", &displays(vec![lit("eDP-1"), lit("DP-1")]), &[&["dpms", "off"], &["dpms", "on"], &["dpms", "sync"]], REQ);
+        let s = Sandbox::new();
+        displays(vec![lit("eDP-1"), lit("DP-1")]).setup(&s);
+        for mode in ["off", "on"] {
+            let (a, b) = (s.rust(&["dpms", mode]), s.rust(&["displays", mode]));
+            assert_eq!((a.code, a.stdout, a.requests), (b.code, b.stdout, b.requests), "{mode}");
+        }
     }
 
     #[test]
     fn test_unopenable_lock_fails_closed() {
         let s = Sandbox::new();
         displays(vec![lit("eDP-1")]).setup(&s);
-        for verb in [&["on"][..], &["off"], &["park", "DP-1"]] {
+        for mode in ["on", "off"] {
             let lock = s.target(LOCK_FILE);
             fs::create_dir_all(&lock).unwrap();
-            let argv: Vec<&str> = ["displays"].into_iter().chain(verb.iter().copied()).collect();
-            let r = s.rust(&argv);
+            let r = s.rust(&["displays", mode]);
             fs::remove_dir(&lock).unwrap();
-            assert_eq!((r.code, r.stdout.as_str(), r.evals.as_slice()), (1, "", &[][..]), "{verb:?}");
+            assert_eq!((r.code, r.stdout.as_str(), r.evals.as_slice()), (1, "", &[][..]), "{mode}");
         }
     }
 }
@@ -289,75 +156,30 @@ mod display_parity {
 mod display_hardening {
     use super::*;
 
-    const STATES: &[&str] = &["", "nope", "[]", "5", "\"x\"", "null", r#"{"disabled": 1}"#, r#"{"disabled": "x"}"#, r#"{"disabled": {"a": 1}}"#,
-                              r#"[{"name": "DP-1"}]"#, r#"{"disabled": [null, 5, [1], {"name": "bad name"}, {"output": 3}]}"#];
-    const DROPPERS: &[&str] = &["", "nope", "{}", "5", "\"x\"", "[1, null, {}]", r#"[["a"]]"#];
-
-    fn wake(s: &Sandbox) {
-        let r = s.rust(&["displays", "on"]);
-        assert_eq!((r.code, r.stdout.trim()), (0, "ok"));
-        for name in ["eDP-1", "DP-1"] {
-            assert!(r.requests.contains(&dpms("enable", &[name])[0]), "{name}");
-        }
-    }
-
-    #[test]
-    fn test_on_enables_every_monitor_for_any_state_file() {
-        for text in STATES {
-            let s = Sandbox::new();
-            displays(vec![dark("eDP-1"), dark("DP-1")]).state_text(text).setup(&s);
-            wake(&s);
-            assert_eq!(s.read_state(), json!({"disabled": []}), "{text:?}");
-        }
-    }
-
-    #[test]
-    fn test_any_droppers_file_still_wakes_and_blanks() {
-        for text in DROPPERS {
-            let s = Sandbox::new();
-            displays(vec![dark("eDP-1"), dark("DP-1")]).droppers_text(text).setup(&s);
-            wake(&s);
-            assert_eq!(s.rust(&["displays", "off"]).code, 0, "{text:?}");
-        }
-    }
-
-    #[test]
-    fn test_sync_of_a_non_list_is_idle() {
-        let s = Sandbox::new();
-        displays(vec![lit("eDP-1")]).state_text(r#"{"disabled": 1}"#).setup(&s);
-        let r = s.rust(&["displays", "sync"]);
-        assert_eq!((r.code, r.stdout.trim(), r.evals.as_slice()), (0, "idle", &[][..]));
-    }
-
     /// A read that gave up at 2 s would see no monitors and send no enable: the display would stay dark.
     #[test]
     fn test_replies_held_past_two_seconds_still_light_and_blank_every_head() {
         let s = Sandbox::new();
         displays(vec![dark("eDP-1")]).setup(&s);
         s.hypr().reply_delay = Duration::from_millis(2200);
-        let dispatched = |requests: &[String]| requests.iter().filter(|q| q.starts_with("dispatch")).cloned().collect::<Vec<_>>();
         let r = s.rust(&["displays", "on"]);
-        assert_eq!((r.code, r.stdout.trim()), (0, "ok"));
-        assert_eq!(r.evals, [SAVER_CLEARED]);
-        assert_eq!(dispatched(&r.requests), dpms("enable", &["eDP-1"]));
+        assert_eq!((r.code, r.stdout.trim(), r.evals.as_slice()), (0, "ok", &[SAVER_CLEARED.to_string()][..]));
+        assert_eq!(dispatched(&r), dpms("enable", &["eDP-1"]));
         displays(vec![lit("eDP-1"), lit("DP-1")]).setup(&s);
         let r = s.rust(&["displays", "off"]);
-        assert_eq!((r.code, r.stdout.trim()), (0, "ok"));
-        assert_eq!(dispatched(&r.requests), dpms("disable", &["eDP-1", "DP-1"]));
-        assert_eq!(r.evals, [SAVER_CLEARED, r#"hl.monitor({ output = "DP-1", disabled = true })"#]);
-        assert_eq!(state_names(&s), ["DP-1"]);
+        assert_eq!((r.code, r.stdout.trim(), r.evals.as_slice()), (0, "ok", &[SAVER_CLEARED.to_string()][..]));
+        assert_eq!(dispatched(&r), dpms("disable", &["eDP-1", "DP-1"]));
     }
 
     #[test]
     fn test_bad_modes_print_usage_and_touch_nothing() {
         let s = Sandbox::new();
-        displays(vec![dark("eDP-1")]).state(json!({"disabled": [{"name": "DP-1"}]})).setup(&s);
-        for argv in [&["displays"][..], &["displays", "bogus"], &["displays", ""], &["displays", "park"], &["dpms", "ON"]] {
+        displays(vec![dark("eDP-1")]).setup(&s);
+        for argv in [&["displays"][..], &["displays", "bogus"], &["displays", ""], &["displays", "park", "DP-1"], &["displays", "sync"], &["displays", "disable"], &["dpms", "ON"]] {
             let r = s.rust(argv);
             assert_eq!((r.code, r.evals.as_slice(), r.calls.as_slice()), (2, &[][..], &[][..]), "{argv:?}");
             assert!(r.stdout.starts_with("usage: displays"), "{argv:?}");
         }
-        assert_eq!(s.read_state(), json!({"disabled": [{"name": "DP-1"}]}));
     }
 }
 
@@ -930,17 +752,13 @@ mod lid_parity {
         });
     }
 
-    /// Disabling the FlipGo heads on a lid close leaves the NVIDIA GPU with no outputs and Hyprland SIGSEGVs.
     #[test]
     fn test_close_with_display_off_sends_dpms_only_and_disables_no_head() {
-        let parked = json!([{"name": "DP-9", "width": 100, "height": 100}]);
-        let mons = vec![lit("eDP-1"), described("DP-1", FLIP)];
-        let setup = lid_setup("display-off", displays(mons).state(json!({"disabled": parked})).droppers(Some(json!([FLIP]))));
-        checked_each("LidParity.test_close_with_display_off_sends_dpms_only_and_disables_no_head", &setup, &[&["lid-closed"]], LID_REQ, &mut |s, r| {
-            assert_eq!(r.requests.iter().filter(|q| q.starts_with("dispatch")).cloned().collect::<Vec<_>>(), dpms("disable", &["eDP-1", "DP-1"]));
-            assert!(r.evals.iter().all(|e| !e.contains("disabled")));
-            assert_eq!(s.read_state(), json!({"disabled": parked}));
-        });
+        let s = Sandbox::new();
+        lid_setup("display-off", displays(vec![lit("eDP-1"), described("DP-1", FLIP)]))(&s);
+        let r = s.rust(&["lid-closed"]);
+        assert_eq!(dispatched(&r), dpms("disable", &["eDP-1", "DP-1"]));
+        assert!(r.evals.iter().all(|e| !e.contains("disabled")));
     }
 
     #[test]
@@ -963,34 +781,23 @@ mod lid_parity {
     }
 
     #[test]
-    fn test_open_restores_parked_heads_and_wakes_dark_ones_after_the_inputs() {
-        let parked = json!([{"name": "DP-1", "width": 2560, "height": 1600, "refreshRate": 60, "x": 0, "y": 0, "scale": 1.6}]);
-        let cases: Vec<(&str, Vec<Value>, Option<Value>)> = vec![
-            ("parked", vec![lit("eDP-1")], Some(json!({"disabled": parked}))),
-            ("blanked", vec![dark("eDP-1")], None),
-            ("parked and blanked", vec![dark("eDP-1")], Some(json!({"disabled": parked}))),
-        ];
-        for (label, mons, state) in cases {
-            let shown = state.into_iter().fold(displays(mons), |d, state| d.state(state));
-            checked_each("LidParity.test_open_restores_parked_heads_and_wakes_dark_ones_after_the_inputs", &lid_setup("display-off", shown), &[&["lid-opened"]], LID_REQ, &mut |s, r| {
-                inputs_come_first(s, r, "true");
-                assert!(r.requests.contains(&dpms("enable", &["eDP-1"])[0]), "{label}");
-                assert_eq!(s.read_state(), json!({"disabled": []}), "{label}");
-            });
-        }
+    fn test_open_wakes_dark_heads_after_the_inputs() {
+        let s = Sandbox::new();
+        lid_setup("display-off", displays(vec![dark("eDP-1")]))(&s);
+        let r = s.rust(&["lid-opened"]);
+        inputs_come_first(&s, &r, "true");
+        assert_eq!(dispatched(&r), dpms("enable", &["eDP-1"]));
     }
 
     #[test]
-    fn test_open_with_lit_heads_and_nothing_parked_only_enables_the_inputs() {
-        for state in [Some(json!({"disabled": []})), None] {
-            let shown = state.into_iter().fold(displays(vec![lit("eDP-1")]), |d, state| d.state(state));
-            checked_each("LidParity.test_open_with_lit_heads_and_nothing_parked_only_enables_the_inputs", &lid_setup("display-off", shown), &[&["lid-opened"]], LID_REQ, &mut |s, r| {
-                inputs_come_first(s, r, "true");
-                assert!(r.requests.iter().all(|q| !q.starts_with("dispatch") && !q.starts_with("eval hl.monitor")));
-                let logged: Vec<String> = log_lines(s).into_iter().filter(|c| !c.is_empty() && !c.starts_with("EVAL")).collect();
-                assert_eq!(logged, Vec::<String>::new());
-            });
-        }
+    fn test_open_with_lit_heads_only_enables_the_inputs() {
+        let s = Sandbox::new();
+        lid_setup("display-off", displays(vec![lit("eDP-1")]))(&s);
+        let r = s.rust(&["lid-opened"]);
+        inputs_come_first(&s, &r, "true");
+        assert!(r.requests.iter().all(|q| !q.starts_with("dispatch") && !q.starts_with("eval hl.monitor")));
+        let logged: Vec<String> = log_lines(&s).into_iter().filter(|c| !c.is_empty() && !c.starts_with("EVAL")).collect();
+        assert_eq!(logged, Vec::<String>::new());
     }
 
     #[test]
