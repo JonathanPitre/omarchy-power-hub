@@ -48,9 +48,20 @@ pub fn monitors() -> Vec<Value> {
 
 /// `monitors` for the read that verifies a mode change, which gets 4 s.
 pub fn monitors_within(timeout: Duration) -> Vec<Value> {
-    request_within("j/monitors", timeout)
-        .and_then(|r| serde_json::from_str(&r).ok())
-        .unwrap_or_default()
+    socket_path().map_or_else(Vec::new, |p| monitors_at(&p, timeout))
+}
+
+/// While a head reconnects Hyprland answers "Displays are still connecting" instead of JSON; ask again until `timeout`.
+fn monitors_at(path: &Path, timeout: Duration) -> Vec<Value> {
+    let deadline = std::time::Instant::now() + timeout;
+    loop {
+        let left = deadline.saturating_duration_since(std::time::Instant::now());
+        let reply = request_at(path, "j/monitors", left.max(Duration::from_millis(1)));
+        if !reply.as_deref().is_some_and(|r| r.starts_with("Displays are still connecting")) || left < Duration::from_millis(250) {
+            return reply.and_then(|r| serde_json::from_str(&r).ok()).unwrap_or_default();
+        }
+        std::thread::sleep(Duration::from_millis(250));
+    }
 }
 
 pub fn devices() -> Value {
@@ -140,6 +151,42 @@ mod tests {
             assert_eq!(handle.join().unwrap(), format!("{verb} x"));
             let _ = fs::remove_file(&path);
         }
+    }
+
+    /// Serves `replies` on `path`, one connection each.
+    fn serve(path: &Path, replies: &'static [&'static str]) -> std::thread::JoinHandle<()> {
+        let _ = fs::remove_file(path);
+        let server = std::os::unix::net::UnixListener::bind(path).unwrap();
+        std::thread::spawn(move || {
+            for reply in replies {
+                let (mut conn, _) = server.accept().unwrap();
+                let mut buf = [0; 64];
+                let _ = conn.read(&mut buf);
+                conn.write_all(reply.as_bytes()).unwrap();
+            }
+        })
+    }
+
+    #[test]
+    fn monitors_wait_out_displays_still_connecting() {
+        let path = std::env::temp_dir().join(format!("ph-mons-{}.sock", std::process::id()));
+        let busy = "Displays are still connecting; try again shortly. (monitors)";
+        let handle = serve(&path, Box::leak(Box::new([busy, busy, r#"[{"name": "DP-11"}]"#])));
+        assert_eq!(monitors_at(&path, Duration::from_secs(4)), vec![json!({"name": "DP-11"})]);
+        handle.join().unwrap();
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn monitors_still_connecting_past_the_timeout_are_none() {
+        let path = std::env::temp_dir().join(format!("ph-mons-late-{}.sock", std::process::id()));
+        let busy = "Displays are still connecting; try again shortly. (monitors)";
+        let handle = serve(&path, Box::leak(Box::new([busy; 3])));
+        let started = std::time::Instant::now();
+        assert!(monitors_at(&path, Duration::from_millis(600)).is_empty());
+        assert!(started.elapsed() < Duration::from_secs(2));
+        drop(handle);
+        let _ = fs::remove_file(&path);
     }
 
     #[test]
