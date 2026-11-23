@@ -1,5 +1,5 @@
 use crate::config::{self, truthy};
-use crate::display::{awake, blanked, load_state, partly_lit, set_displays, state_path, sync_lights, with_state_lock};
+use crate::display::{awake, blanked, partly_lit, set_displays, sync_lights, with_state_lock};
 use crate::monitor::py_str;
 use crate::names::matches_set;
 use crate::{charge, exec, hypr, paths, power};
@@ -113,7 +113,7 @@ pub fn lid_closed() {
     match lid_action(&cfg) {
         "display-off" => {
             with_state_lock(|| {
-                set_displays(true, false);
+                set_displays(true);
                 sync_lights(true);
             });
         }
@@ -132,13 +132,11 @@ pub fn lid_closed() {
 pub fn lid_opened() {
     charge::helper_quiet(&["hid-wakeup", "on"]);
     set_inputs(&hypr::devices(), true, hypr::eval_slow);
-    // Key presses re-enable DPMS but not heads that Displays off disabled.
     // The lights stay in the lock, so a lid bounce cannot relight keys after a close.
     // Lit displays can still have blanked lights; this does nothing when none were saved.
     with_state_lock(|| {
-        let parked = load_state(&state_path())["disabled"].as_array().is_some_and(|d| !d.is_empty());
-        if parked || blanked(&hypr::monitors_within(hypr::WRITE_WAIT)) {
-            set_displays(false, true);
+        if blanked(&hypr::monitors_within(hypr::WRITE_WAIT)) {
+            set_displays(false);
         }
         sync_lights(false);
     });

@@ -67,11 +67,9 @@ fn main() {
         Some("recover-ucsi") => charge::recover_ucsi(),
         Some("displays" | "dpms") => {
             let result = match args.get(1..).unwrap_or_default().iter().map(String::as_str).collect::<Vec<_>>()[..] {
-                ["sync", ..] => display::sync(),
-                ["park", name, ..] => display::park_verb(name),
-                [mode @ ("on" | "off" | "disable"), ..] => display::displays(mode),
+                [mode @ ("on" | "off"), ..] => display::displays(mode == "off"),
                 _ => {
-                    out("usage: displays on|off|disable|park NAME|sync");
+                    out("usage: displays on|off");
                     std::process::exit(2);
                 }
             };

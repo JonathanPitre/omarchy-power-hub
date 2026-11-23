@@ -18,8 +18,6 @@ Item {
   property int lockTimeout: 0
   property int sleepTimeout: 0
   property int hibernateAfter: 0
-  property bool parked: false
-  property var parkQueue: []
   readonly property bool saverOn: ToplevelManager.toplevels.values.some(function(t) {
     return t.appId === "org.omarchy.screensaver"
   })
@@ -95,20 +93,6 @@ Item {
     if (!dismissProc.running) dismissProc.running = true
   }
 
-  function park(name) {
-    if (!name) return
-    root.parkQueue = root.parkQueue.concat([name])
-    root.nextPark()
-  }
-
-  function nextPark() {
-    if (parkProc.running || root.parkQueue.length === 0) return
-    var name = root.parkQueue[0]
-    root.parkQueue = root.parkQueue.slice(1)
-    parkProc.command = [root.hub, "displays", "park", name]
-    parkProc.running = true
-  }
-
   property var saverWindows: ({})
 
   function saverWindow(address, open) {
@@ -129,8 +113,7 @@ Item {
     function onRawEvent(event) {
       var name = String(event && event.name || "")
       var data = String(event && event.data || "")
-      if (name === "monitoradded") root.park(data.trim())
-      else if (name === "openwindow" && data.split(",")[2] === "org.omarchy.screensaver")
+      if (name === "openwindow" && data.split(",")[2] === "org.omarchy.screensaver")
         root.saverWindow(data.split(",")[0], true)
       else if (name === "closewindow" && root.saverWindows[data]) root.saverWindow(data, false)
     }
@@ -148,44 +131,16 @@ Item {
     }
   }
 
-  Process {
-    id: parkProc
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: if (text.trim() === "parked") root.parked = true
-    }
-    onExited: root.nextPark()
-  }
-
-  Process {
-    id: syncProc
-    command: [root.hub, "displays", "sync"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        var out = text.trim()
-        if (out === "restored" || out === "idle") root.parked = false
-        else if (out === "waiting") root.parked = true
-      }
-    }
-  }
-
   Timer {
     interval: 1000
-    running: root.parked || root.displaysOff
+    running: root.displaysOff
     repeat: true
-    onTriggered: {
-      if (!wakePoll.running && !dpmsProc.running) {
-        wakePoll.command = [root.hub, "idle-wake-poll",
-                            root.displaysOff ? "blanked" : "on"]
-        wakePoll.running = true
-      }
-      if (root.parked && !syncProc.running) syncProc.running = true
-    }
+    onTriggered: if (!wakePoll.running && !dpmsProc.running) wakePoll.running = true
   }
 
   Process {
     id: wakePoll
+    command: [root.hub, "idle-wake-poll", "blanked"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
@@ -361,7 +316,7 @@ Item {
     onTriggered: {
       root.refresh()
       if (!boostProc.running) boostProc.running = true
-      if (!root.displaysOff && !root.parked && !keyboardTickProc.running) keyboardTickProc.running = true
+      if (!root.displaysOff && !keyboardTickProc.running) keyboardTickProc.running = true
     }
   }
 
@@ -465,7 +420,6 @@ Item {
   Component.onCompleted: {
     root.refresh()
     resumeProc.running = true
-    syncProc.running = true
     ledNeedProc.running = true
     helperNeedProc.running = true
   }

@@ -9,7 +9,7 @@
 set -euo pipefail
 export LC_ALL=C
 bin=$(dirname "$(readlink -f "$0")")/../bin/power-hub
-verbs=("data" "status" "gpu" "boost-check" "idle-wake-poll" "displays sync")
+verbs=("data" "status" "gpu" "boost-check" "idle-wake-poll")
 runs=9
 case ${1:-} in
   "") ;;

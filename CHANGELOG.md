@@ -7,6 +7,20 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [0.0.63] - 2026-11-24
+
+### Changed
+
+- **Displays off** only switches DPMS. power-hub no longer disables, re-adds or moves monitors, so the monitor manager (hyprmoncfg, for example) owns the layout. Before, both rewrote the layout on wake, and a monitor that dropped off its USB-C hub while blanked could come back slowly or stay off.
+
+### Removed
+
+- The `displays park`, `displays sync` and `displays disable` commands, along with `display-off.json` and `bus-droppers.json`.
+
+### Fixed
+
+- Display commands wait while Hyprland reports that displays are still connecting. Before, they saw no monitors and turned nothing on.
+
 ## [0.0.62] - 2026-11-24
 
 ### Fixed

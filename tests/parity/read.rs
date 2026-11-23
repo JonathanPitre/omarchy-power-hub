@@ -1029,7 +1029,6 @@ mod data_parity {
 }
 
 const IDLE_FILE: &str = "run/omarchy-power-hub/idle-wake.json";
-const STATE_FILE: &str = "run/omarchy-power-hub/display-off.json";
 
 fn seed_cursor(s: &Sandbox, cursor: &str, age: u64) {
     let path = s.write(IDLE_FILE, &format!("{}\n", json!({"cursor": cursor})));
@@ -1179,107 +1178,6 @@ mod idle_parity {
     fn test_no_forks() {
         let s = Sandbox::new();
         assert!(s.rust(&["idle-wake-poll", "blanked"]).calls.is_empty());
-    }
-}
-
-fn park(s: &Sandbox, specs: &[Value]) {
-    s.write(STATE_FILE, &format!("{}\n", json!({"disabled": specs})));
-}
-
-fn sync(s: &Sandbox, name: &str, specs: &[Value]) -> (Outcome, String) {
-    park(s, specs);
-    let r = replay(s, name, &["displays", "sync"], D);
-    (r, fs::read_to_string(s.target(STATE_FILE)).unwrap())
-}
-
-mod sync_parity {
-    use super::*;
-
-    #[test]
-    fn test_idle_when_nothing_parked() {
-        const T: &str = "SyncParity.test_idle_when_nothing_parked";
-        let s = Sandbox::new();
-        s.monitors(&[edp()]);
-        let (r, _) = sync(&s, T, &[]);
-        assert_eq!((text(&r), r.evals.len()), ("idle", 0));
-        fs::remove_file(s.target(STATE_FILE)).unwrap();
-        replay(&s, T, &["displays", "sync"], D);
-        assert_eq!(text(&s.rust(&["displays", "sync"])), "idle");
-    }
-
-    #[test]
-    fn test_waiting_while_a_monitor_sleeps() {
-        let s = Sandbox::new();
-        let spec = json!({"name": "DP-1", "width": 1920, "height": 1080});
-        let waiting = format!("{}\n", json!({"disabled": [spec]})); // what park wrote: the file is left alone
-        for mons in [vec![edp(), json!({"name": "DP-2", "dpmsStatus": false})], vec![]] {
-            s.monitors(&mons);
-            let (r, f) = sync(&s, "SyncParity.test_waiting_while_a_monitor_sleeps", std::slice::from_ref(&spec));
-            assert_eq!((text(&r), r.evals.len(), f.as_str()), ("waiting", 0, waiting.as_str()));
-        }
-    }
-
-    #[test]
-    fn test_restored_sends_same_lua_and_clears_state() {
-        let s = Sandbox::new();
-        s.monitors(&[edp(), json!({"name": "DP-9", "disabled": true})]);
-        let specs = [
-            json!({"name": "DP-1", "output": "desc:BOE NE160 (1)+x", "width": 2560, "height": 1600, "refreshRate": 59.951, "x": 0, "y": 0, "scale": 1.25}),
-            json!({"name": "DP-2", "width": 1920, "height": 1080, "refreshRate": 60.0, "x": -1920, "y": 0, "scale": 1}),
-            json!({"name": "DP-3", "width": 3840, "height": 2160, "refreshRate": 144, "x": 2560, "y": 100, "scale": 2.0}),
-            json!({"name": "DP-4", "width": 800, "height": 600}),
-            json!({"name": "DP-5", "width": 0, "height": 600, "refreshRate": 75}),
-            json!({"name": "DP-6", "width": 100, "height": 100, "refreshRate": 1e16, "scale": 0.00001}),
-            json!({"name": "DP-7", "width": 100, "height": 100, "refreshRate": 0.1, "scale": 1.5e300}),
-            json!({"name": "bad name"}), json!({"name": "DP-8", "output": "desc:a;b"}), json!({"name": ""}), json!({"name": 0}), json!({"output": "x"}),
-            json!("HDMI-A-1"), json!(12), json!(null),
-        ];
-        let (r, f) = sync(&s, "SyncParity.test_restored_sends_same_lua_and_clears_state", &specs);
-        assert_eq!((text(&r), parsed(&f)), ("restored", json!({"disabled": []})));
-        for lua in [
-            r#"hl.monitor({ output = "desc:BOE NE160 (1)+x", mode = "2560x1600@59.951", position = "0x0", scale = 1.25, disabled = false })"#,
-            r#"hl.monitor({ output = "DP-2", mode = "1920x1080@60.0", position = "-1920x0", scale = 1, disabled = false })"#,
-            r#"hl.monitor({ output = "DP-3", mode = "3840x2160@144", position = "2560x100", scale = 2.0, disabled = false })"#,
-            r#"hl.monitor({ output = "DP-4", mode = "800x600@60", position = "0x0", scale = 1, disabled = false })"#,
-            r#"hl.monitor({ output = "DP-5", disabled = false })"#,
-        ] {
-            assert!(r.evals.iter().any(|e| e == lua), "{lua}");
-        }
-        let joined = r.evals.concat();
-        for part in ["@1e+16\"", "scale = 1e-05", "scale = 1.5e+300"] {
-            assert!(joined.contains(part), "{part}");
-        }
-    }
-
-    #[test]
-    fn test_unopenable_lock_fails_closed() {
-        let s = Sandbox::new();
-        s.monitors(&[edp()]);
-        park(&s, &[json!({"name": "DP-1"})]);
-        let lock = s.target("run/omarchy-power-hub/display-off.lock");
-        let _ = fs::remove_file(&lock);
-        fs::create_dir(&lock).unwrap();
-        let r = replay(&s, "SyncParity.test_unopenable_lock_fails_closed", &["displays", "sync"], D);
-        fs::remove_dir(&lock).unwrap();
-        assert_eq!((r.code, r.stdout.as_str(), r.evals.len(), s.read_state()), (1, "", 0, json!({"disabled": [{"name": "DP-1"}]})));
-    }
-
-    #[test]
-    fn test_waits_for_python_holding_the_lock() {
-        let s = Sandbox::new();
-        s.monitors(&[edp()]);
-        park(&s, &[json!({"name": "DP-1"})]);
-        let held = s.hold_flock("run/omarchy-power-hub/display-off.lock");
-        let mut p = s.rust_start(&["displays", "sync"]);
-        thread::sleep(Duration::from_millis(200));
-        assert!(p.try_wait().unwrap().is_none());
-        assert_eq!(s.read_state(), json!({"disabled": [{"name": "DP-1"}]}));
-        drop(held);
-        let out = p.wait_with_output().unwrap();
-        assert_eq!(out.status.code(), Some(0));
-        assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "restored");
-        assert_eq!(s.read_state(), json!({"disabled": []}));
-        assert_eq!(s.hypr().evals, [r#"hl.monitor({ output = "DP-1", disabled = false })"#]);
     }
 }
 

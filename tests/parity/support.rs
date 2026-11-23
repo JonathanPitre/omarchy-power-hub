@@ -570,10 +570,6 @@ if [ "$1" = eval ] && [[ "$out" == error* ]]; then exit 7; fi
         file
     }
 
-    pub fn read_state(&self) -> Value {
-        serde_json::from_str(&fs::read_to_string(self.target("run/omarchy-power-hub/display-off.json")).unwrap()).unwrap()
-    }
-
     pub fn env(&self) -> Vec<(&'static str, String)> {
         vec![
             ("PATH", self.path.borrow().clone()),
@@ -664,8 +660,11 @@ fn strings(step: &Value, key: &str) -> Vec<String> {
     step[key].as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect()
 }
 
+/// The old head-parking state; the binary only switches DPMS now, so recordings that wrote it no longer apply to it.
+const RETIRED: &str = "run/omarchy-power-hub/display-off.json";
+
 fn golden_files(step: &Value, normalise: Option<Normalise>) -> BTreeMap<String, (String, String)> {
-    step["files"].as_object().unwrap().iter().map(|(rel, entry)| {
+    step["files"].as_object().unwrap().iter().filter(|(rel, _)| *rel != RETIRED).map(|(rel, entry)| {
         let (mode, text) = (&entry[0], entry[1].as_str().unwrap());
         match mode.as_str() {
             Some(link) => (rel.clone(), (link.to_string(), text.to_string())),

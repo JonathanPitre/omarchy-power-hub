@@ -230,11 +230,11 @@ Python and Bash (0.0.53) compared with Rust:
 
 | Path | Runs | Time (ms) | CPU (ms) | Processes | Peak memory (MB) |
 |---|---|---|---|---|---|
-| Idle check | Every second, displays off or parked | 102 → 38 | 96 → 0.9 | 19 → 1 | 18.7 → 0.7 |
+| Idle check | Every second, displays off | 102 → 38 | 96 → 0.9 | 19 → 1 | 18.7 → 0.7 |
 | Battery data | Every 5 s, 60 s with panel closed | 89 → 13 | 100 → 4.8 | 100 → 3 | 18.4 → 6.2 |
 | Panel status | Panel open, after edits | 273 → 53 | 273 → 35 | 44 → 20 | 31.9 → 7.3 |
 | GPU status | Every 5 s, panel open | 39 → 0.9 | 39 → 0.8 | 1 → 1 | 18.7 → 0.7 |
-| Small commands | Config, boost check, display sync | 34 → 0.5 | 34 → 0.4 | 1 → 1 | 18.8 → 0.7 |
+| Small commands | Config, boost check | 34 → 0.5 | 34 → 0.4 | 1 → 1 | 18.8 → 0.7 |
 
 - The idle check drops from 9.6% to 0.09% of one CPU core while it runs. Its
   remaining 38 ms is mostly waiting on Hyprland.
