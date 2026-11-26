@@ -84,10 +84,10 @@ mod display_parity {
         let mons = vec![dark("eDP-1"), described("DP-1", FLIP), head("DP-2", true, json!({"disabled": true})), lit("bad name")];
         let s = Sandbox::new();
         displays(mons).setup(&s);
-        for (mode, action, names) in [("off", "disable", &["eDP-1", "DP-1"][..]), ("on", "enable", &["eDP-1", "DP-1", "DP-2"])] {
+        for (mode, action, names, evals) in [("off", "disable", &["eDP-1", "DP-1"][..], vec![]), ("on", "enable", &["eDP-1", "DP-1", "DP-2"], vec![SAVER_CLEARED.to_string()])] {
             let r = s.rust(&["displays", mode]);
             assert_eq!((r.code, r.stdout.as_str()), (0, "ok\n"), "{mode}");
-            assert_eq!((r.evals.as_slice(), dispatched(&r)), (&[SAVER_CLEARED.to_string()][..], dpms(action, names)), "{mode}");
+            assert_eq!((r.evals.clone(), dispatched(&r)), (evals, dpms(action, names)), "{mode}");
             assert!(!s.target("run/omarchy-power-hub/display-off.json").exists(), "{mode}");
         }
     }
@@ -111,22 +111,28 @@ mod display_parity {
     #[test]
     fn test_screensaver_is_dismissed_before_anything_else() {
         let pkills = ["pkill -x ttfx", "pkill -f [o]rg.omarchy.screensaver"];
-        for verb in ["on", "off"] {
-            let seen: Seen = Arc::default();
-            let s = Sandbox::new();
-            displays(vec![lit("eDP-1")]).setup(&s);
-            // What the pkill stub had logged when the cursor eval arrived.
-            let (log, seen2) = (s.calls_log.clone(), seen.clone());
-            s.hypr().on_eval = Some(Box::new(move |_, lua| {
-                let logged: Vec<String> = fs::read_to_string(&log).unwrap().split('\n').filter(|c| c.starts_with("pkill")).map(String::from).collect();
-                seen2.lock().unwrap().push((lua.to_string(), logged));
-            }));
-            let r = s.rust(&["displays", verb]);
-            assert_eq!(r.evals[0], SAVER_CLEARED);
-            assert_eq!(log_starting(&s, "pkill"), pkills);
-            let seen = seen.lock().unwrap();
-            assert_eq!(seen[0], (SAVER_CLEARED.to_string(), pkills.map(String::from).to_vec()), "{verb}");
-        }
+        let seen: Seen = Arc::default();
+        let s = Sandbox::new();
+        displays(vec![dark("eDP-1")]).setup(&s);
+        // What the pkill stub had logged when the cursor eval arrived.
+        let (log, seen2) = (s.calls_log.clone(), seen.clone());
+        s.hypr().on_eval = Some(Box::new(move |_, lua| {
+            let logged: Vec<String> = fs::read_to_string(&log).unwrap().split('\n').filter(|c| c.starts_with("pkill")).map(String::from).collect();
+            seen2.lock().unwrap().push((lua.to_string(), logged));
+        }));
+        let r = s.rust(&["displays", "on"]);
+        assert_eq!(r.evals[0], SAVER_CLEARED);
+        assert_eq!(log_starting(&s, "pkill"), pkills);
+        assert_eq!(seen.lock().unwrap()[0], (SAVER_CLEARED.to_string(), pkills.map(String::from).to_vec()));
+    }
+
+    /// Omarchy reads the saver closing as the user returning and relights every head, so off leaves it up.
+    #[test]
+    fn test_off_leaves_the_screensaver_up() {
+        let s = Sandbox::new();
+        displays(vec![lit("eDP-1")]).setup(&s);
+        let r = s.rust(&["displays", "off"]);
+        assert_eq!((log_starting(&s, "pkill"), r.evals.clone(), dispatched(&r)), (Vec::<String>::new(), vec![], dpms("disable", &["eDP-1"])));
     }
 
     #[test]
@@ -167,7 +173,7 @@ mod display_hardening {
         assert_eq!(dispatched(&r), dpms("enable", &["eDP-1"]));
         displays(vec![lit("eDP-1"), lit("DP-1")]).setup(&s);
         let r = s.rust(&["displays", "off"]);
-        assert_eq!((r.code, r.stdout.trim(), r.evals.as_slice()), (0, "ok", &[SAVER_CLEARED.to_string()][..]));
+        assert_eq!((r.code, r.stdout.trim(), r.evals.as_slice()), (0, "ok", &[][..]));
         assert_eq!(dispatched(&r), dpms("disable", &["eDP-1", "DP-1"]));
     }
 
@@ -402,24 +408,19 @@ mod lights_parity {
         }
     }
 
-    /// The value piped to `sudo tee` is the only write route, so it is recorded and checked.
+    /// A root-only LED goes through the installed helper, never a wheel-wide sudoers rule.
     #[test]
-    fn test_power_button_uses_tee_when_sysfs_is_root_only() {
-        fn tee(s: &Sandbox) {
-            let log = s.base.join("tee.log");
-            s.stateful("sudo", &format!("[ \"$2\" = tee ] || exit 1\nprintf '[%s]' \"$(/usr/bin/cat)\" >> {}", log.display()));
-        }
-        let setup = |s: &Sandbox| {
-            Lights { led: AUTO_LED, ..lights(vec![qmk_keys(40), Box::new(tee)]) }.setup(s);
-            crate::write::chmod(&s.root.join("sys/class/leds/chromeos:white:power/brightness"), 0o444);
-        };
-        let (s, go) = start(&setup, "LightsParity.test_power_button_uses_tee_when_sysfs_is_root_only");
-        let piped = || fs::read_to_string(s.base.join("tee.log")).unwrap();
-        go(&s, OFF);
-        assert!(fs::read_to_string(&s.calls_log).unwrap().contains(&format!("sudo -n tee {}/sys/class/leds/chromeos:white:power/brightness", s.root.display())));
-        assert_eq!(piped(), "[0]");
-        go(&s, ON);
-        assert_eq!(piped(), "[0]");
+    fn test_power_button_uses_the_helper_when_sysfs_is_root_only() {
+        let s = Sandbox::new();
+        Lights { led: AUTO_LED, ..lights(vec![qmk_keys(40)]) }.setup(&s);
+        crate::write::chmod(&s.root.join("sys/class/leds/chromeos:white:power/brightness"), 0o444);
+        s.install_helper(false);
+        s.stateful("sudo", "");
+        let helper = || log_starting(&s, "sudo");
+        s.rust(OFF);
+        assert_eq!(helper(), [format!("sudo -n {}/ops-priv power-led chromeos:white:power brightness 0", s.helper_dir().display())]);
+        s.rust(ON);
+        assert_eq!(helper(), Vec::<String>::new());
     }
 
     #[test]
@@ -521,6 +522,25 @@ mod lights_parity {
         assert_eq!((keys_level(&s), kbauto(&s)), (100, Some(json!({"wrote": 33, "hold": true}))));
         go(&s, OFF);
         go(&s, ON);
+        assert_eq!((keys_level(&s), kbauto(&s)), (33, Some(json!({"wrote": 33, "hold": false}))));
+    }
+
+    /// The panel's tick and the 30 s tick overlap: the second must not read the first's own write as Fn+Space.
+    #[test]
+    fn test_overlapping_auto_ticks_do_not_hold_the_level() {
+        let s = Sandbox::new();
+        auto_keys(Some(5)).setup(&s);
+        let state = s.base.join("keys.state").display().to_string();
+        s.stateful("qmk_hid", &format!(r#"case "$*" in
+  "via --backlight") echo "Brightness: $(<{state})%"; /usr/bin/sleep 0.6;;
+  "via --backlight "*) echo 33 > {state};;
+  *) exit 1;;
+esac"#));
+        let mut first = s.rust_start(&["lights", "auto"]);
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        let mut second = s.rust_start(&["lights", "auto"]);
+        first.wait().unwrap();
+        second.wait().unwrap();
         assert_eq!((keys_level(&s), kbauto(&s)), (33, Some(json!({"wrote": 33, "hold": false}))));
     }
 

@@ -48,10 +48,13 @@ pub fn dismiss_screensaver() {
     hypr::eval_slow("hl.config({ cursor = { invisible = false } })");
 }
 
-/// `on` lights every monitor, `off` blanks every enabled one. Only DPMS: which heads exist and where they sit is the
-/// monitor manager's job (hyprmoncfg here), so a head that drops off the bus while blanked is left to it.
+/// `on` closes the screensaver and lights every monitor, `off` blanks every enabled one. Only DPMS: which heads exist and
+/// where they sit is the monitor manager's job (hyprmoncfg here), so a head that drops off the bus while blanked is left
+/// to it. The saver stays up behind dark screens: Omarchy reads it closing as the user returning and relights them.
 pub fn set_displays(off: bool) {
-    dismiss_screensaver();
+    if !off {
+        dismiss_screensaver();
+    }
     for m in hypr::monitors_within(hypr::WRITE_WAIT) {
         if safe_name_v(&m["name"]) && !(off && truthy(&m["disabled"])) {
             dpms(if off { "disable" } else { "enable" }, &m["name"]);

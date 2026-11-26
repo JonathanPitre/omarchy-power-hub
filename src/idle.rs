@@ -147,8 +147,8 @@ fn stay_awake() -> bool {
     paths::home().join(".local/state/omarchy/indicators/stay-awake").exists()
 }
 
-/// Closing the saver for Displays off reads to Omarchy as the user returning,
-/// which cancels its lock countdown, so the plugin keeps that deadline itself.
+/// Omarchy's lock countdown honors idle inhibitors, so past one (see `saver_past_inhibitor`) the plugin keeps that
+/// deadline itself. Without one both lock at the deadline, and a second lock is a no-op.
 pub fn idle_lock() {
     if !stay_awake() {
         exec::run(&["omarchy-system-lock"], Duration::from_secs(8));

@@ -200,8 +200,12 @@ pub(crate) fn lux() -> Option<f64> {
     })
 }
 
+/// Writes an LED file, through the installed helper when sysfs is root-only.
 fn put(path: &Path, value: &str) -> bool {
-    fs::write(path, value).is_ok() || exec::run_input(&["sudo", "-n", "tee", &path.display().to_string()], value, Duration::from_secs(4)).0 == 0
+    let name = |p: Option<&Path>| p.and_then(Path::file_name).map(|n| n.to_string_lossy().into_owned());
+    fs::write(path, value).is_ok()
+        || matches!((charge::helper_bin(), name(path.parent()), name(Some(path))), (Some(h), Some(led), Some(file))
+            if run(&sudo(&argv(&[&h.display().to_string(), "power-led", &led, &file, value]))).0 == 0)
 }
 
 fn read_int(path: &Path) -> Option<i64> {

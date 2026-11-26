@@ -133,13 +133,8 @@ GPU stays awake. The panel only reports that state. See
 
 Framework keyboard lighting uses `qmk_hid` on Laptop 16 and `framework_tool
 --kblight` on Laptop 12 and 13. The fingerprint power button light uses
-`/sys/class/leds/chromeos:white:power`, a root-owned device. The first applied
-Framework plan may prompt through polkit to install a sudoers rule. To install
-that rule manually:
-
-```sh
-pkexec bin/ops-priv led-sudoers
-```
+`/sys/class/leds/chromeos:white:power`, a root-owned device, written through
+the installed helper.
 
 ## 💤 Hibernate and idle locking
 

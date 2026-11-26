@@ -7,6 +7,22 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [0.0.65] - 2026-11-26
+
+### Changed
+
+- The fingerprint power button light is written through the installed helper. Installing the helper removes the old wheel-wide `omarchy-power-hub-leds` sudoers rule, so that permission no longer outlives the plugin.
+
+### Fixed
+
+- Displays stay off after the idle timeout. Before, the screensaver closed as they blanked, and Omarchy read that as the user returning and relit them.
+- The first click after opening the panel is no longer lost while the panel's keyboard check runs.
+- Two Auto keyboard checks at once no longer hold the light at its level until the next display wake.
+
+### Removed
+
+- `power-hub led-sudo-needed` and `ops-priv led-sudoers`.
+
 ## [0.0.64] - 2026-11-24
 
 ### Changed

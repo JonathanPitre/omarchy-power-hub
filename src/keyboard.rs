@@ -117,9 +117,17 @@ fn write(level: i64) {
     }
 }
 
+/// Runs `f` holding the Auto lock, so a tick never reads a level another tick or wake is still writing and takes it
+/// for a key press. Best effort: without a run dir there is no state to race on.
+fn locked(f: impl FnOnce()) {
+    let dir = paths::plugin_run_dir();
+    let _lock = fs::create_dir_all(&dir).ok().and_then(|_| fs::File::create(dir.join("kbauto.lock")).ok()).filter(|l| l.lock().is_ok());
+    f();
+}
+
 /// Takes the level back from the keys and sets it for the room.
 pub fn apply_auto() {
-    write(target());
+    locked(|| write(target()));
 }
 
 /// The `lights auto` refresh tick: follows the room until a key press sets the level by hand.
@@ -127,14 +135,16 @@ pub fn tick() {
     if !is_auto(&config::saved_prefs()) || paths::plugin_run_dir().join("kblight.json").exists() {
         return;
     }
-    let (Some(level), (wrote, false)) = (read(), load()) else { return };
-    if wrote.is_some_and(|w| w != level) {
-        return save(wrote, true);
-    }
-    let want = target();
-    if want != level && !paths::plugin_run_dir().join("kblight.json").exists() {
-        write(want);
-    }
+    locked(|| {
+        let (Some(level), (wrote, false)) = (read(), load()) else { return };
+        if wrote.is_some_and(|w| w != level) {
+            return save(wrote, true);
+        }
+        let want = target();
+        if want != level && !paths::plugin_run_dir().join("kblight.json").exists() {
+            write(want);
+        }
+    });
 }
 
 #[cfg(test)]

@@ -43,23 +43,18 @@
    "EVAL hl.device({ name = \"m1\", enabled = false })",
    "EVAL hl.device({ name = \"pixa3854:00-093a:0274-mouse\", enabled = false })",
    "EVAL hl.device({ name = \"kb\", enabled = false })",
-   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
-   "pkill -x ttfx",
-   "pkill -f [o]rg.omarchy.screensaver",
-   "EVAL hl.config({ cursor = { invisible = false } })"
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery"
   ],
   "evals": [
    "hl.device({ name = \"m1\", enabled = false })",
    "hl.device({ name = \"pixa3854:00-093a:0274-mouse\", enabled = false })",
-   "hl.device({ name = \"kb\", enabled = false })",
-   "hl.config({ cursor = { invisible = false } })"
+   "hl.device({ name = \"kb\", enabled = false })"
   ],
   "requests": [
    "j/devices",
    "eval hl.device({ name = \"m1\", enabled = false })",
    "eval hl.device({ name = \"pixa3854:00-093a:0274-mouse\", enabled = false })",
    "eval hl.device({ name = \"kb\", enabled = false })",
-   "eval hl.config({ cursor = { invisible = false } })",
    "j/monitors",
    "dispatch hl.dsp.dpms({ action = \"disable\", monitor = \"eDP-1\" })"
   ],

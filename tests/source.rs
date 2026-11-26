@@ -51,7 +51,7 @@ mod backend_switch {
     #[test]
     fn hot_paths_use_the_binary() {
         let service = file("Service.qml");
-        for verb in [r#""config""#, r#""boost-check""#, r#""led-sudo-needed""#, r#""helper-needed""#, r#""idle-wake-poll""#] {
+        for verb in [r#""config""#, r#""boost-check""#, r#""helper-needed""#, r#""idle-wake-poll""#] {
             assert!(!service.contains(&format!(r#""python3", root.ops, {verb}"#)), "{verb} still runs Python");
             assert!(service.contains(&format!("root.hub, {verb}")), "{verb} does not run the binary");
         }

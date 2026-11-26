@@ -82,7 +82,7 @@ Item {
   function dpms(mode) {
     if (mode === "off") root.offAt = Date.now()
     else if (mode === "on" && root.displaysOff) root.resumed("displays", (Date.now() - root.offAt) / 1000)
-    if (mode === "on" || mode === "off") root.dismissScreensaver()
+    if (mode === "on") root.dismissScreensaver()
     dpmsProc.command = [root.hub, "displays", mode]
     dpmsProc.running = true
     root.displaysOff = mode === "off"
@@ -392,15 +392,6 @@ Item {
     }
   }
   Process {
-    id: ledNeedProc
-    command: [root.hub, "led-sudo-needed"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: if (text.trim() === "needed") ledPkexec.running = true
-    }
-  }
-  Process { id: ledPkexec; command: ["pkexec", root.priv, "led-sudoers"] }
-  Process {
     id: helperNeedProc
     command: [root.hub, "helper-needed"]
     stdout: StdioCollector {
@@ -420,7 +411,6 @@ Item {
   Component.onCompleted: {
     root.refresh()
     resumeProc.running = true
-    ledNeedProc.running = true
     helperNeedProc.running = true
   }
 }

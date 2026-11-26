@@ -20,7 +20,7 @@ Item {
     sleep:  { installed: false }
   })
 
-  property bool busy: actionProc.running
+  property var queued: []
   property int missed: 0
   readonly property bool backendFailed: missed >= 2
 
@@ -48,11 +48,17 @@ Item {
     pollProc.running = true
   }
 
+  // Queued, not dropped: the panel opens with an Auto keyboard check that can outlast the first click.
   function act(verb, arg, arg2) {
-    if (actionProc.running) return
-    actionProc.command = [root.binDir + "/power-hub", "action",
-                          String(verb), String(arg === undefined ? "" : arg),
-                          String(arg2 === undefined ? "" : arg2)]
+    root.queued.push([root.binDir + "/power-hub", "action",
+                      String(verb), String(arg === undefined ? "" : arg),
+                      String(arg2 === undefined ? "" : arg2)])
+    root.next()
+  }
+
+  function next() {
+    if (actionProc.running || !root.queued.length) return
+    actionProc.command = root.queued.shift()
     actionProc.running = true
   }
 
@@ -68,6 +74,7 @@ Item {
   Process {
     id: actionProc
     stdout: StdioCollector { waitForEnd: true; onStreamFinished: root._ingest(text) }
+    onExited: Qt.callLater(root.next)
   }
 
   // Poll fast while the panel is open; keep a slow background poll otherwise

@@ -251,7 +251,6 @@ pub(crate) const UPOWER_LIST: &str = "/org/freedesktop/UPower/devices/line_power
 mod charge_parity {
     use super::*;
 
-    const TEE_RULE: &str = "(root) NOPASSWD: /usr/bin/tee /sys/class/leds/chromeos:white:power/brightness\n";
 
     fn helper_rule(s: &Sandbox) -> String {
         format!("    (root) NOPASSWD: {}/ops-priv\n", s.helper_dir().display())
@@ -362,29 +361,7 @@ mod charge_parity {
         }
     }
 
-    #[test]
-    fn test_led_sudo_skip_when_not_framework() {
-        let s = Sandbox::new();
-        s.write("/sys/class/leds/chromeos:white:power/brightness", "0\n");
-        s.stub("sudo", "-n -l", 0, TEE_RULE);
-        let rs = replay(&s, "ChargeParity.test_led_sudo_skip_when_not_framework", &["led-sudo-needed"], D);
-        assert_eq!((text(&rs), rs.calls.len()), ("skip", 0));
-    }
 
-    #[test]
-    fn test_led_sudo_ok_or_needed_on_framework_with_led() {
-        const T: &str = "ChargeParity.test_led_sudo_ok_or_needed_on_framework_with_led";
-        let s = Sandbox::new();
-        s.framework(true);
-        replay(&s, T, &["led-sudo-needed"], D);
-        assert_eq!(text(&s.rust(&["led-sudo-needed"])), "skip");
-        s.write("/sys/class/leds/chromeos:white:power/brightness", "0\n");
-        replay(&s, T, &["led-sudo-needed"], D);
-        assert_eq!(text(&s.rust(&["led-sudo-needed"])), "needed");
-        s.stub("sudo", "-n -l", 0, TEE_RULE);
-        replay(&s, T, &["led-sudo-needed"], D);
-        assert_eq!(text(&s.rust(&["led-sudo-needed"])), "ok");
-    }
 
     #[test]
     fn test_battery_history_parses_upower_rows() {
