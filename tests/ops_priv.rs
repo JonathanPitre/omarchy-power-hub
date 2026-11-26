@@ -122,6 +122,7 @@ fn bad_mode_exits_2() {
 fn helper_install_records_the_owner_and_installs_the_sleep_hook() {
     use std::os::unix::fs::PermissionsExt;
     let s = Sandbox::new("install");
+    let old_rule = s.write("etc/sudoers.d/omarchy-power-hub-leds", "x\n");
     let out = s.install();
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
     let name = Command::new("id").arg("-nu").output().unwrap().stdout;
@@ -129,6 +130,46 @@ fn helper_install_records_the_owner_and_installs_the_sleep_hook() {
     assert_eq!(fs::read(&owner).unwrap(), name);
     assert_eq!(fs::metadata(owner).unwrap().permissions().mode() & 0o777, 0o644);
     assert_eq!(fs::read_to_string(s.at("systemd/system-sleep/omarchy-power-hub")).unwrap(), HOOK);
+    assert!(!old_rule.exists());
+}
+
+#[test]
+fn sleep_hook_turns_the_lights_off_before_sleep_and_back_on_at_wake_as_the_owner() {
+    let s = Sandbox::new("hook-owner");
+    s.installed("");
+    let log = s.at("calls.log");
+    s.write("home/.config/omarchy/plugins/omarchy-power-hub/bin/power-hub", &format!("#!/bin/sh\necho \"power-hub $* HOME=$HOME\" >> {}\n", log.display()));
+    Command::new("chmod").arg("+x").arg(s.home().join(".config/omarchy/plugins/omarchy-power-hub/bin/power-hub")).status().unwrap();
+    let script = s.write("hook", &HOOK.replace("/usr/local/libexec/", &s.at("libexec/").display().to_string()));
+    for arg in ["pre", "post", "other"] {
+        let out = Command::new("sh").arg(&script).arg(arg).env("PATH", format!("{}:/usr/bin:/bin", s.at("fakes").display())).output().unwrap();
+        assert!(out.status.success(), "{arg}");
+    }
+    let home = s.home().display().to_string();
+    assert_eq!(s.calls(), format!("power-hub lights off HOME={home}\npower-hub lights on HOME={home}\n"));
+}
+
+#[test]
+fn power_led_writes_only_a_power_led_brightness_or_a_listed_trigger() {
+    let s = Sandbox::new("power-led");
+    let brightness = s.put("class/leds/chromeos:white:power/brightness", "100\n");
+    let trigger = s.put("class/leds/chromeos:white:power/trigger", "none [kbd-capslock] chromeos-power\n");
+    for args in [
+        ["input0::capslock", "brightness", "0"].as_slice(),
+        &["chromeos:white:power/../x", "brightness", "0"],
+        &["chromeos:white:power", "brightness", "-1"],
+        &["chromeos:white:power", "trigger", "rm"],
+        &["chromeos:white:power", "trigger", ".*"],
+        &["chromeos:white:power", "trigger", "x\nnone"],
+        &["chromeos:white:power", "max_brightness", "1"],
+        &["chromeos:white:power", "brightness"],
+    ] {
+        assert_eq!(s.run(&[&["power-led"], args].concat()).status.code(), Some(2), "{args:?}");
+    }
+    assert_eq!((read(&brightness), read(&trigger)), ("100".into(), "none [kbd-capslock] chromeos-power".into()));
+    assert!(s.run(&["power-led", "chromeos:white:power", "brightness", "0"]).status.success());
+    assert!(s.run(&["power-led", "chromeos:white:power", "trigger", "chromeos-power"]).status.success());
+    assert_eq!((read(&brightness), read(&trigger)), ("0".into(), "chromeos-power".into()));
 }
 
 #[test]

@@ -4,8 +4,6 @@
   "stdout": "ok\n",
   "calls": [
    "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
-   "pkill -x ttfx",
-   "pkill -f [o]rg.omarchy.screensaver",
    "framework_tool --kblight",
    "sudo -n framework_tool --kblight",
    "sudo -n <base>/bin/ops-priv kblight",
@@ -19,11 +17,8 @@
    "sudo -n framework_tool --fp-brightness 0",
    "sudo -n <base>/bin/ops-priv fp-brightness 0"
   ],
-  "evals": [
-   "hl.config({ cursor = { invisible = false } })"
-  ],
+  "evals": [],
   "requests": [
-   "eval hl.config({ cursor = { invisible = false } })",
    "j/monitors",
    "j/monitors",
    "dispatch hl.dsp.dpms({ action = \"disable\", monitor = \"eDP-1\" })",
@@ -98,8 +93,6 @@
   "stdout": "ok\n",
   "calls": [
    "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
-   "pkill -x ttfx",
-   "pkill -f [o]rg.omarchy.screensaver",
    "framework_tool --kblight",
    "sudo -n framework_tool --kblight",
    "sudo -n <base>/root/usr/local/libexec/omarchy-power-hub/ops-priv kblight",
@@ -113,11 +106,8 @@
    "sudo -n framework_tool --fp-brightness 0",
    "sudo -n <base>/root/usr/local/libexec/omarchy-power-hub/ops-priv fp-brightness 0"
   ],
-  "evals": [
-   "hl.config({ cursor = { invisible = false } })"
-  ],
+  "evals": [],
   "requests": [
-   "eval hl.config({ cursor = { invisible = false } })",
    "j/monitors",
    "j/monitors",
    "dispatch hl.dsp.dpms({ action = \"disable\", monitor = \"eDP-1\" })",

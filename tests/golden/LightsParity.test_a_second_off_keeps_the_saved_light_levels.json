@@ -4,16 +4,11 @@
   "stdout": "ok\n",
   "calls": [
    "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
-   "pkill -x ttfx",
-   "pkill -f [o]rg.omarchy.screensaver",
    "qmk_hid via --backlight",
    "qmk_hid via --backlight 0"
   ],
-  "evals": [
-   "hl.config({ cursor = { invisible = false } })"
-  ],
+  "evals": [],
   "requests": [
-   "eval hl.config({ cursor = { invisible = false } })",
    "j/monitors",
    "j/monitors",
    "dispatch hl.dsp.dpms({ action = \"disable\", monitor = \"eDP-1\" })",
@@ -52,15 +47,10 @@
   "code": 0,
   "stdout": "ok\n",
   "calls": [
-   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery",
-   "pkill -x ttfx",
-   "pkill -f [o]rg.omarchy.screensaver"
+   "busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery"
   ],
-  "evals": [
-   "hl.config({ cursor = { invisible = false } })"
-  ],
+  "evals": [],
   "requests": [
-   "eval hl.config({ cursor = { invisible = false } })",
    "j/monitors",
    "j/monitors",
    "dispatch hl.dsp.dpms({ action = \"disable\", monitor = \"eDP-1\" })",

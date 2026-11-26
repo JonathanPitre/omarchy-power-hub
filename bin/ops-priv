@@ -129,14 +129,17 @@ case "${1:-}" in
     esac
     exec /usr/bin/framework_tool --fp-led-level "$2"
     ;;
-  led-sudoers)
-    file=/etc/sudoers.d/omarchy-power-hub-leds
-    umask 177
-    printf '%s\n' \
-      '%wheel ALL=(root) NOPASSWD: /usr/bin/tee /sys/class/leds/chromeos\:white\:power/brightness' \
-      '%wheel ALL=(root) NOPASSWD: /usr/bin/tee /sys/class/leds/chromeos\:white\:power/trigger' > "$file"
-    chmod 440 "$file"
-    visudo -cf "$file" || { rm -f "$file"; exit 1; }
+  power-led)
+    [ "$#" = 4 ] || { echo "bad arguments" >&2; exit 2; }
+    case "$2" in */*) echo "bad led" >&2; exit 2 ;; chromeos*:power) ;; *) echo "bad led" >&2; exit 2 ;; esac
+    led=/sys/class/leds/$2
+    case "$3" in
+      brightness) case "$4" in ''|*[!0-9]*) echo "bad brightness" >&2; exit 2 ;; esac ;;
+      trigger) case "$4" in ''|*[!A-Za-z0-9_:.-]*) echo "bad trigger" >&2; exit 2 ;; esac
+        tr -d '[]' < "$led/trigger" | tr ' ' '\n' | grep -Fqx -- "$4" || { echo "bad trigger" >&2; exit 2; } ;;
+      *) echo "bad file" >&2; exit 2 ;;
+    esac
+    printf '%s\n' "$4" > "$led/$3"
     ;;
   hid-wakeup)
     want "${2:-}"
@@ -196,6 +199,7 @@ case "${1:-}" in
     visudo -cf "$file.new" >/dev/null || { rm -f "$file.new"; exit 1; }
     chmod 440 "$file.new"
     mv "$file.new" "$file"
+    rm -f /etc/sudoers.d/omarchy-power-hub-leds
     home=$(getent passwd "$user" | cut -d: -f6)
     case "$home" in ""|*[\&\|\\]*) echo "bad home" >&2; exit 2 ;; esac
     umask 022

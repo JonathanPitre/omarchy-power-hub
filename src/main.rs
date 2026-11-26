@@ -55,7 +55,6 @@ fn main() {
         Some("drain-to") => out(power::drain_to(&config::load())),
         Some("ac") => out(u8::from(!power::on_battery())),
         Some("helper-needed") => out(if charge::helper_needed() { "needed" } else { "ok" }),
-        Some("led-sudo-needed") => out(system::led_sudo_needed()),
         Some("battery-history") => out(system::battery_history()),
         Some("idle-wake-poll") => out(idle::poll(matches!(args.get(1).map(String::as_str), Some("blanked" | "off")))),
         Some("lights") if args.get(1).is_some_and(|a| a == "auto") => keyboard::tick(),
@@ -115,7 +114,7 @@ fn main() {
             std::process::exit(code);
         }
         _ => {
-            eprintln!("usage: power-hub status|data|action|resume-status|resume-run|config|ac|drain-to|gpu|helper-needed|led-sudo-needed|battery-history|set|profile|charge|boost|health|quick-dim|travel|tweak|apply|apply-profile|apply-tweaks|unpin|cpu|helper-install|boost-check|idle-wake-poll|displays|lights|lid-closed|lid-opened|idle-lock|saver-past-inhibitor|recover-ucsi");
+            eprintln!("usage: power-hub status|data|action|resume-status|resume-run|config|ac|drain-to|gpu|helper-needed|battery-history|set|profile|charge|boost|health|quick-dim|travel|tweak|apply|apply-profile|apply-tweaks|unpin|cpu|helper-install|boost-check|idle-wake-poll|displays|lights|lid-closed|lid-opened|idle-lock|saver-past-inhibitor|recover-ucsi");
             std::process::exit(2);
         }
     }

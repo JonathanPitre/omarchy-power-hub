@@ -3,6 +3,7 @@
   "code": 0,
   "stdout": "",
   "calls": [
+   "omarchy-shell idle status",
    "omarchy-system-lock "
   ],
   "evals": [],

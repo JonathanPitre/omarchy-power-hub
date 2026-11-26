@@ -60,21 +60,6 @@ pub fn battery_history() -> Value {
     if code == 0 { json!(parse_history(&out)) } else { json!([]) }
 }
 
-/// Whether the Framework power LED lacks its passwordless `tee` rule.
-pub fn led_sudo_needed() -> &'static str {
-    let has_led = fs::read_dir(paths::root("/sys/class/leds")).is_ok_and(|d| {
-        d.flatten().any(|e| {
-            let name = e.file_name().to_string_lossy().into_owned();
-            name.starts_with("chromeos") && name.ends_with(":power") && e.path().join("brightness").exists()
-        })
-    });
-    if !power::framework() || !has_led {
-        return "skip";
-    }
-    let (code, out) = exec::run(&["sudo", "-n", "-l"], Duration::from_secs(4));
-    if code == 0 && out.contains("chromeos") && out.contains("/usr/bin/tee") { "ok" } else { "needed" }
-}
-
 /// First `[word]` in the kernel's lockdown file is the active mode.
 fn lockdown_on() -> bool {
     let raw = text(&paths::root("/sys/kernel/security/lockdown"));
