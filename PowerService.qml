@@ -74,7 +74,7 @@ Item {
   Process {
     id: actionProc
     stdout: StdioCollector { waitForEnd: true; onStreamFinished: root._ingest(text) }
-    onExited: Qt.callLater(root.next)
+    onRunningChanged: if (!running) Qt.callLater(root.next)
   }
 
   // Poll fast while the panel is open; keep a slow background poll otherwise

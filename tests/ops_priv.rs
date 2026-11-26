@@ -159,6 +159,8 @@ fn power_led_writes_only_a_power_led_brightness_or_a_listed_trigger() {
         &["chromeos:white:power/../x", "brightness", "0"],
         &["chromeos:white:power", "brightness", "-1"],
         &["chromeos:white:power", "trigger", "rm"],
+        &["chromeos:white:power", "trigger", ".*"],
+        &["chromeos:white:power", "trigger", "x\nnone"],
         &["chromeos:white:power", "max_brightness", "1"],
         &["chromeos:white:power", "brightness"],
     ] {

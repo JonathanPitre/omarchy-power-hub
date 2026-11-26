@@ -135,7 +135,8 @@ case "${1:-}" in
     led=/sys/class/leds/$2
     case "$3" in
       brightness) case "$4" in ''|*[!0-9]*) echo "bad brightness" >&2; exit 2 ;; esac ;;
-      trigger) tr -d '[]' < "$led/trigger" | tr ' ' '\n' | grep -qx -- "$4" || { echo "bad trigger" >&2; exit 2; } ;;
+      trigger) case "$4" in ''|*[!A-Za-z0-9_:.-]*) echo "bad trigger" >&2; exit 2 ;; esac
+        tr -d '[]' < "$led/trigger" | tr ' ' '\n' | grep -Fqx -- "$4" || { echo "bad trigger" >&2; exit 2; } ;;
       *) echo "bad file" >&2; exit 2 ;;
     esac
     printf '%s\n' "$4" > "$led/$3"

@@ -872,6 +872,15 @@ mod idle_command_parity {
         });
     }
 
+    /// Omarchy's own countdown locks: the plugin killing the saver mid-cycle would read as the user returning.
+    #[test]
+    fn test_idle_lock_leaves_the_lock_to_omarchys_running_countdown() {
+        let s = Sandbox::new();
+        s.stub("omarchy-shell", "idle status", 0, r#"{"timers":{"lock":true}}"#);
+        s.rust(&["idle-lock"]);
+        assert_eq!(log_starting(&s, "omarchy-system-lock"), Vec::<String>::new());
+    }
+
     #[test]
     fn test_saver_past_inhibitor() {
         let inhibiting = r#"[{"inhibitingIdle": false}, {"inhibitingIdle": true}]"#;

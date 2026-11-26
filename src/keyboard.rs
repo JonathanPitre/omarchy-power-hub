@@ -132,10 +132,10 @@ pub fn apply_auto() {
 
 /// The `lights auto` refresh tick: follows the room until a key press sets the level by hand.
 pub fn tick() {
-    if !is_auto(&config::saved_prefs()) || paths::plugin_run_dir().join("kblight.json").exists() {
-        return;
-    }
     locked(|| {
+        if !is_auto(&config::saved_prefs()) || paths::plugin_run_dir().join("kblight.json").exists() {
+            return;
+        }
         let (Some(level), (wrote, false)) = (read(), load()) else { return };
         if wrote.is_some_and(|w| w != level) {
             return save(wrote, true);

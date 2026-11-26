@@ -148,9 +148,14 @@ fn stay_awake() -> bool {
 }
 
 /// Omarchy's lock countdown honors idle inhibitors, so past one (see `saver_past_inhibitor`) the plugin keeps that
-/// deadline itself. Without one both lock at the deadline, and a second lock is a no-op.
+/// deadline itself. While Omarchy's own countdown runs it locks instead: `omarchy-system-lock` killing the saver
+/// mid-cycle reads to Omarchy as the user returning and relights the displays.
 pub fn idle_lock() {
-    if !stay_awake() {
+    if stay_awake() {
+        return;
+    }
+    let status = exec::run(&["omarchy-shell", "idle", "status"], Duration::from_secs(4)).1;
+    if !serde_json::from_str::<Value>(&status).is_ok_and(|s| truthy(&s["timers"]["lock"])) {
         exec::run(&["omarchy-system-lock"], Duration::from_secs(8));
     }
 }

@@ -15,7 +15,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Fixed
 
-- Displays stay off after the idle timeout. Before, the screensaver closed as they blanked, and Omarchy read that as the user returning and relit them.
+- Displays stay off after the idle timeout. Before, the screensaver closed as they blanked, and Omarchy read that as the user returning and relit them. The plugin's idle lock now also defers to Omarchy's own lock countdown, which would otherwise close the saver the same way.
 - The first click after opening the panel is no longer lost while the panel's keyboard check runs.
 - Two Auto keyboard checks at once no longer hold the light at its level until the next display wake.
 
